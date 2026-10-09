@@ -1,9 +1,9 @@
 name: Metadator DeX APK
 
-# Builds the debug APK of the metadator-dex branch on every push and publishes it as a release
-# asset, so it can be downloaded straight to a phone. This branch lives in a repository that is not
-# a fork of Metadator; the upstream CI workflow only runs on master, v2 and pull requests, so it
-# never fires here.
+# Builds the APK of the metadator-dex branch on every push and publishes it as a release asset, so
+# it can be downloaded straight to a phone. This branch lives in a repository that is not a fork of
+# Metadator; the upstream CI workflow only runs on master, v2 and pull requests, so it never fires
+# here.
 on:
   push:
     branches: [metadator-dex]
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   apk:
-    name: Debug APK
+    name: APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -29,12 +29,6 @@ jobs:
         with:
           cache-read-only: 'false'
 
-      # Every build is signed with the same debug key, so a new APK installs over the previous one.
-      - name: Use the branch's debug key
-        run: |
-          mkdir -p "$HOME/.android"
-          cp .github/metadator-dex-debug.keystore "$HOME/.android/debug.keystore"
-
       - name: Unit tests of the plain Kotlin modules
         run: >
           ./gradlew
@@ -43,30 +37,50 @@ jobs:
           :lyrics:api:test :lyrics:lrclib:test
           --continue
 
-      # Even when a test failed: a compile error elsewhere should show up in the same run.
-      - name: Build the debug APK
+      # A release build, as the app is meant to run: a debug one is slower, and brings LeakCanary
+      # along. Signed with the key kept in this branch, so that each build installs over the one
+      # before it, and under an id of its own (-Pmetadator.fork), so that it installs next to the
+      # app from its store.
+      - name: Build the APK
         id: build
         if: ${{ !cancelled() }}
-        run: ./gradlew :app:assembleFossDebug --continue
+        env:
+          SIGNING_KEY_STORE_PATH: ${{ github.workspace }}/.github/metadator-dex-debug.keystore
+          SIGNING_STORE_PASSWORD: android
+          SIGNING_KEY_ALIAS: androiddebugkey
+          SIGNING_KEY_PASSWORD: android
+        run: ./gradlew :app:assembleFossRelease -Pmetadator.fork=dex
+
+      - name: Check that the APK is signed
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          apk=$(ls app/build/outputs/apk/foss/release/*.apk | head -n 1)
+          case "$apk" in
+            *-unsigned.apk) echo "::error::Unsigned APK: $apk"; exit 1 ;;
+          esac
+          cp "$apk" metadator-dex.apk
+          ls -l metadator-dex.apk
 
       - name: Upload the APK
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: metadator-dex-debug
-          path: app/build/outputs/apk/foss/debug/*.apk
+          name: metadator-dex
+          path: metadator-dex.apk
           if-no-files-found: error
           retention-days: 30
 
+      # A release asset can be downloaded with the repository's token; an artifact cannot.
       - name: Publish the APK as a release asset
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk=$(ls app/build/outputs/apk/foss/debug/*.apk | head -n 1)
-          cp "$apk" metadator-dex.apk
-          gh release view metadator-dex-apk >/dev/null 2>&1 ||
+          notes="The latest build of the metadator-dex branch ($GITHUB_SHA)."
+          if gh release view metadator-dex-apk >/dev/null 2>&1; then
+            gh release edit metadator-dex-apk --title "Metadator DeX" --notes "$notes"
+          else
             gh release create metadator-dex-apk --prerelease --target "$GITHUB_SHA" \
-              --title "Metadator DeX (debug build)" \
-              --notes "The latest debug build of the metadator-dex branch."
+              --title "Metadator DeX" --notes "$notes"
+          fi
           gh release upload metadator-dex-apk metadator-dex.apk --clobber

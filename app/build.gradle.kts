@@ -15,6 +15,10 @@ if (hasGoogleServices) {
 
 val signingStorePath: String? = System.getenv("SIGNING_KEY_STORE_PATH")
 
+// A fork's release (-Pmetadator.fork=name) installs next to the app itself: an id and a version
+// name of its own, so neither replaces the other nor is mistaken for it.
+val fork: String? = providers.gradleProperty("metadator.fork").orNull
+
 android {
     namespace = "com.bobbyesp.metadator"
 
@@ -44,6 +48,10 @@ android {
                 "proguard-rules.pro",
             )
             if (signingStorePath != null) signingConfig = signingConfigs.getByName("release")
+            if (fork != null) {
+                applicationIdSuffix = ".$fork"
+                versionNameSuffix = "-$fork"
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
