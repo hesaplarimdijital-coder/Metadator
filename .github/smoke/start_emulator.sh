@@ -15,9 +15,13 @@ image="${1:-system-images;android-35;google_apis;x86_64}"
 yes 2>/dev/null | "$tools/sdkmanager" --licenses >/dev/null 2>&1 || true
 "$tools/sdkmanager" --install emulator platform-tools "$image" >/dev/null
 
+# Where the device is kept is said outright: the tool that makes it and the one that runs it do
+# not agree on where that is when left to themselves.
+export ANDROID_AVD_HOME="$HOME/.android/avd"
+mkdir -p "$ANDROID_AVD_HOME"
 echo no | "$tools/avdmanager" create avd --force --name smoke --package "$image" >/dev/null
 
-config="$HOME/.android/avd/smoke.avd/config.ini"
+config="$ANDROID_AVD_HOME/smoke.avd/config.ini"
 for key in hw.lcd.width hw.lcd.height hw.lcd.density hw.keyboard hw.ramSize hw.cpu.ncore \
   disk.dataPartition.size; do
   sed -i "/^$key *=/d" "$config"

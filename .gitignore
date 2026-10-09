@@ -22,3 +22,6 @@ metadator_keystore.jks
 
 build/
 .kotlin/
+
+# What Python leaves beside the scripts of .github/smoke when they are run by hand.
+__pycache__/
