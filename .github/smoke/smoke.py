@@ -41,6 +41,7 @@ KEY_ENTER = 66
 KEY_DELETE = 67
 KEY_ESCAPE = 111
 KEY_CTRL = 113
+KEY_MOVE_END = 123
 KEY_HOME = 122
 KEY_END = 123
 KEY_F1 = 131
@@ -645,11 +646,16 @@ def find_cover_for_song():
     key(KEY_CTRL, KEY_K)
     use, reasons = read_cover_sheet()
     screenshot("covers-for-a-song")
+    # Esc closes it, as a dialog closes; opened again, it shows what it found.
+    key(KEY_ESCAPE)
+    expect_gone("^Find a cover$", 15)
+    key(KEY_CTRL, KEY_K)
+    use, _ = read_cover_sheet(timeout=20)
     tap(use)
     expect_gone("Other covers|Use this cover", 20)
     # The cover arrives a moment later: the editor says how large it is once it has it.
     expect(r"\d+ × \d+ px", 90)
-    return f"the best cover is in the editor. The sheet said: {reasons[:10]}"
+    return f"Esc closed the sheet, and the best cover is in the editor. It said: {reasons[:10]}"
 
 
 def save_song():
@@ -678,13 +684,67 @@ def check_written(file_names):
     return "; ".join(notes)
 
 
+def choosing_replaces():
+    """On a wide window each song chosen takes the place of the last: one Ctrl+W, and it is gone."""
+    tap(row("Aerodynamic"))
+    expect("Made from a lossy file|Probably made from a lossy file", 120)
+    tap(row("Digital Love"))
+    deadline = time.time() + 40
+    while not [node for node in find("Digital Love") if node.is_field]:
+        if time.time() > deadline:
+            raise Failed("Digital Love did not open")
+        time.sleep(1)
+    key(KEY_CTRL, KEY_W)
+    expect("Pick a song", 20)
+    return "three songs chosen one after another, and one Ctrl+W leaves none open"
+
+
+def unsaved_stays():
+    """A song with unsaved changes is not replaced: the next opens over it, and Back finds it."""
+    tap(row("One More Time"))
+    title = None
+    deadline = time.time() + 40
+    while title is None:
+        fields = [node for node in screen() if node.is_field and node.text == "One More Time"]
+        if fields:
+            title = fields[0]
+        elif time.time() > deadline:
+            raise Failed("One More Time did not open")
+        else:
+            time.sleep(1)
+    tap(title)
+    key(KEY_MOVE_END)
+    shell("input text _x")
+    time.sleep(1.5)
+    edited = next(
+        (node.text for node in screen() if node.is_field and node.text.startswith("One More Time")),
+        None,
+    )
+    if not edited or edited == "One More Time":
+        raise Failed(f"the title could not be changed: {edited!r}")
+    tap(row("Aerodynamic"))
+    expect("Made from a lossy file|Probably made from a lossy file", 120)
+    key(KEY_CTRL, KEY_W)
+    deadline = time.time() + 30
+    while not [node for node in screen() if node.is_field and node.text == edited]:
+        if time.time() > deadline:
+            raise Failed(f"the song with unsaved changes was not under the next: {said_on(screen())[:30]}")
+        time.sleep(1)
+    screenshot("the-unsaved-song-is-back")
+    key(KEY_CTRL, KEY_W)
+    tap(expect("^Discard$", 15))
+    expect("Pick a song", 20)
+    return f"'{edited}' waited under the next song, and closing it asked first"
+
+
 def edit_together():
     # Out of the editor first: Ctrl+A selects the songs only while the library has the keys.
-    key(KEY_CTRL, KEY_W)
-    discard = find("^Discard$")
-    if discard:
-        # A step before left a change unsaved, and the editor rightly asks.
-        tap(discard[0])
+    if not find("Pick a song"):
+        key(KEY_CTRL, KEY_W)
+        discard = find("^Discard$")
+        if discard:
+            # A step before left a change unsaved, and the editor rightly asks.
+            tap(discard[0])
     expect("Pick a song", 20)
     key(KEY_CTRL, KEY_A)
     expect("4 selected", 20)
@@ -898,43 +958,9 @@ class Mouse:
 
 
 mouse = None
-# How far the pointer goes for each count the mouse sends: measured, or else found by the first
-# click that lands.
+# How far the pointer goes for each count the mouse sends. The system adds no speed to a mouse
+# moved as slowly as this one is, so 1 is tried first; the first click that lands says which.
 pointer_gain = None
-
-
-def pointer_position():
-    """Where the pointer is, as the system's own pointer overlay last wrote it to the log."""
-    lines = adb("logcat", "-d", "-s", "Pointer:I", timeout=60).splitlines()
-    for line in reversed(lines):
-        match = re.search(r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\) Pressure", line)
-        if match:
-            return float(match.group(1)), float(match.group(2))
-    return None
-
-
-def measure_pointer():
-    """Sends the pointer a known way and reads where it got to."""
-    global pointer_gain
-    if not mouse:
-        raise Skipped("no mouse")
-    shell("settings put system pointer_location 1")
-    time.sleep(2)
-    try:
-        shell("logcat -c")
-        mouse.to_corner()
-        mouse.move(300, 300)
-        position = pointer_position()
-        if not position:
-            raise Skipped("the system does not say where its pointer is")
-        x, y = position
-        if x < 30 or y < 30:
-            raise Skipped(f"the pointer is at {position} after being sent 300 counts each way")
-        pointer_gain = (x + y) / 600
-        return f"300 counts each way took the pointer to {position}: {pointer_gain:.3f} px a count"
-    finally:
-        shell("settings put system pointer_location 0")
-        time.sleep(1)
 
 
 def plug_mouse():
@@ -1133,6 +1159,8 @@ def main():
     step("An MP3 gets no verdict", no_verdict_for_mp3)
     step("Ctrl+K finds a cover for a song (network)", find_cover_for_song, required=False)
     step("Ctrl+S saves it, and only it", save_song, required=cover_search_worked)
+    step("Choosing another song shows it in place of the last", choosing_replaces)
+    step("A song with unsaved changes stays under the next", unsaved_stays)
     step("Ctrl+A and Ctrl+E edit the songs together", edit_together)
     step("Ctrl+K finds a cover for the album (network)", find_cover_for_album, required=False)
     step("Ctrl+S applies it to all, and only it", apply_to_all, required=cover_search_worked)
@@ -1140,7 +1168,6 @@ def main():
     step("The activity follows its display without being recreated", follows_the_display)
     step("A narrow window shows one pane at a time", compact_layout)
     step("A mouse can be plugged in", plug_mouse, required=False)
-    step("The pointer goes where the mouse sends it", measure_pointer, required=False)
     step("The second mouse button opens a song's menu", right_click_menu, required=False)
     step("A song opens in a window of its own", open_in_new_window, required=False)
     step("Ctrl and Shift change what a click selects", ctrl_click_selects, required=False)
