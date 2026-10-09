@@ -100,6 +100,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | | Ctrl+W | Closes the editor (asks first, with unsaved changes) |
 | | Page Up, Page Down | Move through the fields |
 | Editing several songs | Ctrl+S | Applies to all |
+| | Ctrl+K | Finds a cover for all |
 | | Ctrl+W | Closes |
 
 ## Mouse

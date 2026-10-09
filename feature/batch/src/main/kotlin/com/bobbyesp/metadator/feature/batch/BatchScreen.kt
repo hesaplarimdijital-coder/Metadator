@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -90,6 +91,14 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                     enabled = state.canApply,
                 ) {
                     onIntent(BatchIntent.Apply)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_K,
+                    stringResource(R.string.batch_cover_find),
+                    ctrl = true,
+                    enabled = !state.loading,
+                ) {
+                    onIntent(BatchIntent.FindCover)
                 },
                 Shortcut(
                     KeyEvent.KEYCODE_W,
@@ -166,6 +175,8 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             item {
                 CoverChoice(
                     cover = state.cover,
+                    loading = state.loadingCover,
+                    onFind = { onIntent(BatchIntent.FindCover) },
                     onPick = {
                         pickCover.launch(
                             PickVisualMediaRequest(
@@ -241,15 +252,30 @@ private fun BatchField(field: TagField, state: BatchState, onIntent: (BatchInten
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CoverChoice(
     cover: ArtworkChange,
+    loading: Boolean,
+    onFind: () -> Unit,
     onPick: () -> Unit,
     onRemove: () -> Unit,
     onKeep: () -> Unit,
 ) {
     Column(Modifier.readableWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        // A cover found online takes a moment to arrive: said, or the choice seems lost.
+        if (loading) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            ) {
+                LoadingIndicator()
+                Text(
+                    stringResource(R.string.batch_cover_downloading),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         when (cover) {
             is ArtworkChange.Replace ->
                 Row(
@@ -267,6 +293,9 @@ private fun CoverChoice(
             ArtworkChange.Unchanged -> Unit
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            OutlinedButton(onClick = onFind, shapes = ButtonDefaults.shapes()) {
+                Text(stringResource(R.string.batch_cover_find))
+            }
             OutlinedButton(onClick = onPick, shapes = ButtonDefaults.shapes()) {
                 Text(stringResource(R.string.batch_cover_set))
             }

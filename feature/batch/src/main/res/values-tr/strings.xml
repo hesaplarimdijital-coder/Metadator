@@ -12,10 +12,17 @@
     <string name="batch_multiple_values">Birden çok değer</string>
     <string name="batch_reset_field">Her şarkının kendi %1$s değerini koru</string>
     <string name="batch_cover">Kapak</string>
+    <string name="batch_cover_find">Çevrimiçi kapak bul</string>
     <string name="batch_cover_set">Hepsi için tek kapak kullan</string>
     <string name="batch_cover_remove">Tüm kapakları kaldır</string>
     <string name="batch_cover_keep">Her şarkının kapağını koru</string>
     <string name="batch_cover_unreadable">Bu görsel okunamadı</string>
+    <string name="batch_cover_downloading">Kapak indiriliyor…</string>
+    <string name="batch_cover_download_failed">Bu kapak indirilemedi</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">%1$d şarkıda kullan</item>
+        <item quantity="other">%1$d şarkının hepsinde kullan</item>
+    </plurals>
     <string name="batch_cover_will_replace">Her şarkı bu kapağı alacak</string>
     <string name="batch_cover_will_remove">Her şarkının kapağı kaldırılacak</string>
     <string name="batch_tools">Araçlar</string>

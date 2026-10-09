@@ -12,10 +12,17 @@
     <string name="batch_multiple_values">Varios valores</string>
     <string name="batch_reset_field">Mantener %1$s de cada canción</string>
     <string name="batch_cover">Portada</string>
+    <string name="batch_cover_find">Buscar portada en internet</string>
     <string name="batch_cover_set">Usar una portada para todas</string>
     <string name="batch_cover_remove">Quitar todas las portadas</string>
     <string name="batch_cover_keep">Mantener la portada de cada canción</string>
     <string name="batch_cover_unreadable">No se pudo leer esa imagen</string>
+    <string name="batch_cover_downloading">Descargando la portada…</string>
+    <string name="batch_cover_download_failed">No se pudo descargar esa portada</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">Usar en %1$d canción</item>
+        <item quantity="other">Usar en las %1$d canciones</item>
+    </plurals>
     <string name="batch_cover_will_replace">Todas las canciones tendrán esta portada</string>
     <string name="batch_cover_will_remove">Se quitará la portada de todas las canciones</string>
     <string name="batch_tools">Herramientas</string>

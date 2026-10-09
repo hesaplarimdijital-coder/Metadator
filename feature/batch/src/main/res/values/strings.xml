@@ -12,10 +12,17 @@
     <string name="batch_multiple_values">Multiple values</string>
     <string name="batch_reset_field">Keep each song\'s %1$s</string>
     <string name="batch_cover">Cover</string>
+    <string name="batch_cover_find">Find a cover online</string>
     <string name="batch_cover_set">Use one cover for all</string>
     <string name="batch_cover_remove">Remove all covers</string>
     <string name="batch_cover_keep">Keep each song\'s cover</string>
     <string name="batch_cover_unreadable">Couldn\'t read that image</string>
+    <string name="batch_cover_downloading">Downloading the cover…</string>
+    <string name="batch_cover_download_failed">Couldn\'t download that cover</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">Use for %1$d song</item>
+        <item quantity="other">Use for all %1$d songs</item>
+    </plurals>
     <string name="batch_cover_will_replace">Every song will get this cover</string>
     <string name="batch_cover_will_remove">Every song\'s cover will be removed</string>
     <string name="batch_tools">Tools</string>

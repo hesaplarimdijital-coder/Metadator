@@ -28,8 +28,8 @@
   whether it is real lossless, was made from an MP3 or AAC (and at about what bitrate), or was
   upscaled.
 - **Lyrics**: find plain or synced lyrics on LRCLIB.
-- **Edit many songs at once**: set an album artist or a cover for a whole album, number tracks,
-  read tags from file names.
+- **Edit many songs at once**: set an album artist or a cover for a whole album, find that cover
+  online for all of its songs in one go, number tracks, read tags from file names.
 - **A library that shows what to fix**: search everything, sort, filter by format, and see which
   songs are missing tags.
 - **A simple music player**, with background playback and the system's media controls.

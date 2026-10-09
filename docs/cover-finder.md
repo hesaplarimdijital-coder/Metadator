@@ -1,7 +1,8 @@
 # The cover finder
 
-"Find a cover online" in the editor looks for the song's cover in every enabled source, compares
-what it finds, and puts the cover to use first, with what speaks for it and against it.
+"Find a cover online" looks for a cover in every enabled source, compares what it finds, and puts
+the cover to use first, with what speaks for it and against it. It is in the editor, for one song,
+and in the batch editor, for the songs of an album at once.
 
 It is the "smart" part of the app, and it is worth being exact about what that means: **a set of
 rules and a picture comparison that run on the device**, not a language model and not a service.
@@ -68,6 +69,28 @@ Then what overrides the sum:
 From 0.85 a cover is the "best match", from 0.6 a "possible match", below that a "weak match": the
 same steps as the metadata lookup (`MatchConfidence`). A measure that could not be taken counts
 for half, neither for the cover nor against it.
+
+## For one song, and for an album
+
+The finder is asked with a `CoverRequest`: what is known of the song, and the cover it has now.
+`CoverRequest.forSongs` makes it from tags, for one song or for several that are to share a cover:
+
+- **The first song speaks for all of them.** The sources are searched by song, so its title,
+  artist, album and year are what is asked. Any song of an album finds the album.
+- **An id counts only when every song carries the same.** The release id they all have names their
+  release; the id one of them has would make its cover the best match for all on the word of one.
+- **The songs are taken as they will be**, with what the screen has not yet written: the editor's
+  unsaved fields, and in the batch editor the fields set for every song and the tags read from the
+  file names (`BatchState.editedTags`). An album renamed there is searched under its new name.
+- **The cover they have now** is the one chosen on the screen, or else the one in the file: the
+  first song's in the batch editor, which reads it for this, having listed the files without
+  their pictures.
+
+The sheet and its ViewModel are shared (`CoverFinderSheet`, `CoverFinderViewModel` in
+`core/ui/.../cover`): a feature cannot depend on another, and both show the same thing. Each screen
+opens the sheet with its request and is handed the cover chosen, as a URL. It downloads it and
+keeps it as an unsaved change: nothing is written until Save in the editor, or "Apply to all" in
+the batch editor, whose button in the sheet says how many songs the cover is for.
 
 ## What leaves the device
 

@@ -8,7 +8,7 @@
 | JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
-| JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
+| JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
 
@@ -50,4 +50,6 @@ with a keyboard and a mouse:
 The lossless check was tuned on short test files ([lossless-check.md](lossless-check.md)). Try it
 on a real CD rip, on the same rip encoded to MP3 at 128, 192 and 320 kbps and saved as FLAC, and
 on a high-resolution download. The cover finder needs the network: try an album whose single has
-another cover, a song without an album tag, and a file that already has a small cover.
+another cover, a song without an album tag, and a file that already has a small cover. From the
+batch editor, try a whole album, an album whose songs have no cover yet, and songs of two albums
+selected together.
