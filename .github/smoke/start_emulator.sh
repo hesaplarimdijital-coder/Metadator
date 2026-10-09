@@ -13,7 +13,20 @@ image="${1:-system-images;android-35;google_apis;x86_64}"
 
 # The licenses are accepted on the runner already; sdkmanager asks again all the same.
 yes 2>/dev/null | "$tools/sdkmanager" --licenses >/dev/null 2>&1 || true
-"$tools/sdkmanager" --install emulator platform-tools "$image" >/dev/null
+# A download that arrives broken is reported as a warning, and nothing more: what was asked for
+# is looked for, and asked for again when it is not there.
+image_dir="$sdk/$(echo "$image" | tr ';' '/')"
+for attempt in 1 2 3; do
+  "$tools/sdkmanager" --install emulator platform-tools "$image" >/dev/null || true
+  if [ -x "$sdk/emulator/emulator" ] && [ -f "$image_dir/system.img" ]; then
+    break
+  fi
+  echo "The emulator or its system image did not arrive (attempt $attempt)."
+  if [ "$attempt" = 3 ]; then
+    exit 1
+  fi
+  sleep 10
+done
 
 # Where the device is kept is said outright: the tool that makes it and the one that runs it do
 # not agree on where that is when left to themselves.
