@@ -36,9 +36,13 @@ KEY_K = 39
 KEY_S = 47
 KEY_W = 51
 KEY_SHIFT = 59
+KEY_TAB = 61
 KEY_ENTER = 66
+KEY_DELETE = 67
 KEY_ESCAPE = 111
 KEY_CTRL = 113
+KEY_HOME = 122
+KEY_END = 123
 KEY_F1 = 131
 KEY_F5 = 135
 
@@ -100,12 +104,18 @@ class Skipped(Exception):
 
 
 class Node:
-    def __init__(self, element):
+    """One thing on the screen. What it says is often said by what is inside it: a row's title
+    is a text within the row, and it is the row that is clicked and that has the focus."""
+
+    def __init__(self, element, parent=None):
         get = element.attrib.get
+        self.parent = parent
+        self.children = []
         self.text = get("text", "")
         self.description = get("content-desc", "")
         self.kind = get("class", "")
         self.package = get("package", "")
+        self.clickable = get("clickable") == "true"
         self.focused = get("focused") == "true"
         self.selected = get("selected") == "true"
         self.checked = get("checked") == "true"
@@ -122,6 +132,22 @@ class Node:
 
     def says(self, pattern):
         return bool(re.search(pattern, self.text) or re.search(pattern, self.description))
+
+    def within(self):
+        """This and everything inside it."""
+        yield self
+        for child in self.children:
+            yield from child.within()
+
+    def holds(self, pattern):
+        return any(node.says(pattern) for node in self.within())
+
+    def pressed_as(self):
+        """What a click on this lands on: itself, or the nearest thing around it that takes one."""
+        node = self
+        while node is not None and not node.clickable:
+            node = node.parent
+        return node or self
 
     def __repr__(self):
         said = self.text or self.description
@@ -144,7 +170,19 @@ def screen(attempts=4):
                 time.sleep(0.5)
                 continue
             last_dump = raw.decode("utf-8", "replace")
-            return [Node(element) for element in root.iter("node")]
+            nodes = []
+
+            def read(element, parent):
+                node = Node(element, parent)
+                nodes.append(node)
+                if parent is not None:
+                    parent.children.append(node)
+                for child in element.findall("node"):
+                    read(child, node)
+
+            for top in root.findall("node"):
+                read(top, None)
+            return nodes
         time.sleep(1)
     return []
 
@@ -205,8 +243,24 @@ def key(*codes):
 
 
 def type_text(text):
-    shell(f"input text {text}")
-    time.sleep(0.8)
+    """Types into the field that has the focus, and sees to it that this is what it holds.
+
+    On an emulator this slow the first key into a field can take so long to be dealt with that the
+    system repeats it, as it does for a key held down. A person's key press is far too short for
+    that, so a doubled letter here is the test's, and is typed again.
+    """
+    for _ in range(3):
+        shell(f"input text {text}")
+        time.sleep(0.8)
+        fields = [node for node in screen() if node.is_field and node.focused]
+        if not fields:
+            raise Failed(f"no field has the focus to type {text!r} into")
+        if fields[0].text == text:
+            return
+        log(f"    typed {text!r}, the field holds {fields[0].text!r}: again")
+        key(KEY_CTRL, KEY_A)
+        key(KEY_DELETE)
+    raise Failed(f"the field never held {text!r}")
 
 
 def screenshot(name):
@@ -241,11 +295,56 @@ def step(name, action, required=True):
     log(f"    {outcome} {detail}")
     results.append((name, outcome, str(detail)))
     try:
-        screen()
+        if outcome != "ok":
+            screen()
         screenshot(slug(name))
+        if outcome != "ok" and restore_after_failure:
+            # What it left open would fail every step after it for no fault of theirs.
+            log(f"    back to the library: {home()}")
     except Exception as error:
-        log(f"    no screenshot: {error}")
+        log(f"    could not tidy up: {error}")
     return outcome == "ok"
+
+
+restore_after_failure = False
+
+
+def home():
+    """Puts the library in front, with every song listed and none selected."""
+    for _ in range(10):
+        nodes = screen()
+        if not nodes:
+            continue
+        if not any(node.package == PACKAGE for node in nodes):
+            # A dialog of the system's, or another app: back to this one.
+            if find(r"^(Deny|Don.t allow|Cancel)$", nodes):
+                tap(find(r"^(Deny|Don.t allow|Cancel)$", nodes)[0])
+            else:
+                shell(f"am start -n {PACKAGE}/{MAIN}")
+                time.sleep(3)
+        elif find(SHORTCUTS, nodes) or find("^Find a cover$", nodes):
+            key(KEY_ESCAPE)
+        elif find("^Discard$", nodes):
+            tap(find("^Discard$", nodes)[0])
+        elif find("^Finish$", nodes):
+            tap(find("^Finish$", nodes)[0])
+        elif find(r"^Edit \d+ songs$", nodes):
+            key(KEY_CTRL, KEY_W)
+        elif not find(LIBRARY, nodes):
+            # The editor alone on a narrow window, or a second window: closed, the library is back.
+            key(KEY_CTRL, KEY_W)
+        elif find(r"\d selected", nodes) and find("Stop selecting", nodes):
+            tap(find("Stop selecting", nodes)[0])
+        elif find("^Clear search$", nodes):
+            tap(find("^Clear search$", nodes)[0])
+        elif find("^Clear filters$", nodes):
+            tap(find("^Clear filters$", nodes)[0])
+        elif all(find(re.escape(title), nodes) for title in SONGS):
+            return "the library, with its four songs"
+        else:
+            key(KEY_CTRL, KEY_1)
+        time.sleep(1.2)
+    return f"not restored: {said_on(screen())[:25]}"
 
 
 # --- The songs, on the device and as files ----------------------------------------------------
@@ -319,10 +418,10 @@ def allow_system_dialog(timeout=30):
 
 def row(title, nodes=None):
     """The song's row in the list, not the editor's field that says the same."""
-    rows = [node for node in find(re.escape(title), nodes) if not node.is_field]
-    if not rows:
+    titles = [node for node in find(re.escape(title), nodes) if not node.is_field]
+    if not titles:
         raise Failed(f"no row says {title!r}")
-    return min(rows, key=lambda node: (node.left, node.top))
+    return min(titles, key=lambda node: (node.left, node.top)).pressed_as()
 
 
 # --- Setting up --------------------------------------------------------------------------------
@@ -334,6 +433,10 @@ def install():
     said = adb("install", "-r", apk_path, timeout=300)
     if "Success" not in said:
         raise Failed(said.strip()[-300:])
+    # A device with a keyboard plugged in draws none on its screen. The emulator draws one all the
+    # same, over half of every picture, so the ones it has are turned off: keys still type.
+    for method in shell("ime list -s").split():
+        shell(f"ime disable {method}")
     version = re.search(r"versionName=(\S+)", shell(f"dumpsys package {PACKAGE}"))
     release = shell("getprop ro.build.version.release").strip()
     sdk = shell("getprop ro.build.version.sdk").strip()
@@ -405,10 +508,21 @@ def shortcut_list():
             raise Failed(f"the list does not say /{wanted}/: {said_on(nodes)[:60]}")
     screenshot("the-shortcuts")
     listed = said_on(nodes)
+    # The list is longer than the window. Its end is reached with a key, and its start again.
+    last = "Select every song up to that one"
+    if find(last, nodes):
+        scrolled = "all of it fits"
+    else:
+        key(KEY_END)
+        expect(last, 15)
+        screenshot("the-end-of-the-shortcuts")
+        key(KEY_HOME)
+        expect("Search the library", 15)
+        scrolled = "End and Home move through it"
     key(KEY_ESCAPE)
     expect_gone(SHORTCUTS, 15)
     expect("One More Time", 15)
-    return f"F1 shows them, Esc closes them. The list: {listed[:70]}"
+    return f"F1 shows them, {scrolled}, Esc closes them. The list starts: {listed[:24]}"
 
 
 def search():
@@ -419,6 +533,31 @@ def search():
     tap(expect("Clear search", 10))
     expect("One More Time", 20)
     return "Ctrl+F goes to the search field, and typing there filters the list"
+
+
+def keyboard_alone():
+    """Tab until a song has the focus, then Enter: the keys reach what a tap reaches."""
+    for _ in range(8):
+        key(KEY_TAB)
+    focused = None
+    for _ in range(14):
+        nodes = screen()
+        focused = [node for node in nodes if node.focused]
+        titles = [title for title in SONGS if focused and focused[0].holds(re.escape(title))]
+        if titles:
+            screenshot("a-song-has-the-focus")
+            key(KEY_ENTER)
+            title = titles[0]
+            deadline = time.time() + 40
+            while time.time() < deadline:
+                if [node for node in find(re.escape(title)) if node.is_field]:
+                    key(KEY_CTRL, KEY_W)
+                    expect("Pick a song", 20)
+                    return f"Tab reached '{title}', Enter opened it, Ctrl+W closed it"
+                time.sleep(1)
+            raise Failed(f"Enter on '{title}' did not open it")
+        key(KEY_TAB)
+    raise Failed(f"Tab never reached a song. The focus is on {focused}")
 
 
 def verdict_of(title, wanted):
@@ -759,8 +898,43 @@ class Mouse:
 
 
 mouse = None
-# How far the pointer goes for each count the mouse sends. Found by the first click that lands.
+# How far the pointer goes for each count the mouse sends: measured, or else found by the first
+# click that lands.
 pointer_gain = None
+
+
+def pointer_position():
+    """Where the pointer is, as the system's own pointer overlay last wrote it to the log."""
+    lines = adb("logcat", "-d", "-s", "Pointer:I", timeout=60).splitlines()
+    for line in reversed(lines):
+        match = re.search(r"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\) Pressure", line)
+        if match:
+            return float(match.group(1)), float(match.group(2))
+    return None
+
+
+def measure_pointer():
+    """Sends the pointer a known way and reads where it got to."""
+    global pointer_gain
+    if not mouse:
+        raise Skipped("no mouse")
+    shell("settings put system pointer_location 1")
+    time.sleep(2)
+    try:
+        shell("logcat -c")
+        mouse.to_corner()
+        mouse.move(300, 300)
+        position = pointer_position()
+        if not position:
+            raise Skipped("the system does not say where its pointer is")
+        x, y = position
+        if x < 30 or y < 30:
+            raise Skipped(f"the pointer is at {position} after being sent 300 counts each way")
+        pointer_gain = (x + y) / 600
+        return f"300 counts each way took the pointer to {position}: {pointer_gain:.3f} px a count"
+    finally:
+        shell("settings put system pointer_location 0")
+        time.sleep(1)
 
 
 def plug_mouse():
@@ -781,16 +955,15 @@ def plug_mouse():
     return "a mouse and keys are plugged in, and the activity stayed as it was"
 
 
-def rows_area():
-    """Where the songs' rows are, to aim at their middle."""
+def rows():
+    """The songs' rows as they are on screen, from the top one down."""
     nodes = screen()
-    rows = [row(title, nodes) for title in SONGS]
-    return (
-        min(node.left for node in rows),
-        min(node.top for node in rows),
-        max(node.right for node in rows),
-        max(node.bottom for node in rows),
-    )
+    return sorted((row(title, nodes) for title in SONGS), key=lambda node: node.top)
+
+
+def aim(node):
+    """Where in a row to click: its middle, left of the button at its end."""
+    return node.left + (node.right - node.left) // 2, (node.top + node.bottom) // 2
 
 
 def right_click_menu():
@@ -798,10 +971,10 @@ def right_click_menu():
     global pointer_gain
     if not mouse:
         raise Skipped("no mouse")
-    left, top, right, bottom = rows_area()
-    target_x, target_y = left + min(260, (right - left) // 2), (top + bottom) // 2
+    target_x, target_y = aim(rows()[1])
     tried = []
-    for gain in (1.0, 2.0, 0.5, 1.5, 3.0, 0.75):
+    gains = (pointer_gain,) if pointer_gain else (1.0, 2.0, 0.5, 1.5, 3.0, 0.75)
+    for gain in gains:
         mouse.to_corner()
         mouse.move(int(target_x / gain), int(target_y / gain))
         mouse.click(Mouse.BTN_RIGHT)
@@ -813,7 +986,7 @@ def right_click_menu():
             if missing:
                 raise Failed(f"the menu lacks {missing}: {said_on(nodes)}")
             screenshot("right-click-menu")
-            return f"the menu says {said_on(nodes)} (pointer gain {gain})"
+            return f"the menu says {said_on(nodes)}"
         tried.append(gain)
         titles = "|".join(re.escape(title) for title in SONGS)
         if [node for node in nodes if node.is_field and node.says(titles)]:
@@ -851,10 +1024,9 @@ def open_in_new_window():
 def ctrl_click_selects():
     if not mouse or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
-    left, top, right, bottom = rows_area()
-    row_height = (bottom - top) / len(SONGS)
-    x = left + min(260, (right - left) // 2)
-    first_y = top + row_height / 2
+    listed = rows()
+    x, first_y = aim(listed[0])
+    _, third_y = aim(listed[2])
     mouse.to_corner()
     mouse.move(int(x / pointer_gain), int(first_y / pointer_gain))
     mouse.hold(Mouse.KEY_LEFTCTRL, True)
@@ -862,11 +1034,11 @@ def ctrl_click_selects():
     mouse.hold(Mouse.KEY_LEFTCTRL, False)
     expect("1 selected", 15)
     # Two rows down with Shift: everything from the first one to that one.
-    mouse.move(0, int(2 * row_height / pointer_gain))
+    mouse.move(0, int((third_y - first_y) / pointer_gain))
     mouse.hold(Mouse.KEY_LEFTSHIFT, True)
     mouse.click(Mouse.BTN_LEFT)
     mouse.hold(Mouse.KEY_LEFTSHIFT, False)
-    node = expect(r"[234] selected", 15)
+    node = expect(r"3 selected", 15)
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
     expect_gone(r"\d selected", 15)
@@ -940,9 +1112,12 @@ def main():
     if not step("It lists the songs once allowed", lists_songs):
         step("Nothing crashed", no_crash)
         return
+    global restore_after_failure
+    restore_after_failure = True
     step("On a wide window the editor has its place beside the library", two_panes)
     step("F1 lists the keyboard shortcuts", shortcut_list)
     step("Ctrl+F searches", search)
+    step("Tab and Enter open a song without a mouse", keyboard_alone)
     step(
         "A genuine FLAC is called genuine",
         verdict_of("One More Time", ["Looks like real lossless"]),
@@ -965,6 +1140,7 @@ def main():
     step("The activity follows its display without being recreated", follows_the_display)
     step("A narrow window shows one pane at a time", compact_layout)
     step("A mouse can be plugged in", plug_mouse, required=False)
+    step("The pointer goes where the mouse sends it", measure_pointer, required=False)
     step("The second mouse button opens a song's menu", right_click_menu, required=False)
     step("A song opens in a window of its own", open_in_new_window, required=False)
     step("Ctrl and Shift change what a click selects", ctrl_click_selects, required=False)
