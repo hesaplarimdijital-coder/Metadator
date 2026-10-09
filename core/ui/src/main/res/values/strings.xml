@@ -72,4 +72,37 @@
     <string name="key_page_down">Page Down</string>
     <string name="shortcut_page_down">Scroll down a page</string>
     <string name="shortcut_page_up">Scroll up a page</string>
+
+    <string name="cover_finder_title">Find a cover</string>
+    <string name="cover_finder_search">Search</string>
+    <string name="cover_finder_searching">Looking for covers and comparing them…</string>
+    <string name="cover_finder_no_results">No covers found. Try fewer words.</string>
+    <string name="cover_finder_no_sources">Every source is turned off. Turn one on in Settings.</string>
+    <string name="cover_finder_offline">You\'re offline</string>
+    <string name="cover_finder_busy">The sources are busy. Try again in a moment.</string>
+    <string name="cover_finder_failed">The search failed. Try again.</string>
+    <string name="cover_finder_partial">%1$s didn\'t answer</string>
+    <string name="cover_finder_best">Best match</string>
+    <string name="cover_match_good">Good match</string>
+    <string name="cover_match_possible">Possible match</string>
+    <string name="cover_match_weak">Weak match</string>
+    <string name="cover_finder_others">Other covers</string>
+    <string name="cover_finder_use">Use this cover</string>
+    <string name="cover_finder_no_album">Unknown album</string>
+    <string name="cover_finder_size">%1$d × %2$d px</string>
+    <string name="cover_finder_how">Chosen on this device: by how well each release matches the tags, by the picture itself, and by how many sources have the same one.</string>
+    <string name="cover_reason_same_release">The cover of the release the tags identify</string>
+    <string name="cover_reason_same_recording">Comes with this very recording</string>
+    <string name="cover_reason_album">The album matches</string>
+    <string name="cover_reason_artist">The artist matches</string>
+    <string name="cover_reason_title">The song is on this release</string>
+    <string name="cover_reason_year">The year matches</string>
+    <string name="cover_reason_sources">%1$d sources have this same picture</string>
+    <string name="cover_reason_same_as_current">The same picture as the current cover</string>
+    <string name="cover_reason_larger">A larger copy of the current cover</string>
+    <string name="cover_reason_high_resolution">Large enough to look sharp anywhere</string>
+    <string name="cover_reason_album_differs">The tags name another album</string>
+    <string name="cover_reason_various">A compilation of several artists</string>
+    <string name="cover_reason_low_resolution">Small: it may look blurry on a large screen</string>
+    <string name="cover_reason_not_square">Not square: it may be a scan of the sleeve</string>
 </resources>

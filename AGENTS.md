@@ -22,7 +22,7 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:core:database` | Room: tag backups for undo. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
 | `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
-| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`). | |
+| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
 | `:core:navigation` | Keys, `Navigator`, scenes, motion. | Every `NavKey` lives here. |
 | `:tags:api` / `:tags:taglib` | Reading and writing tags. | TagLib is an `implementation` dependency: no TagLib type leaves `:tags:taglib`. |
 | `:library:api` / `:library:mediastore` | The device's songs, file access, write permission, rescans. | |
@@ -101,7 +101,8 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
 - Use Material components through the design system; don't restyle them per screen. Spacing comes
   from `Spacing`, grouped-list shapes from `GroupShapes`. Menus are `ActionMenu`/`PopupMenu`,
   exclusive options are `ConnectedChoices`, text fields are `TonalTextField` (no outlined fields),
-  chips are `ToggleChip`/`ActionChip`/`LabelChip`, a floating toolbar is `FloatingActionToolbar`.
+  chips are `ToggleChip`/`ActionChip`/`LabelChip`, a floating toolbar is `FloatingActionToolbar`,
+  a sheet that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`.
 - Blur comes from `MetadatorBlurDefaults`, and stands in for shadows: `Modifier.frosted` (Haze)
   for a surface floating over content, `Modifier.blurHalo` to lift what floats (it keeps its shadow
   only where `isHaloSupported` is false), `Modifier.outOfFocus` for what something opens over,

@@ -14,17 +14,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
@@ -40,7 +36,6 @@ import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -66,9 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,10 +69,10 @@ import com.bobbyesp.metadator.core.common.formatDuration
 import com.bobbyesp.metadator.core.designsystem.component.ItemIcon
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
-import com.bobbyesp.metadator.core.designsystem.component.ShapedIcon
+import com.bobbyesp.metadator.core.designsystem.component.SheetButton
+import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
+import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
-import com.bobbyesp.metadator.core.designsystem.component.TonalFieldDefaults
-import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.lookup.FieldProposal
@@ -174,15 +167,22 @@ private fun SearchStage(
                     style = MaterialTheme.typography.headlineSmallEmphasized,
                     modifier = Modifier.padding(bottom = Spacing.small),
                 )
-                QueryField(CoreUiR.string.field_title, state.title) {
-                    onQueryChange(it, state.artist, state.album)
-                }
-                QueryField(CoreUiR.string.field_artist, state.artist) {
-                    onQueryChange(state.title, it, state.album)
-                }
-                QueryField(CoreUiR.string.field_album, state.album, onSearch) {
-                    onQueryChange(state.title, state.artist, it)
-                }
+                SheetQueryField(
+                    label = stringResource(CoreUiR.string.field_title),
+                    value = state.title,
+                    onValueChange = { onQueryChange(it, state.artist, state.album) },
+                )
+                SheetQueryField(
+                    label = stringResource(CoreUiR.string.field_artist),
+                    value = state.artist,
+                    onValueChange = { onQueryChange(state.title, it, state.album) },
+                )
+                SheetQueryField(
+                    label = stringResource(CoreUiR.string.field_album),
+                    value = state.album,
+                    onValueChange = { onQueryChange(state.title, state.artist, it) },
+                    onSearch = onSearch,
+                )
                 SheetButton(
                     text = stringResource(R.string.lookup_search),
                     icon = Icons.Rounded.Search,
@@ -212,7 +212,7 @@ private fun SearchStage(
             is LookupStatus.Results -> {
                 if (status.candidates.isEmpty()) {
                     item(key = "state") {
-                        StateMessage(
+                        SheetMessage(
                             Icons.Rounded.SearchOff,
                             stringResource(R.string.lookup_no_results),
                             Modifier.animateItem(),
@@ -256,7 +256,7 @@ private fun SearchStage(
             }
             LookupStatus.NoProviders ->
                 item(key = "state") {
-                    StateMessage(
+                    SheetMessage(
                         Icons.Rounded.TravelExplore,
                         stringResource(R.string.lookup_no_providers),
                         Modifier.animateItem(),
@@ -264,7 +264,7 @@ private fun SearchStage(
                 }
             LookupStatus.Offline ->
                 item(key = "state") {
-                    StateMessage(
+                    SheetMessage(
                         Icons.Rounded.CloudOff,
                         stringResource(R.string.offline),
                         Modifier.animateItem(),
@@ -273,7 +273,7 @@ private fun SearchStage(
                 }
             LookupStatus.RateLimited ->
                 item(key = "state") {
-                    StateMessage(
+                    SheetMessage(
                         Icons.Rounded.HourglassTop,
                         stringResource(R.string.lookup_rate_limited),
                         Modifier.animateItem(),
@@ -281,7 +281,7 @@ private fun SearchStage(
                 }
             LookupStatus.Failed ->
                 item(key = "state") {
-                    StateMessage(
+                    SheetMessage(
                         Icons.Rounded.ErrorOutline,
                         stringResource(R.string.lookup_failed),
                         Modifier.animateItem(),
@@ -289,81 +289,6 @@ private fun SearchStage(
                     )
                 }
         }
-    }
-}
-
-@Composable
-internal fun QueryField(
-    label: Int,
-    value: String,
-    onDone: (() -> Unit)? = null,
-    onChange: (String) -> Unit,
-) {
-    TonalTextField(
-        value = value,
-        onValueChange = onChange,
-        label = stringResource(label),
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions =
-            KeyboardOptions(imeAction = if (onDone != null) ImeAction.Search else ImeAction.Next),
-        keyboardActions = KeyboardActions(onSearch = { onDone?.invoke() }),
-        colors = TonalFieldDefaults.sheetColors(),
-    )
-}
-
-/**
- * The one thing to do at each stage, as Material's medium button: tall and as wide as the sheet, so
- * that it is found without being looked for.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-internal fun SheetButton(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    val height = ButtonDefaults.MediumContainerHeight
-    Button(
-        onClick = onClick,
-        shapes = ButtonDefaults.shapesFor(height),
-        enabled = enabled,
-        modifier = modifier.heightIn(min = height),
-        contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = true),
-    ) {
-        Icon(icon, null, Modifier.size(ButtonDefaults.iconSizeFor(height)))
-        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
-        Text(text, style = ButtonDefaults.textStyleFor(height))
-    }
-}
-
-/** Why there are no results, under the shape the app's empty screens use. */
-@Composable
-internal fun StateMessage(
-    icon: ImageVector,
-    text: String,
-    modifier: Modifier = Modifier,
-    isError: Boolean = false,
-) {
-    val colors = MaterialTheme.colorScheme
-    Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = Spacing.extraLarge),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.large),
-    ) {
-        ShapedIcon(
-            icon = icon,
-            size = 88.dp,
-            containerColor = if (isError) colors.errorContainer else colors.primaryContainer,
-            contentColor = if (isError) colors.onErrorContainer else colors.onPrimaryContainer,
-        )
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 

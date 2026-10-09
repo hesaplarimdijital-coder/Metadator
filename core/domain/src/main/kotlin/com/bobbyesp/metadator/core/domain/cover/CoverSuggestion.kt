@@ -4,6 +4,8 @@
 package com.bobbyesp.metadator.core.domain.cover
 
 import com.bobbyesp.metadator.lookup.api.MatchConfidence
+import com.bobbyesp.metadator.tags.api.TagField
+import com.bobbyesp.metadator.tags.api.TagMap
 
 /**
  * What is known of the song a cover is wanted for: its tags, and the cover it has now.
@@ -22,7 +24,53 @@ class CoverRequest(
     val isrc: String? = null,
     val identifiers: Map<String, String> = emptyMap(),
     val currentCover: ByteArray? = null,
-)
+) {
+    companion object {
+        /**
+         * The request for the cover of [songs], each given by its tags: one song, or the songs that
+         * are to share a cover.
+         *
+         * The catalogues are searched by song, so the first one speaks for all of them: its title,
+         * artist, album and year are what is asked. Their ids are another matter. An id names the
+         * release of every song only when every song carries it, so one that any of them lacks, or
+         * has another value for, is left out: the cover it names would be the best match for all of
+         * them on the word of one.
+         *
+         * @param titleFallback what the first song is called, when its tags do not say
+         * @param durationMs how long the first song is
+         * @param currentCover the cover the songs have now
+         */
+        fun forSongs(
+            songs: List<TagMap>,
+            titleFallback: String = "",
+            durationMs: Long? = null,
+            currentCover: ByteArray? = null,
+        ): CoverRequest {
+            val first = songs.firstOrNull() ?: TagMap.Empty
+            return CoverRequest(
+                title = first.first(TagField.Title.key)?.ifBlank { null } ?: titleFallback,
+                artist = first.first(TagField.Artist.key),
+                album = first.first(TagField.Album.key),
+                albumArtist = first.first(TagField.AlbumArtist.key),
+                year = first.first(TagField.Date.key)?.take(4)?.toIntOrNull(),
+                durationMs = durationMs,
+                isrc = first.first(TagField.Isrc.key),
+                identifiers =
+                    first.keys
+                        .filter { key ->
+                            key.startsWith(CATALOGUE_ID_PREFIX) &&
+                                songs.all { it[key] == first[key] }
+                        }
+                        .mapNotNull { key -> first.first(key)?.let { key to it } }
+                        .toMap(),
+                currentCover = currentCover,
+            )
+        }
+
+        /** MusicBrainz's ids, the ones taggers write to files, all start the same way. */
+        private const val CATALOGUE_ID_PREFIX = "MUSICBRAINZ_"
+    }
+}
 
 /** Something that speaks for a cover, or against it. */
 enum class CoverReason(val isWarning: Boolean = false) {

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026  Gabriel Fontán (BobbyESP)
  */
-package com.bobbyesp.metadator.feature.editor.cover
+package com.bobbyesp.metadator.core.ui.cover
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,22 +50,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
+import com.bobbyesp.metadator.core.designsystem.component.SheetButton
+import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
+import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.cover.CoverReason
 import com.bobbyesp.metadator.core.domain.cover.CoverSuggestion
-import com.bobbyesp.metadator.core.ui.R as CoreUiR
+import com.bobbyesp.metadator.core.ui.R
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
-import com.bobbyesp.metadator.feature.editor.R
-import com.bobbyesp.metadator.feature.editor.lookup.QueryField
-import com.bobbyesp.metadator.feature.editor.lookup.SheetButton
-import com.bobbyesp.metadator.feature.editor.lookup.StateMessage
 import com.bobbyesp.metadator.lookup.api.MatchConfidence
 
 /**
  * "Find a cover": the covers the online sources have for the song, the one that suits it best first
- * and set apart, with what speaks for it. Choosing one puts it in the editor; nothing is written
- * until the user saves.
+ * and set apart, with what speaks for it. Choosing one hands it to the screen that opened the sheet
+ * ([onUse]); nothing is written until the user saves there.
+ *
+ * @param useLabel what choosing the best cover is called: a screen that will put it in several
+ *   songs says so on the button
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -75,6 +77,7 @@ fun CoverFinderSheet(
     onSearch: () -> Unit,
     onUse: (CoverSuggestion) -> Unit,
     onDismiss: () -> Unit,
+    useLabel: String = stringResource(R.string.cover_finder_use),
 ) {
     // No half-open state: the sheet is as tall as what it shows.
     val sheetState =
@@ -96,17 +99,24 @@ fun CoverFinderSheet(
                         style = MaterialTheme.typography.headlineSmallEmphasized,
                         modifier = Modifier.padding(bottom = Spacing.small),
                     )
-                    QueryField(CoreUiR.string.field_title, state.title) {
-                        onQueryChange(it, state.artist, state.album)
-                    }
-                    QueryField(CoreUiR.string.field_artist, state.artist) {
-                        onQueryChange(state.title, it, state.album)
-                    }
-                    QueryField(CoreUiR.string.field_album, state.album, onSearch) {
-                        onQueryChange(state.title, state.artist, it)
-                    }
+                    SheetQueryField(
+                        label = stringResource(R.string.field_title),
+                        value = state.title,
+                        onValueChange = { onQueryChange(it, state.artist, state.album) },
+                    )
+                    SheetQueryField(
+                        label = stringResource(R.string.field_artist),
+                        value = state.artist,
+                        onValueChange = { onQueryChange(state.title, it, state.album) },
+                    )
+                    SheetQueryField(
+                        label = stringResource(R.string.field_album),
+                        value = state.album,
+                        onValueChange = { onQueryChange(state.title, state.artist, it) },
+                        onSearch = onSearch,
+                    )
                     SheetButton(
-                        text = stringResource(R.string.lookup_search),
+                        text = stringResource(R.string.cover_finder_search),
                         icon = Icons.Rounded.Search,
                         onClick = onSearch,
                         enabled = state.status != CoverFinderStatus.Searching,
@@ -137,7 +147,7 @@ fun CoverFinderSheet(
                     val others = status.suggestions.drop(1)
                     if (best == null) {
                         item(key = "state") {
-                            StateMessage(
+                            SheetMessage(
                                 Icons.Rounded.SearchOff,
                                 stringResource(R.string.cover_finder_no_results),
                                 Modifier.animateItem(),
@@ -146,9 +156,10 @@ fun CoverFinderSheet(
                     } else {
                         item(key = "best") {
                             BestCover(
-                                best,
+                                suggestion = best,
+                                useLabel = useLabel,
                                 onUse = { onUse(best) },
-                                Modifier.padding(top = Spacing.medium).animateItem(),
+                                modifier = Modifier.padding(top = Spacing.medium).animateItem(),
                             )
                         }
                         item(key = "how") {
@@ -182,7 +193,7 @@ fun CoverFinderSheet(
                         item(key = "partial") {
                             Text(
                                 stringResource(
-                                    R.string.lookup_partial,
+                                    R.string.cover_finder_partial,
                                     status.failedProviders.joinToString(", "),
                                 ),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -198,34 +209,34 @@ fun CoverFinderSheet(
                 }
                 CoverFinderStatus.NoProviders ->
                     item(key = "state") {
-                        StateMessage(
+                        SheetMessage(
                             Icons.Rounded.TravelExplore,
-                            stringResource(R.string.lookup_no_providers),
+                            stringResource(R.string.cover_finder_no_sources),
                             Modifier.animateItem(),
                         )
                     }
                 CoverFinderStatus.Offline ->
                     item(key = "state") {
-                        StateMessage(
+                        SheetMessage(
                             Icons.Rounded.CloudOff,
-                            stringResource(R.string.offline),
+                            stringResource(R.string.cover_finder_offline),
                             Modifier.animateItem(),
                             isError = true,
                         )
                     }
                 CoverFinderStatus.RateLimited ->
                     item(key = "state") {
-                        StateMessage(
+                        SheetMessage(
                             Icons.Rounded.HourglassTop,
-                            stringResource(R.string.lookup_rate_limited),
+                            stringResource(R.string.cover_finder_busy),
                             Modifier.animateItem(),
                         )
                     }
                 CoverFinderStatus.Failed ->
                     item(key = "state") {
-                        StateMessage(
+                        SheetMessage(
                             Icons.Rounded.ErrorOutline,
-                            stringResource(R.string.lookup_failed),
+                            stringResource(R.string.cover_finder_failed),
                             Modifier.animateItem(),
                             isError = true,
                         )
@@ -243,9 +254,11 @@ fun CoverFinderSheet(
 @Composable
 private fun BestCover(
     suggestion: CoverSuggestion,
+    useLabel: String,
     onUse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val album = suggestion.album ?: stringResource(R.string.cover_finder_no_album)
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.largeIncreased,
@@ -261,7 +274,7 @@ private fun BestCover(
             ) {
                 ArtworkImage(
                     model = suggestion.thumbnailUrl ?: suggestion.url,
-                    contentDescription = stringResource(R.string.cover),
+                    contentDescription = stringResource(R.string.cover_of, album),
                     modifier = Modifier.size(132.dp),
                     shape = MaterialTheme.shapes.large,
                 )
@@ -277,17 +290,17 @@ private fun BestCover(
                             )
                         MatchConfidence.Medium ->
                             LabelChip(
-                                stringResource(R.string.lookup_confidence_medium),
+                                stringResource(R.string.cover_match_possible),
                                 Icons.AutoMirrored.Rounded.HelpOutline,
                             )
                         MatchConfidence.Low ->
                             LabelChip(
-                                stringResource(R.string.lookup_confidence_low),
+                                stringResource(R.string.cover_match_weak),
                                 Icons.Rounded.WarningAmber,
                             )
                     }
                     Text(
-                        suggestion.album ?: stringResource(R.string.cover_finder_no_album),
+                        album,
                         style = MaterialTheme.typography.titleLargeEmphasized,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -307,7 +320,7 @@ private fun BestCover(
             }
             CoverLabels(suggestion, showConfidence = false)
             SheetButton(
-                text = stringResource(R.string.cover_finder_use),
+                text = useLabel,
                 icon = Icons.Rounded.Check,
                 onClick = onUse,
                 modifier = Modifier.fillMaxWidth(),
@@ -421,9 +434,9 @@ private fun CoverLabels(suggestion: CoverSuggestion, showConfidence: Boolean) {
                 label =
                     stringResource(
                         when (confidence) {
-                            MatchConfidence.High -> R.string.lookup_confidence_high
-                            MatchConfidence.Medium -> R.string.lookup_confidence_medium
-                            MatchConfidence.Low -> R.string.lookup_confidence_low
+                            MatchConfidence.High -> R.string.cover_match_good
+                            MatchConfidence.Medium -> R.string.cover_match_possible
+                            MatchConfidence.Low -> R.string.cover_match_weak
                         }
                     ),
                 icon = confidence.icon,
@@ -431,7 +444,7 @@ private fun CoverLabels(suggestion: CoverSuggestion, showConfidence: Boolean) {
         }
         suggestion.dimensions?.let {
             LabelChip(
-                stringResource(R.string.cover_size, it.width, it.height),
+                stringResource(R.string.cover_finder_size, it.width, it.height),
                 Icons.Rounded.AspectRatio,
             )
         }

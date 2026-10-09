@@ -72,4 +72,37 @@
     <string name="key_page_down">Av Pág</string>
     <string name="shortcut_page_down">Bajar una página</string>
     <string name="shortcut_page_up">Subir una página</string>
+
+    <string name="cover_finder_title">Buscar una portada</string>
+    <string name="cover_finder_search">Buscar</string>
+    <string name="cover_finder_searching">Buscando portadas y comparándolas…</string>
+    <string name="cover_finder_no_results">No se encontraron portadas. Prueba con menos palabras.</string>
+    <string name="cover_finder_no_sources">Todas las fuentes están desactivadas. Activa alguna en Ajustes.</string>
+    <string name="cover_finder_offline">No tienes conexión</string>
+    <string name="cover_finder_busy">Las fuentes están ocupadas. Inténtalo de nuevo en un momento.</string>
+    <string name="cover_finder_failed">La búsqueda falló. Inténtalo de nuevo.</string>
+    <string name="cover_finder_partial">%1$s no respondió</string>
+    <string name="cover_finder_best">La mejor coincidencia</string>
+    <string name="cover_match_good">Buena coincidencia</string>
+    <string name="cover_match_possible">Posible coincidencia</string>
+    <string name="cover_match_weak">Coincidencia débil</string>
+    <string name="cover_finder_others">Otras portadas</string>
+    <string name="cover_finder_use">Usar esta portada</string>
+    <string name="cover_finder_no_album">Álbum desconocido</string>
+    <string name="cover_finder_size">%1$d × %2$d px</string>
+    <string name="cover_finder_how">Elegida en este dispositivo: por lo bien que cada lanzamiento coincide con las etiquetas, por la propia imagen y por cuántas fuentes tienen la misma.</string>
+    <string name="cover_reason_same_release">La portada del lanzamiento que identifican las etiquetas</string>
+    <string name="cover_reason_same_recording">Viene con esta misma grabación</string>
+    <string name="cover_reason_album">El álbum coincide</string>
+    <string name="cover_reason_artist">El artista coincide</string>
+    <string name="cover_reason_title">La canción está en este lanzamiento</string>
+    <string name="cover_reason_year">El año coincide</string>
+    <string name="cover_reason_sources">%1$d fuentes tienen esta misma imagen</string>
+    <string name="cover_reason_same_as_current">La misma imagen que la portada actual</string>
+    <string name="cover_reason_larger">Una copia más grande de la portada actual</string>
+    <string name="cover_reason_high_resolution">Lo bastante grande para verse nítida en cualquier parte</string>
+    <string name="cover_reason_album_differs">Las etiquetas nombran otro álbum</string>
+    <string name="cover_reason_various">Un recopilatorio de varios artistas</string>
+    <string name="cover_reason_low_resolution">Pequeña: puede verse borrosa en una pantalla grande</string>
+    <string name="cover_reason_not_square">No es cuadrada: puede ser un escaneo de la carátula</string>
 </resources>

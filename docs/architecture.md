@@ -8,6 +8,7 @@ plain Kotlin) and one or more implementations; features see the contracts only.
 ```
 app ──────────────► every module (the only place implementations are named)
 feature:* ────────► core:*, *:api
+core:ui ──────────► core:designsystem, core:domain (what two features show alike)
 core:domain ──────► core:model, core:common, tags:api, library:api, lookup:api, lyrics:api
 tags:taglib ──────► tags:api, library:api (opens files through AudioFileOpener)
 lookup:* , lyrics:lrclib ─► their api, core:network
@@ -35,7 +36,9 @@ or on another feature fails the build.
   engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
   (`AndroidImageSampler` in `core:data`).
 - **Implementations**: TagLib, MediaStore, Room, DataStore, Ktor, Media3.
-- **Presentation** (`feature:*`): screens and ViewModels.
+- **Presentation** (`feature:*`): screens and ViewModels. What two features show alike is in
+  `core:ui`, since a feature cannot depend on another: the cover finder's sheet and its ViewModel
+  (`core/ui/.../cover`), opened by the editor and by the batch editor.
 
 The library is MediaStore's, completed from the files (`TagCompletedAudioLibrary`). Android's
 scanner does not index every tag of every format: a FLAC's `DATE` never becomes a year, and before

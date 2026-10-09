@@ -31,6 +31,7 @@ import com.bobbyesp.metadator.core.network.HttpClientFactory
 import com.bobbyesp.metadator.core.network.KtorArtworkDownloader
 import com.bobbyesp.metadator.core.ui.artwork.AndroidArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.artwork.ArtworkAccentSource
+import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.feature.batch.batchModule
 import com.bobbyesp.metadator.feature.editor.editorModule
 import com.bobbyesp.metadator.feature.library.libraryModule
@@ -66,6 +67,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -94,6 +96,8 @@ private val appModule = module {
     single<SettingsRepository> {
         DataStoreSettingsRepository(createSettingsDataStore(androidContext()))
     }
+    // The cover finder is opened by the editor and by the batch editor: it is neither's to declare.
+    viewModelOf(::CoverFinderViewModel)
 }
 
 /*

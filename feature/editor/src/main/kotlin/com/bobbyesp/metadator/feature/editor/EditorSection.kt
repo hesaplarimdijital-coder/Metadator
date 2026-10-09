@@ -22,10 +22,10 @@ import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.navigation.Editor
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.pane.LocalPaneContext
+import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
+import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
-import com.bobbyesp.metadator.feature.editor.cover.CoverFinderSheet
-import com.bobbyesp.metadator.feature.editor.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.feature.editor.lookup.LookupSheet
 import com.bobbyesp.metadator.feature.editor.lookup.LookupViewModel
 import com.bobbyesp.metadator.tags.api.TagField
@@ -137,22 +137,10 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
 }
 
 /** The song as it stands in the editor, unsaved changes included: what a cover is looked for. */
-private fun coverRequest(state: EditorState, draft: TagDraft): CoverRequest {
-    val tags = draft.tags
-    return CoverRequest(
-        title = tags.first(TagField.Title.key) ?: state.loaded?.track?.title.orEmpty(),
-        artist = tags[TagField.Artist.key].firstOrNull(),
-        album = tags.first(TagField.Album.key),
-        albumArtist = tags[TagField.AlbumArtist.key].firstOrNull(),
-        year = tags.first(TagField.Date.key)?.take(4)?.toIntOrNull(),
+private fun coverRequest(state: EditorState, draft: TagDraft): CoverRequest =
+    CoverRequest.forSongs(
+        songs = listOf(draft.tags),
+        titleFallback = state.loaded?.track?.title.orEmpty(),
         durationMs = state.loaded?.audio?.durationMs ?: state.loaded?.track?.durationMs,
-        isrc = tags.first(TagField.Isrc.key),
-        // The ids of an earlier lookup, which name the very release the file was tagged as.
-        identifiers =
-            tags.keys
-                .filter { it.startsWith("MUSICBRAINZ_") }
-                .mapNotNull { key -> tags.first(key)?.let { key to it } }
-                .toMap(),
         currentCover = draft.cover?.data,
     )
-}

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026  Gabriel Fontán (BobbyESP)
  */
-package com.bobbyesp.metadator.feature.editor.cover
+package com.bobbyesp.metadator.core.ui.cover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -43,15 +43,16 @@ data class CoverFinderState(
 )
 
 /**
- * The "Find a cover" sheet. Like the metadata lookup it proposes and the editor applies: choosing a
- * cover puts it in the editor's draft, and only Save writes it.
+ * The "Find a cover" sheet, for whichever screen opens it: the editor for one song, the batch
+ * editor for the songs of an album. It proposes and the screen applies. Nothing here touches a
+ * file: choosing a cover hands it to the screen, and only saving there writes it.
  */
 class CoverFinderViewModel(private val findCovers: FindCoversUseCase) : ViewModel() {
     private val _state = MutableStateFlow(CoverFinderState())
     val state: StateFlow<CoverFinderState> = _state.asStateFlow()
     private var search: Job? = null
 
-    /** The song as the editor has it: what is searched with can be changed, the rest cannot. */
+    /** The song as the screen has it: what is searched with can be changed, the rest cannot. */
     private var song: CoverRequest? = null
 
     /**
@@ -116,12 +117,15 @@ class CoverFinderViewModel(private val findCovers: FindCoversUseCase) : ViewMode
             CoverSearchOutcome.Failed -> CoverFinderStatus.Failed
         }
 
-    /** The same tags and the same cover: nothing a new search would see differently. */
+    /**
+     * The same tags and the same cover: nothing a new search would see differently. The cover is
+     * compared by what it holds, since a screen may have read it from the file again.
+     */
     private fun CoverRequest.isSameSongAs(other: CoverRequest): Boolean =
         title == other.title &&
             artist == other.artist &&
             album == other.album &&
             year == other.year &&
             identifiers == other.identifiers &&
-            currentCover === other.currentCover
+            currentCover.contentEquals(other.currentCover)
 }
