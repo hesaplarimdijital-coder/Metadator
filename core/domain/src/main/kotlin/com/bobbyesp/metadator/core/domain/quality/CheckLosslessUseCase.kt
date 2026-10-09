@@ -30,7 +30,7 @@ sealed interface LosslessCheckResult {
  * Says whether a lossless file's audio has been through a lossy encoder on its way there: an MP3
  * saved as FLAC is as large as a real one and sounds like the MP3.
  *
- * It decodes about half a minute of audio, taken from all along the song, and looks at its spectrum
+ * It decodes some twenty seconds of audio, taken from all along the song, and looks at its spectrum
  * ([LosslessAnalyzer]). Nothing is written, and nothing leaves the device.
  */
 class CheckLosslessUseCase(

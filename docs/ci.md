@@ -1,6 +1,7 @@
 # Continuous integration
 
-Two workflows in `.github/workflows`, and one shared setup in `.github/actions/setup-build`.
+Two workflows in `.github/workflows`, and one shared setup in `.github/actions/setup-build`. A
+third builds the APK of a branch kept outside the repository's own CI.
 
 ## CI (`ci.yml`)
 
@@ -68,6 +69,23 @@ The workflow stops before building when a signing secret is missing, and fails w
 out unsigned: without a keystore Gradle builds unsigned APKs and reports success. Without
 `GOOGLE_SERVICES_JSON_BASE64` it warns and builds the playstore APK without Crashlytics, as a fork
 would.
+
+## A branch's own APK (`metadator-dex-apk.yml`)
+
+For a branch that lives in a repository that is not a fork of Metadator, where neither workflow
+above runs. On every push to the branch it runs the unit tests of the plain Kotlin modules and
+builds `:app:assembleFossRelease -Pmetadator.fork=dex`:
+
+- **A release build**, since the APK is for trying the app, and a debug one is slower and brings
+  LeakCanary along. It is signed with a key kept in the branch
+  (`.github/metadator-dex-debug.keystore`, the well-known debug passwords): it protects nothing,
+  and exists so that each build installs over the one before it.
+- **`-Pmetadator.fork=<name>`** gives the release an application id and a version name of its own
+  (`com.bobbyesp.metadator.<name>`, and `-<name>` after the version), so that it installs next to
+  the app from its store instead of being refused for its signature.
+- **The APK is published as an asset of the `metadator-dex-apk` release**, with a
+  `build-report.txt` of the errors, the warnings and the end of each step's output. A release
+  asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
 
 ## Changing a workflow
 

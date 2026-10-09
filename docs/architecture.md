@@ -26,10 +26,14 @@ or on another feature fails the build.
 
 - **Domain** (`core:domain`): use cases and pure logic. `SaveTagChangesUseCase`,
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
-  `FileNamePattern`, library filtering and grouping.
+  `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
+  and the spectrum it reads ([lossless-check.md](lossless-check.md)), and `FindCoversUseCase` with
+  the scoring of covers ([cover-finder.md](cover-finder.md)).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
-  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`.
+  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. One port is the domain's own, having no
+  engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
+  (`AndroidImageSampler` in `core:data`).
 - **Implementations**: TagLib, MediaStore, Room, DataStore, Ktor, Media3.
 - **Presentation** (`feature:*`): screens and ViewModels.
 
@@ -138,6 +142,13 @@ same everywhere:
 - `RolledIn`: something that turns up by rolling into its place through focus, and leaves the same
   way, at the pace of `ThroughFocus`: the album's chip in the player, the pills of the editor's
   "needs attention" notice.
+- `Tooltip`, `ContextMenuArea`, `HeldKeys`: what a mouse adds. The name of a button that is only an
+  icon, a menu on the second button, and the keys held during a click
+  ([desktop.md](desktop.md#mouse)).
+
+Keys are not handled by screens with `Modifier.onKeyEvent`: a screen offers shortcuts with
+`KeyboardShortcuts` (`core:ui`), and the activity's `ShortcutDispatcher` gives them the keys no
+view took ([desktop.md](desktop.md#keyboard)).
 
 Animations use the theme's motion scheme (`MaterialTheme.motionScheme`): spatial specs for what
 moves or changes size, effects specs for fades. They are kept for changes of state the user caused

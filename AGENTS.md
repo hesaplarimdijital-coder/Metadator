@@ -1,8 +1,10 @@
 # AGENTS.md
 
 Metadator is an Android tag editor for local music: it lists the songs on the device, edits their
-tags and covers, finds metadata and lyrics online, edits many songs at once, and plays them. Nothing
-leaves the device but a song's title, artist and album, when the user searches online.
+tags and covers, finds metadata, covers and lyrics online, says whether a lossless file is really
+lossless, edits many songs at once, and plays them. It is used with fingers on a phone and with a
+keyboard and a mouse on a desktop (Samsung DeX). Nothing leaves the device but a song's title,
+artist and album, when the user searches online.
 
 This file is the map and the rules. How each part works, and why, is in [`docs/`](docs/README.md).
 
@@ -15,16 +17,16 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:app` | Composition root: `App`, `MainActivity`, `ExternalEditorActivity`, the navigation shell, DI wiring, flavors. | The only module that names implementations. |
 | `:core:model` | `Track`, `ContentRef`, `UserSettings`… | Plain Kotlin. |
 | `:core:common` | Dispatchers, `StringProvider`, text helpers. | Plain Kotlin. |
-| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries. | Plain Kotlin. Tested on the JVM with fakes. |
-| `:core:data` | DataStore settings, Android strings. | |
+| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check (`quality`), the cover finder (`cover`). | Plain Kotlin. Tested on the JVM with fakes. |
+| `:core:data` | DataStore settings, Android strings, decoding pictures for the cover finder. | |
 | `:core:database` | Room: tag backups for undo. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
-| `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive. | No feature knowledge. |
-| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels. | |
+| `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
+| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`). | |
 | `:core:navigation` | Keys, `Navigator`, scenes, motion. | Every `NavKey` lives here. |
 | `:tags:api` / `:tags:taglib` | Reading and writing tags. | TagLib is an `implementation` dependency: no TagLib type leaves `:tags:taglib`. |
 | `:library:api` / `:library:mediastore` | The device's songs, file access, write permission, rescans. | |
-| `:lookup:api` / `:lookup:musicbrainz` / `:lookup:deezer` | Online metadata. | Plain Kotlin. No API keys. |
+| `:lookup:api` / `:lookup:musicbrainz` / `:lookup:deezer` / `:lookup:itunes` | Online metadata and covers. | Plain Kotlin. No API keys. |
 | `:lyrics:api` / `:lyrics:lrclib` | Lyrics: finding them, and reading LRC and TTML. | Plain Kotlin. |
 | `:player:api` / `:player:media3` | The music player. | |
 | `:feature:*` | `library`, `editor`, `batch`, `player`, `settings`. | Depend on `:core:*` and `*:api` only, never on an implementation or another feature. The `metadator.android.feature` convention fails the build otherwise. |
@@ -79,6 +81,18 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
 - The player is not a destination: the shell measures the window and passes it a `PlayerLayout`.
 - Transitions live in `core/navigation/.../motion/NavigationMotion.kt`.
 
+### Desktop (read [docs/desktop.md](docs/desktop.md) before touching input or the manifest)
+
+- The activities are not recreated when the window is resized, moved to another display or
+  switched between day and night (`configChanges`). A screen must follow those while running:
+  measure with `BoxWithConstraints` or the pane context, read density and the configuration from
+  their locals, and never keep a size in pixels across recompositions.
+- A screen offers its keys with `KeyboardShortcuts`; the activity's `ShortcutDispatcher` gives it
+  the keys no view took. Never `Modifier.onKeyEvent` on a screen: it only sees keys while the focus
+  is inside it. A new shortcut needs nothing else to show up in the list of shortcuts.
+- What a song can be made to do with a long press must also be in its `ContextMenuArea`, for the
+  mouse's second button. A button that is only an icon is wrapped in a `Tooltip`.
+
 ### Theme
 
 - `MetadatorTheme` is Material 3 Expressive with one `MotionScheme.expressive()` instance for the
@@ -112,14 +126,15 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   `spotless/copyright.txt`. Run it before every commit.
 - CI (`.github/workflows/ci.yml`) runs `spotlessCheck`, `test`, `lint` and the debug build of both
   flavors on every pull request and on every push to `master` and `v2`. `release.yml` is started by
-  hand and builds the signed release APKs. See [docs/ci.md](docs/ci.md).
+  hand and builds the signed release APKs. `metadator-dex-apk.yml` builds the APK of a branch kept
+  in another repository, under an application id of its own. See [docs/ci.md](docs/ci.md).
 - The `playstore` flavor adds Firebase Crashlytics and Play in-app review. Firebase is only applied
   when `app/google-services.json` exists, so forks and the FOSS flavor build without it.
 
 ## 4. Conventions
 
-- Everything is in English: code, comments, docs, commits. The app ships English and Spanish
-  strings; a new string needs both.
+- Everything is in English: code, comments, docs, commits. The app ships English, Spanish and
+  Turkish strings; a new string needs all three (lint reports a missing one as an error).
 - Commits follow `type(scope): summary`; the body explains why.
 - Comments and KDoc say why, not what.
 - Docs describe the app as it is now. When code changes, update the doc that describes it.

@@ -7,7 +7,9 @@
 | JVM unit | Tag merge and diff, pictures, multi-values (`TagChangesTest`) | `tags/api` |
 | JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
-| JVM unit | MusicBrainz, Deezer and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
+| JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
+| JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
+| JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
@@ -33,3 +35,19 @@ and a tablet, on Android 8, 10 and the latest version:
 - The list-detail layout on a tablet or a foldable, TalkBack on the library and the editor.
 - Playback in the background, the media notification, and stopping when the app is swiped away
   while paused.
+
+The desktop features ([desktop.md](desktop.md)) were written without Samsung DeX at hand. On DeX,
+with a keyboard and a mouse:
+
+- Dock and undock the phone with the app open: it should stay where it was, not restart.
+- Drag the window from narrow to wide and back, with the lookup sheet open: the layout follows,
+  and the sheet stays.
+- Every shortcut in the list (F1), with the focus in a text field, on a button, and nowhere.
+- Right click, Ctrl+click and Shift+click on songs; a right click must not open the song.
+- "Open in a new window" twice, for two songs; a picture dragged from My Files onto the cover.
+- Day and night switched while the app is open: the status bar's icons follow.
+
+The lossless check was tuned on short test files ([lossless-check.md](lossless-check.md)). Try it
+on a real CD rip, on the same rip encoded to MP3 at 128, 192 and 320 kbps and saved as FLAC, and
+on a high-resolution download. The cover finder needs the network: try an album whose single has
+another cover, a song without an album tag, and a file that already has a small cover.

@@ -19,8 +19,14 @@
   credits, comment, BPM, ISRC, lyrics, and any other tag in the file under *All tags*.
 - **Never lose data**: Metadator writes only what you changed, keeps every other tag and picture,
   and backs the file up first. Every save can be undone.
-- **Find metadata online**: search MusicBrainz and Deezer at once, compare each field with what the
-  song has, and pick what to use. Covers up to 1200 px.
+- **Find metadata online**: search MusicBrainz, Deezer and the iTunes Store at once, compare each
+  field with what the song has, and pick what to use.
+- **Find the right cover**: every source's covers for the song, compared on your device, with the
+  one that suits it best first and why: the album and artist match, several sources have the same
+  picture, it is a larger copy of the cover the file already has. Up to 1500 px.
+- **Know what a FLAC is worth**: the editor looks at the audio of FLAC and WAV files and says
+  whether it is real lossless, was made from an MP3 or AAC (and at about what bitrate), or was
+  upscaled.
 - **Lyrics**: find plain or synced lyrics on LRCLIB.
 - **Edit many songs at once**: set an album artist or a cover for a whole album, number tracks,
   read tags from file names.
@@ -30,6 +36,10 @@
 - **Open with Metadator** from any file manager or player, no library permission needed.
 - **Material 3 Expressive**, with colors from your wallpaper or the song's cover, and a two-pane
   layout on tablets and foldables.
+- **At home on a desktop** (Samsung DeX, a Chromebook, a tablet with a keyboard): a window of any
+  size, keyboard shortcuts for everything (F1 lists them), a menu on the right mouse button, Ctrl
+  and Shift to select, a cover dropped in from the file manager, and a song in a window of its
+  own.
 
 Supported formats: everything TagLib reads, including MP3, FLAC, M4A/AAC/ALAC, Ogg Vorbis, Opus,
 WAV, AIFF, WMA and APE.
@@ -42,8 +52,10 @@ WAV, AIFF, WMA and APE.
 ## Privacy
 
 Metadator works on your device. The only thing that leaves it is a song's title, artist and album
-when you search for metadata or lyrics, sent to the source you search. The Google Play build sends
-anonymous crash reports; the FOSS build sends nothing.
+when you search for metadata, a cover or lyrics, sent to the sources you search (the iTunes Store
+is also told your region, to search its catalogue there). Covers are compared, and audio is
+checked, on the device. The Google Play build sends anonymous crash reports; the FOSS build sends
+nothing.
 
 ## Build it
 
@@ -60,7 +72,7 @@ How the code is organized, and the rules for changing it, are in [AGENTS.md](AGE
 
 ## Translations
 
-English and Spanish are included. Contributions of other languages are welcome: copy
+English, Spanish and Turkish are included. Contributions of other languages are welcome: copy
 `src/main/res/values/strings.xml` of each module into `values-<language>/`.
 
 ## License
