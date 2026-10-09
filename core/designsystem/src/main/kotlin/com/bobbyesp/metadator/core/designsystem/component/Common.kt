@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import java.util.Locale
 
 /** A section title over a group: small, upper case, quiet. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -46,7 +47,8 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = title.uppercase(),
+            // In the language of the title: Turkish has two letters where others have one i.
+            text = title.uppercase(Locale.getDefault()),
             style =
                 MaterialTheme.typography.labelLargeEmphasized.copy(
                     letterSpacing = 1.25.sp,

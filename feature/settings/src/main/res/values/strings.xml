@@ -63,6 +63,6 @@
     <string name="rate">Rate Metadator</string>
     <string name="rate_description">On Google Play</string>
     <string name="credits">Built with</string>
-    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer and LRCLIB</string>
+    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes and LRCLIB</string>
     <string name="made_by">Made by BobbyESP</string>
 </resources>

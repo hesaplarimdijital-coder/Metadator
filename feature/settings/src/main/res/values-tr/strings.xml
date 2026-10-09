@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Ayarlar</string>
+    <string name="back">Geri</string>
+    <string name="appearance">Görünüm</string>
+    <string name="appearance_description">Tema, renkler ve kontrast</string>
+    <string name="editor">Düzenleyici</string>
+    <string name="editor_description">Etiketlerin nasıl yazılacağı</string>
+    <string name="lookup">Çevrimiçi kaynaklar</string>
+    <string name="lookup_description">Meta verilerin ve kapakların nereden geldiği</string>
+    <string name="about">Hakkında</string>
+    <string name="about_description">Sürüm, kaynak kodu ve lisanslar</string>
+
+    <string name="theme">Tema</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_light">Açık</string>
+    <string name="theme_dark">Koyu</string>
+    <string name="colors">Renkler</string>
+    <string name="dynamic_color">Duvar kâğıdından renkler</string>
+    <string name="dynamic_color_description">Material You, Android 12\'den itibaren</string>
+    <string name="pure_black">Saf siyah</string>
+    <string name="pure_black_description">Daha koyu bir koyu tema, OLED ekranlarda daha rahat</string>
+    <string name="color_from_cover">Düzenleyiciyi kapağa göre renklendir</string>
+    <string name="color_from_cover_description">Her şarkının düzenleyicisi kapağının tonlarını alır</string>
+    <string name="seed_color">Vurgu rengi</string>
+    <string name="palette_style">Palet stili</string>
+    <string name="palette_tonal_spot">Tonal nokta</string>
+    <string name="palette_neutral">Nötr</string>
+    <string name="palette_vibrant">Canlı</string>
+    <string name="palette_expressive">Etkileyici</string>
+    <string name="palette_rainbow">Gökkuşağı</string>
+    <string name="palette_fruit_salad">Meyve salatası</string>
+    <string name="palette_monochrome">Tek renk</string>
+    <string name="palette_fidelity">Sadık</string>
+    <string name="palette_content">İçerik</string>
+
+    <string name="multi_values">Birden çok sanatçı veya tür</string>
+    <string name="multi_separate">Ayrı değerler olarak tut</string>
+    <string name="multi_separate_description">Biçimlerin beklediği budur. Çoğu oynatıcı hepsini gösterir.</string>
+    <string name="multi_joined">Tek bir değerde birleştir</string>
+    <string name="multi_joined_description">Yalnızca ilk sanatçıyı gösteren oynatıcılar için</string>
+    <string name="separator">Ayırıcı</string>
+    <string name="separator_description">Değerleri birleştirmek ve yapıştırdıklarınızı ayırmak için kullanılır</string>
+    <string name="warn_small_cover">Küçük kapaklar için uyar</string>
+    <string name="warn_small_cover_description">500 × 500 px altı</string>
+    <string name="history">Geri alma geçmişi</string>
+    <string name="clear_history">Geri alma geçmişini temizle</string>
+    <string name="clear_history_description">Metadator, geri alınabilmeleri için son 100 kaydınızın etiketlerini saklar</string>
+    <string name="history_cleared">Geri alma geçmişi temizlendi</string>
+
+    <string name="lookup_sources">Kaynaklar</string>
+    <string name="lookup_sources_description">Birlikte aranır. Şarkının başlığı, sanatçısı ve albümü dışında hiçbir şey gönderilmez.</string>
+    <string name="provider_musicbrainz_description">Açık müzik ansiklopedisi; kapaklar Cover Art Archive\'dan</string>
+    <string name="provider_deezer_description">Ticari yayınların geniş kataloğu, 1000 px\'e kadar kapaklar</string>
+    <string name="provider_itunes_description">Bölgenizdeki iTunes Store kataloğu, büyük kapaklarla</string>
+    <string name="provider_other_description">Çevrimiçi meta veri</string>
+
+    <string name="version">Sürüm %1$s</string>
+    <string name="source_code">Kaynak kodu</string>
+    <string name="source_code_description">Metadator özgür yazılımdır, GPL 3.0 ile lisanslanmıştır</string>
+    <string name="report_issue">Sorun bildir</string>
+    <string name="report_issue_description">GitHub\'da bir kayıt açın</string>
+    <string name="rate">Metadator\'ı değerlendir</string>
+    <string name="rate_description">Google Play\'de</string>
+    <string name="credits">Şunlarla yapıldı</string>
+    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes ve LRCLIB</string>
+    <string name="made_by">BobbyESP tarafından yapıldı</string>
+</resources>

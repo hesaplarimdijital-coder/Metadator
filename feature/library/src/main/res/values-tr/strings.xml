@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_library">Şarkı, sanatçı, albüm ara</string>
+    <string name="clear_search">Aramayı temizle</string>
+    <string name="settings">Ayarlar</string>
+    <string name="more_options">Diğer seçenekler</string>
+    <string name="open_file">Dosya aç</string>
+    <string name="rescan_library">Müzik klasörlerini yeniden tara</string>
+    <string name="tab_songs">Şarkılar</string>
+    <string name="tab_albums">Albümler</string>
+    <string name="tab_artists">Sanatçılar</string>
+    <string name="tab_folders">Klasörler</string>
+    <string name="needs_attention_filter">İlgi bekleyenler (%1$d)</string>
+    <string name="sort">Sırala</string>
+    <string name="sort_title">Başlık</string>
+    <string name="sort_artist">Sanatçı</string>
+    <string name="sort_album">Albüm</string>
+    <string name="sort_date_added">Eklenme tarihi</string>
+    <string name="sort_date_modified">Değiştirilme tarihi</string>
+    <string name="sort_duration">Süre</string>
+    <string name="sort_ascending">Artan</string>
+    <string name="sort_descending">Azalan</string>
+    <string name="shuffle_all">Hepsini karıştır</string>
+    <string name="play_all">Hepsini çal</string>
+    <string name="edit_together">Birlikte düzenle</string>
+    <string name="play_selection">Çal</string>
+    <string name="select_all">Tümünü seç</string>
+    <string name="close_selection">Seçmeyi bırak</string>
+    <plurals name="selected_count">
+        <item quantity="one">%1$d seçili</item>
+        <item quantity="other">%1$d seçili</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%1$d şarkı</item>
+        <item quantity="other">%1$d şarkı</item>
+    </plurals>
+    <string name="permission_title">Müziğiniz düzenlenmeye hazır</string>
+    <string name="permission_description">Metadator\'ın müziğinizi listeleyebilmesi için onu görmesi gerekir. Cihazınızdan hiçbir şey çıkmaz ve siz kaydedene kadar hiçbir dosya değişmez.</string>
+    <string name="permission_grant">Erişime izin ver</string>
+    <string name="permission_denied_description">Müziğinize erişim kapatılmış. Uygulamanın ayarlarından açabilir ya da izin vermeden tek bir dosya açabilirsiniz.</string>
+    <string name="permission_open_settings">Ayarları aç</string>
+    <string name="empty_library_title">Henüz şarkı yok</string>
+    <string name="empty_library_description">Metadator, Android\'in cihazınızda bulduğu şarkıları listeler. Müzik klasörüne müzik kopyalayın; yeni kopyaladıysanız yeniden tarayın.</string>
+    <string name="no_results_title">Eşleşen bir şey yok</string>
+    <string name="no_results_description">Daha az sözcük deneyin veya filtreleri temizleyin.</string>
+    <string name="clear_filters">Filtreleri temizle</string>
+    <string name="library_load_failed">Kitaplık okunamadı</string>
+    <string name="collection_play">Çal</string>
+    <string name="collection_shuffle">Karıştır</string>
+    <string name="collection_edit_all">Tümünü düzenle</string>
+    <string name="back">Geri</string>
+    <string name="no_song_open_title">Bir şarkı seçin</string>
+    <string name="no_song_open_description">Etiketleri burada, kitaplığınızın yanında açılır.</string>
+
+    <string name="keyboard_shortcuts">Klavye kısayolları</string>
+    <string name="shortcuts_library">Kitaplık</string>
+    <string name="shortcut_search">Kitaplıkta ara</string>
+    <string name="shortcut_list_start">İlk şarkıya git</string>
+    <string name="shortcut_list_end">Son şarkıya git</string>
+    <string name="edit_song">Etiketleri düzenle</string>
+    <string name="play_song">Çal</string>
+    <string name="select_song">Seç</string>
+    <string name="deselect_song">Seçimden çıkar</string>
+    <string name="open_in_new_window">Yeni pencerede aç</string>
+</resources>
