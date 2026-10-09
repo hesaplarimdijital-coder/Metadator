@@ -74,6 +74,33 @@
     <string name="file_channels_stereo">Stereo</string>
     <string name="file_location">Location</string>
 
+    <string name="lossless_checking">Checking whether the audio is really lossless…</string>
+    <string name="lossless_failed">The audio couldn\'t be read to check whether it is really lossless</string>
+    <string name="lossless_verdict_lossless">Looks like real lossless</string>
+    <string name="lossless_verdict_upscaled">Lossless, but upscaled</string>
+    <string name="lossless_verdict_unclear">Can\'t tell whether it is real lossless</string>
+    <string name="lossless_verdict_probably_transcoded">Probably made from a lossy file</string>
+    <string name="lossless_verdict_transcoded">Made from a lossy file</string>
+    <string name="lossless_summary_full_band">No sign of lossy compression: the sound fills the whole band, up to %1$s kHz.</string>
+    <string name="lossless_summary_natural_end">No sign of lossy compression: the sound reaches %1$s kHz, as far as a real recording does.</string>
+    <string name="lossless_summary_transcoded">The sound stops dead at %1$s kHz, as an MP3 or AAC of about %2$d kbps does. The file is as large as a real one, but sounds like the lossy one.</string>
+    <string name="lossless_summary_probably">The sound stops at %1$s kHz. A lossy file of about %2$d kbps ends there, and so do a few real masters.</string>
+    <string name="lossless_summary_shelf">The band above 16 kHz comes and goes, as an MP3 encoder leaves it.</string>
+    <string name="lossless_summary_upsampled">A %1$s kHz file whose sound stops at %2$s kHz: audio of a lower resolution saved at a higher sample rate.</string>
+    <string name="lossless_summary_padded">A %1$d-bit file that only uses %2$d bits: audio of a lower resolution saved at a higher bit depth.</string>
+    <string name="lossless_summary_too_quiet">There is too little sound in it to judge.</string>
+    <string name="lossless_summary_low_rate">Its sample rate is too low for the cut of a lossy encoder to show.</string>
+    <string name="lossless_summary_borderline">The sound stops at %1$s kHz, between where lossy encoders cut and where real recordings end.</string>
+    <string name="lossless_format">%1$s · %2$d-bit · %3$s kHz</string>
+    <string name="lossless_cutoff">Sound up to %1$s kHz</string>
+    <string name="lossless_source_bitrate">Source of about %1$d kbps</string>
+    <string name="lossless_bits_used">Uses %1$d of %2$d bits</string>
+    <string name="lossless_frequency">%1$s kHz</string>
+    <string name="lossless_chart_description">How loud each frequency of the song is, from the lowest to the highest the file can hold</string>
+    <string name="lossless_footnote">Read from the spectrum of about %1$d seconds of the song, on this device. A lossy file of a very high bitrate keeps the whole band and can pass for lossless.</string>
+    <string name="lossless_expanded">Details shown</string>
+    <string name="lossless_collapsed">Details hidden</string>
+
     <string name="unsaved_title">Discard changes?</string>
     <string name="unsaved_description">The changes to this song haven\'t been saved.</string>
     <string name="unsaved_discard">Discard</string>

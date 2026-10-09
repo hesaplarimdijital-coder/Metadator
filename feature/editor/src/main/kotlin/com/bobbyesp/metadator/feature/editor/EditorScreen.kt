@@ -114,6 +114,7 @@ import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.feature.editor.components.CoverCard
 import com.bobbyesp.metadator.feature.editor.components.FileInfoCard
+import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
 import com.bobbyesp.metadator.feature.editor.components.TagChipsField
 import com.bobbyesp.metadator.feature.editor.components.TagTextField
@@ -262,6 +263,7 @@ internal fun EditorScreen(
                                     verticalArrangement = Arrangement.spacedBy(Spacing.extraLarge),
                                 ) {
                                     cover(Modifier)
+                                    LosslessCheckCard(state.lossless, initiallyExpanded = true)
                                     FileInfoCard(loaded)
                                 }
                                 LazyColumn(
@@ -285,6 +287,16 @@ internal fun EditorScreen(
                             ) {
                                 item(key = "cover") {
                                     cover(Modifier.padding(vertical = Spacing.large))
+                                }
+                                // Before the tags: what the file is worth says whether they are
+                                // worth filling in.
+                                if (state.lossless != LosslessCheckState.None) {
+                                    item(key = "lossless") {
+                                        LosslessCheckCard(
+                                            state.lossless,
+                                            Modifier.padding(bottom = Spacing.large).animateItem(),
+                                        )
+                                    }
                                 }
                                 fields(state, draft, onIntent)
                                 item(key = "file-header") {

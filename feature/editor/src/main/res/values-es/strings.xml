@@ -74,6 +74,33 @@
     <string name="file_channels_stereo">Estéreo</string>
     <string name="file_location">Ubicación</string>
 
+    <string name="lossless_checking">Comprobando si el audio es realmente sin pérdidas…</string>
+    <string name="lossless_failed">No se pudo leer el audio para comprobar si es realmente sin pérdidas</string>
+    <string name="lossless_verdict_lossless">Parece sin pérdidas de verdad</string>
+    <string name="lossless_verdict_upscaled">Sin pérdidas, pero reescalado</string>
+    <string name="lossless_verdict_unclear">No se puede saber si es sin pérdidas de verdad</string>
+    <string name="lossless_verdict_probably_transcoded">Probablemente hecho a partir de un archivo con pérdidas</string>
+    <string name="lossless_verdict_transcoded">Hecho a partir de un archivo con pérdidas</string>
+    <string name="lossless_summary_full_band">Sin señales de compresión con pérdidas: el sonido ocupa toda la banda, hasta %1$s kHz.</string>
+    <string name="lossless_summary_natural_end">Sin señales de compresión con pérdidas: el sonido llega hasta %1$s kHz, hasta donde llega una grabación real.</string>
+    <string name="lossless_summary_transcoded">El sonido se corta en seco a %1$s kHz, como en un MP3 o AAC de unos %2$d kbps. El archivo ocupa lo que uno real, pero suena como el que tenía pérdidas.</string>
+    <string name="lossless_summary_probably">El sonido se corta a %1$s kHz. Ahí termina un archivo con pérdidas de unos %2$d kbps, y también algunos másteres reales.</string>
+    <string name="lossless_summary_shelf">La banda por encima de 16 kHz va y viene, como la deja un codificador de MP3.</string>
+    <string name="lossless_summary_upsampled">Un archivo de %1$s kHz cuyo sonido se corta a %2$s kHz: audio de menor resolución guardado con una frecuencia de muestreo mayor.</string>
+    <string name="lossless_summary_padded">Un archivo de %1$d bits que solo usa %2$d: audio de menor resolución guardado con más bits.</string>
+    <string name="lossless_summary_too_quiet">Tiene demasiado poco sonido para juzgarlo.</string>
+    <string name="lossless_summary_low_rate">Su frecuencia de muestreo es demasiado baja para que se vea el corte de un codificador con pérdidas.</string>
+    <string name="lossless_summary_borderline">El sonido se corta a %1$s kHz, entre donde cortan los codificadores con pérdidas y donde terminan las grabaciones reales.</string>
+    <string name="lossless_format">%1$s · %2$d bits · %3$s kHz</string>
+    <string name="lossless_cutoff">Sonido hasta %1$s kHz</string>
+    <string name="lossless_source_bitrate">Origen de unos %1$d kbps</string>
+    <string name="lossless_bits_used">Usa %1$d de %2$d bits</string>
+    <string name="lossless_frequency">%1$s kHz</string>
+    <string name="lossless_chart_description">Cuánto suena cada frecuencia de la canción, de la más baja a la más alta que cabe en el archivo</string>
+    <string name="lossless_footnote">Leído del espectro de unos %1$d segundos de la canción, en este dispositivo. Un archivo con pérdidas de tasa de bits muy alta conserva toda la banda y puede pasar por uno sin pérdidas.</string>
+    <string name="lossless_expanded">Detalles a la vista</string>
+    <string name="lossless_collapsed">Detalles ocultos</string>
+
     <string name="unsaved_title">¿Descartar los cambios?</string>
     <string name="unsaved_description">Los cambios en esta canción no se han guardado.</string>
     <string name="unsaved_discard">Descartar</string>

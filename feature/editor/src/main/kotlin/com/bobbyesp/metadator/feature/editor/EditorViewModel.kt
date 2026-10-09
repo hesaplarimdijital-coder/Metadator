@@ -15,6 +15,9 @@ import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.domain.editor.TrackPositions
 import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
 import com.bobbyesp.metadator.core.domain.lyrics.FindLyricsUseCase
+import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
+import com.bobbyesp.metadator.core.domain.quality.LosslessCheckResult
+import com.bobbyesp.metadator.core.domain.quality.LosslessReport
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
@@ -34,6 +37,7 @@ import com.bobbyesp.metadator.tags.api.BackupId
 import com.bobbyesp.metadator.tags.api.EmbeddedPicture
 import com.bobbyesp.metadator.tags.api.PictureType
 import com.bobbyesp.metadator.tags.api.TagField
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -56,6 +60,19 @@ sealed interface EditorStatus {
     data class Failed(val message: String) : EditorStatus
 }
 
+/** Where the look at a lossless file's audio stands. */
+sealed interface LosslessCheckState {
+    /** Not looked at, or not a file whose audio is: there is nothing to show. */
+    data object None : LosslessCheckState
+
+    data object Checking : LosslessCheckState
+
+    data class Done(val report: LosslessReport) : LosslessCheckState
+
+    /** A lossless file by its name, whose audio could not be read. */
+    data object Failed : LosslessCheckState
+}
+
 data class EditorState(
     val ref: ContentRef,
     val status: EditorStatus = EditorStatus.Loading,
@@ -63,6 +80,7 @@ data class EditorState(
     val draft: TagDraft? = null,
     val positionStyle: PositionStyle = PositionStyle.Combined,
     val coverInfo: ImageInfo? = null,
+    val lossless: LosslessCheckState = LosslessCheckState.None,
     val saving: Boolean = false,
     val findingLyrics: Boolean = false,
     val loadingCover: Boolean = false,
@@ -123,6 +141,7 @@ class EditorViewModel(
     private val restoreBackup: RestoreBackupUseCase,
     private val writeAccess: WriteAccess,
     private val findLyricsUseCase: FindLyricsUseCase,
+    private val checkLossless: CheckLosslessUseCase,
     private val artworkDownloader: ArtworkDownloader,
     private val images: ImageSource,
     private val settingsRepository: SettingsRepository,
@@ -130,6 +149,7 @@ class EditorViewModel(
     private val strings: StringProvider,
     private val savedState: SavedStateHandle,
 ) : BaseViewModel<EditorIntent, EditorState, EditorEffect>(EditorState(ref)) {
+    private var losslessCheck: Job? = null
 
     init {
         settingsRepository.settings
@@ -197,6 +217,7 @@ class EditorViewModel(
                         )
                     }
                     inspectCover()
+                    inspectAudio(loaded)
                 }
                 LoadTrackResult.NotFound -> setState { copy(status = EditorStatus.NotFound) }
                 LoadTrackResult.AccessDenied ->
@@ -234,6 +255,38 @@ class EditorViewModel(
 
         val info = cover?.let { images.inspect(it.data) }
         if (currentState.draft?.cover === cover) setState { copy(coverInfo = info) }
+    }
+
+    /**
+     * Looks at the audio of a lossless file for the marks of a lossy source. Once per load: saving
+     * changes the tags, never the audio.
+     */
+    private fun inspectAudio(loaded: LoadedTrack) {
+        losslessCheck?.cancel()
+        // What a file is called is only a hint, but a name that says MP3 is not worth opening it.
+        val extension = loaded.fileExtension
+        val named = extension in LOSSLESS_EXTENSIONS
+        if (extension != null && !named) {
+            setState { copy(lossless = LosslessCheckState.None) }
+            return
+        }
+        val unreadable = if (named) LosslessCheckState.Failed else LosslessCheckState.None
+        losslessCheck =
+            launch(onError = { setState { copy(lossless = unreadable) } }) {
+                setState {
+                    copy(
+                        lossless =
+                            if (named) LosslessCheckState.Checking else LosslessCheckState.None
+                    )
+                }
+                val checked =
+                    when (val result = checkLossless(ref)) {
+                        is LosslessCheckResult.Checked -> LosslessCheckState.Done(result.report)
+                        LosslessCheckResult.NotApplicable -> LosslessCheckState.None
+                        LosslessCheckResult.Unreadable -> unreadable
+                    }
+                setState { copy(lossless = checked) }
+            }
     }
 
     private fun save() {
@@ -449,6 +502,9 @@ class EditorViewModel(
 
     private companion object {
         const val KEY_PENDING = "pending_fields"
+
+        /** The formats [CheckLosslessUseCase] reads, by the names their files go by. */
+        val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave")
         val pendingSerializer =
             MapSerializer(String.serializer(), ListSerializer(String.serializer()))
     }

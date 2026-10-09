@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.system.ErrnoException
+import android.system.Os
 import androidx.core.net.toUri
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.model.ContentRef
@@ -19,6 +21,7 @@ import com.bobbyesp.metadator.library.api.FileDescription
 import com.bobbyesp.metadator.library.api.OpenResult
 import com.bobbyesp.metadator.library.api.OpenedAudioFile
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.withContext
 
@@ -71,7 +74,19 @@ class ContentResolverFileOpener(
 }
 
 private class ParcelAudioFile(private val pfd: ParcelFileDescriptor) : OpenedAudioFile {
+    override val size: Long
+        get() = pfd.statSize
+
     override fun detachDuplicateFd(): Int = pfd.dup().detachFd()
+
+    override fun read(position: Long, buffer: ByteArray, offset: Int, length: Int): Int =
+        try {
+            // At a position of its own, so the descriptor's stays where native code left it.
+            Os.pread(pfd.fileDescriptor, buffer, offset, length, position)
+        } catch (error: ErrnoException) {
+            // A pipe or a socket, which have no positions to read at.
+            throw IOException(error)
+        }
 
     override fun close() = pfd.close()
 }
