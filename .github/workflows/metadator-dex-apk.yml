@@ -29,13 +29,16 @@ jobs:
         with:
           cache-read-only: 'false'
 
+      # Each step keeps what Gradle said, for the report below.
       - name: Unit tests of the plain Kotlin modules
-        run: >
-          ./gradlew
-          :core:common:test :core:domain:test :tags:api:test
-          :lookup:api:test :lookup:musicbrainz:test :lookup:deezer:test
-          :lyrics:api:test :lyrics:lrclib:test
-          --continue
+        id: tests
+        run: |
+          set -o pipefail
+          ./gradlew \
+            :core:common:test :core:domain:test :tags:api:test \
+            :lookup:api:test :lookup:musicbrainz:test :lookup:deezer:test :lookup:itunes:test \
+            :lyrics:api:test :lyrics:lrclib:test \
+            --continue 2>&1 | tee tests.log
 
       # A release build, as the app is meant to run: a debug one is slower, and brings LeakCanary
       # along. Signed with the key kept in this branch, so that each build installs over the one
@@ -49,7 +52,9 @@ jobs:
           SIGNING_STORE_PASSWORD: android
           SIGNING_KEY_ALIAS: androiddebugkey
           SIGNING_KEY_PASSWORD: android
-        run: ./gradlew :app:assembleFossRelease -Pmetadator.fork=dex
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleFossRelease -Pmetadator.fork=dex 2>&1 | tee build.log
 
       - name: Check that the APK is signed
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -70,12 +75,29 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # A release asset can be downloaded with the repository's token; an artifact cannot.
-      - name: Publish the APK as a release asset
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      # A release asset can be downloaded with the repository's token; an artifact cannot, and
+      # neither can the log of a run. So the APK goes there, and with it what the compiler and the
+      # tests had to say, whether or not the build got as far as an APK.
+      - name: Publish the APK and the build report
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          {
+            echo "commit $GITHUB_SHA"
+            echo "tests: ${{ steps.tests.outcome }}, build: ${{ steps.build.outcome }}"
+            echo
+            echo "--- errors, warnings and failed tests ---"
+            cat tests.log build.log 2>/dev/null |
+              grep -E "^(e|w): |FAILED|^> Task .* FAILED|What went wrong|error:|Error:|tests completed" |
+              sort -u | head -n 300
+            echo
+            echo "--- the end of the tests ---"
+            tail -n 60 tests.log 2>/dev/null
+            echo
+            echo "--- the end of the build ---"
+            tail -n 120 build.log 2>/dev/null
+          } > build-report.txt || true
           notes="The latest build of the metadator-dex branch ($GITHUB_SHA)."
           if gh release view metadator-dex-apk >/dev/null 2>&1; then
             gh release edit metadator-dex-apk --title "Metadator DeX" --notes "$notes"
@@ -83,4 +105,7 @@ jobs:
             gh release create metadator-dex-apk --prerelease --target "$GITHUB_SHA" \
               --title "Metadator DeX" --notes "$notes"
           fi
-          gh release upload metadator-dex-apk metadator-dex.apk --clobber
+          gh release upload metadator-dex-apk build-report.txt --clobber
+          if [ -f metadator-dex.apk ]; then
+            gh release upload metadator-dex-apk metadator-dex.apk --clobber
+          fi
