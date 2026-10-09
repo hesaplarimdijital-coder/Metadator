@@ -72,6 +72,9 @@ fun ContextMenuArea(
 ) {
     val currentActions by rememberUpdatedState(actions)
     var open by remember { mutableStateOf(false) }
+    // A list has one of these for each of its rows, and most rows are never clicked this way: the
+    // menu is only made once it has been asked for.
+    var asked by remember { mutableStateOf(false) }
     // Kept after the menu closes: it is still there, fading, where it was.
     var anchor by remember { mutableStateOf(IntOffset.Zero) }
     var shown by remember { mutableStateOf(emptyList<MenuAction>()) }
@@ -87,6 +90,7 @@ fun ContextMenuArea(
                 if (offered.isNotEmpty()) {
                     shown = offered
                     anchor = down.position.round()
+                    asked = true
                     open = true
                 }
                 // The rest of the click is nobody's: neither a tap nor a long press of what is
@@ -99,9 +103,11 @@ fun ContextMenuArea(
         }
     ) {
         content()
-        // A point for the menu to hang from, where the pointer was.
-        Box(Modifier.offset { anchor }.size(0.dp)) {
-            ActionMenu(expanded = open, onDismissRequest = { open = false }, actions = shown)
+        if (asked) {
+            // A point for the menu to hang from, where the pointer was.
+            Box(Modifier.offset { anchor }.size(0.dp)) {
+                ActionMenu(expanded = open, onDismissRequest = { open = false }, actions = shown)
+            }
         }
     }
 }

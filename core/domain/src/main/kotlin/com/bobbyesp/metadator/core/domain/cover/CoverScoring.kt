@@ -112,9 +112,7 @@ internal object CoverScoring {
         if (sameAsCurrent) {
             reasons += CoverReason.SameAsCurrent
             val edge = evidence.dimensions?.shortEdge
-            if (
-                edge != null && current != null && edge >= current.dimensions.shortEdge * LARGER_BY
-            ) {
+            if (edge != null && edge >= current.dimensions.shortEdge * LARGER_BY) {
                 reasons += CoverReason.LargerThanCurrent
             }
         }
