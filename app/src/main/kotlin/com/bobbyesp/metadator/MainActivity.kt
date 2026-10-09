@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator
 
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -48,5 +49,12 @@ class MainActivity : ComponentActivity() {
                 MetadatorTheme(current) { MetadatorApp(onExit = ::finish) }
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // The activity stays through a change between day and night (see the manifest), so
+        // nothing else gives the system bars the icons that go with the new one.
+        enableEdgeToEdge()
     }
 }

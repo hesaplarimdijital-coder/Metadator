@@ -4,6 +4,7 @@
 package com.bobbyesp.metadator
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -71,6 +72,13 @@ class ExternalEditorActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // As in the main activity: the bars' icons follow day and night, which no longer
+        // recreate the activity.
+        enableEdgeToEdge()
     }
 
     private fun Intent.audioUri(): Uri? =
