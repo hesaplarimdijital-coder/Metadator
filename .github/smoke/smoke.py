@@ -858,25 +858,29 @@ def compact_layout():
     return "the library alone, then the editor alone, and Ctrl+W back"
 
 
-class Mouse:
-    """A mouse the system believes is plugged in, made with its uinput command."""
+class Gesture:
+    """What a mouse, and the keys held with it, do in one go, sent as one file to the system's
+    uinput command: the two devices are plugged in, used, and taken out again when it is done.
+
+    A uinput process kept running for the whole test was found gone between two steps, with
+    nothing said. One per gesture has nothing to outlive. Each device keeps its own clock (its
+    delays add up from when it was plugged in), so every event is put at a time counted from
+    then, and each device is given the delays that bring it there.
+    """
 
     EV_SYN, EV_KEY, EV_REL = 0, 1, 2
     REL_X, REL_Y = 0, 1
     BTN_LEFT, BTN_RIGHT = 272, 273
     KEY_LEFTCTRL, KEY_LEFTSHIFT = 29, 42
+    MOUSE, KEYS = 1, 2
+
+    # The system takes a moment to set a new device up; what is sent before is lost.
+    SETTLE_MS = 1500
 
     def __init__(self):
-        self.said = open(os.path.join(out_dir, "uinput.txt"), "wb")
-        self.process = subprocess.Popen(
-            ["adb", "shell", "uinput", "-"],
-            stdin=subprocess.PIPE,
-            stdout=self.said,
-            stderr=self.said,
-        )
-        self.send(
+        self.commands = [
             {
-                "id": 1,
+                "id": self.MOUSE,
                 "command": "register",
                 "name": "Smoke test mouse",
                 "vid": 6353,
@@ -887,12 +891,9 @@ class Mouse:
                     {"type": 101, "data": [self.BTN_LEFT, self.BTN_RIGHT]},
                     {"type": 102, "data": [self.REL_X, self.REL_Y]},
                 ],
-            }
-        )
-        # A second device for the keys held while clicking: a mouse has none of its own.
-        self.send(
+            },
             {
-                "id": 2,
+                "id": self.KEYS,
                 "command": "register",
                 "name": "Smoke test keys",
                 "vid": 6353,
@@ -902,83 +903,111 @@ class Mouse:
                     {"type": 100, "data": [self.EV_KEY]},
                     {"type": 101, "data": [self.KEY_LEFTCTRL, self.KEY_LEFTSHIFT]},
                 ],
-            }
-        )
-        time.sleep(4)
+            },
+        ]
+        self.now = self.SETTLE_MS
+        self.clock = {self.MOUSE: 0, self.KEYS: 0}
 
-    def send(self, command):
-        self.process.stdin.write((json.dumps(command) + "\n").encode())
-        self.process.stdin.flush()
+    def _send(self, device, events):
+        behind = self.now - self.clock[device]
+        if behind > 0:
+            self.commands.append({"id": device, "command": "delay", "duration": behind})
+            self.clock[device] = self.now
+        self.commands.append({"id": device, "command": "inject", "events": events})
 
-    def inject(self, events, device=1):
-        self.send({"id": device, "command": "inject", "events": events})
-
-    def pause(self, milliseconds, device=1):
-        self.send({"id": device, "command": "delay", "duration": milliseconds})
+    def wait(self, milliseconds):
+        self.now += milliseconds
+        return self
 
     def to_corner(self):
         """Top left, wherever the pointer was: the one place it can be sent without seeing it."""
         for _ in range(40):
-            self.inject([self.EV_REL, self.REL_X, -200, self.EV_REL, self.REL_Y, -200, 0, 0, 0])
-            self.pause(4)
-        time.sleep(0.8)
+            self._send(self.MOUSE, [self.EV_REL, self.REL_X, -200, self.EV_REL, self.REL_Y, -200, 0, 0, 0])
+            self.wait(4)
+        return self.wait(300)
 
     def move(self, dx, dy):
-        """Slowly, a few counts at a time: a fast mouse is sped up further by the system."""
+        """Slowly, a few counts at a time: a mouse moved fast is sped up further by the system."""
         steps = max(abs(dx), abs(dy)) // 3 + 1
         done_x = done_y = 0
         for index in range(1, steps + 1):
             x, y = dx * index // steps, dy * index // steps
-            self.inject(
-                [self.EV_REL, self.REL_X, x - done_x, self.EV_REL, self.REL_Y, y - done_y, 0, 0, 0]
+            self._send(
+                self.MOUSE,
+                [self.EV_REL, self.REL_X, x - done_x, self.EV_REL, self.REL_Y, y - done_y, 0, 0, 0],
             )
-            self.pause(12)
+            self.wait(12)
             done_x, done_y = x, y
-        time.sleep(steps * 0.014 + 0.8)
+        return self.wait(300)
 
     def click(self, button):
-        self.inject([self.EV_KEY, button, 1, 0, 0, 0])
-        self.pause(90)
-        self.inject([self.EV_KEY, button, 0, 0, 0, 0])
-        self.pause(90)
-        time.sleep(1.2)
+        self._send(self.MOUSE, [self.EV_KEY, button, 1, 0, 0, 0])
+        self.wait(90)
+        self._send(self.MOUSE, [self.EV_KEY, button, 0, 0, 0, 0])
+        return self.wait(400)
 
     def hold(self, key_code, down):
-        self.inject([self.EV_KEY, key_code, 1 if down else 0, 0, 0, 0], device=2)
-        self.pause(60, device=2)
-        time.sleep(0.4)
+        self._send(self.KEYS, [self.EV_KEY, key_code, 1 if down else 0, 0, 0, 0])
+        return self.wait(150)
 
-    def close(self):
-        try:
-            self.process.stdin.close()
-            self.process.wait(timeout=10)
-        except Exception:
-            self.process.kill()
-        self.said.close()
+    def _file(self, linger):
+        """The commands, with both devices kept until the last event and [linger] after it."""
+        self.wait(linger)
+        commands = list(self.commands)
+        for device in (self.MOUSE, self.KEYS):
+            behind = self.now - self.clock[device]
+            if behind > 0:
+                commands.append({"id": device, "command": "delay", "duration": behind})
+        path = os.path.join(out_dir, "gesture.json")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write("\n".join(json.dumps(command) for command in commands) + "\n")
+        adb("push", path, "/data/local/tmp/gesture.json", timeout=60)
+        return self.now
+
+    def run(self, linger=1000):
+        """Does it all, and returns once the devices are gone again."""
+        total = self._file(linger)
+        said = adb("shell", "uinput /data/local/tmp/gesture.json", timeout=total / 1000 + 60)
+        if said.strip():
+            log(f"    uinput: {said.strip()[:300]}")
+        time.sleep(0.5)
+
+    def start(self, linger):
+        """Does it all in the background: the devices stay for [linger] after the last event."""
+        self._file(linger)
+        return subprocess.Popen(
+            ["adb", "shell", "uinput /data/local/tmp/gesture.json"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
-mouse = None
 # How far the pointer goes for each count the mouse sends. The system adds no speed to a mouse
 # moved as slowly as this one is, so 1 is tried first; the first click that lands says which.
 pointer_gain = None
+mouse_works = False
 
 
 def plug_mouse():
-    global mouse
+    """A mouse and keys plugged in, with the app open: the activity stays the same object."""
+    global mouse_works
     instance = activity_instance()
-    mouse = Mouse()
-    devices = shell("dumpsys input", timeout=60)
-    if "Smoke test mouse" not in devices:
-        mouse.close()
-        mouse = None
-        raise Skipped("the system did not take the made-up mouse")
-    with open(os.path.join(out_dir, "input-devices.txt"), "w", encoding="utf-8") as file:
-        file.write(devices)
-    now = activity_instance()
-    if instance and now and now != instance:
-        raise Failed(f"plugging a mouse in recreated the activity ({instance} -> {now})")
-    expect("One More Time", 15)
-    return "a mouse and keys are plugged in, and the activity stayed as it was"
+    gesture = Gesture().start(linger=8000)
+    try:
+        time.sleep(4)
+        devices = shell("dumpsys input", timeout=60)
+        with open(os.path.join(out_dir, "input-devices.txt"), "w", encoding="utf-8") as file:
+            file.write(devices)
+        if "Smoke test mouse" not in devices:
+            raise Skipped("the system did not take the made-up mouse")
+        now = activity_instance()
+        if instance and now and now != instance:
+            raise Failed(f"plugging a mouse in recreated the activity ({instance} -> {now})")
+        expect("One More Time", 15)
+    finally:
+        gesture.wait(timeout=60)
+    mouse_works = True
+    return "a mouse and keys were plugged in and taken out, and the activity stayed as it was"
 
 
 def rows():
@@ -995,15 +1024,19 @@ def aim(node):
 def right_click_menu():
     """The second button opens the song's menu, and does not open the song."""
     global pointer_gain
-    if not mouse:
+    if not mouse_works:
         raise Skipped("no mouse")
     target_x, target_y = aim(rows()[1])
     tried = []
     gains = (pointer_gain,) if pointer_gain else (1.0, 2.0, 0.5, 1.5, 3.0, 0.75)
     for gain in gains:
-        mouse.to_corner()
-        mouse.move(int(target_x / gain), int(target_y / gain))
-        mouse.click(Mouse.BTN_RIGHT)
+        (
+            Gesture()
+            .to_corner()
+            .move(int(target_x / gain), int(target_y / gain))
+            .click(Gesture.BTN_RIGHT)
+            .run()
+        )
         nodes = screen()
         if find("Open in a new window", nodes):
             pointer_gain = gain
@@ -1029,7 +1062,7 @@ def right_click_menu():
 
 
 def open_in_new_window():
-    if not mouse or pointer_gain is None:
+    if not mouse_works or pointer_gain is None:
         raise Skipped("no menu to choose from")
     tap(expect("^Open in a new window$", 10))
     time.sleep(4)
@@ -1048,22 +1081,31 @@ def open_in_new_window():
 
 
 def ctrl_click_selects():
-    if not mouse or pointer_gain is None:
+    if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
     listed = rows()
     x, first_y = aim(listed[0])
     _, third_y = aim(listed[2])
-    mouse.to_corner()
-    mouse.move(int(x / pointer_gain), int(first_y / pointer_gain))
-    mouse.hold(Mouse.KEY_LEFTCTRL, True)
-    mouse.click(Mouse.BTN_LEFT)
-    mouse.hold(Mouse.KEY_LEFTCTRL, False)
+    (
+        Gesture()
+        .to_corner()
+        .move(int(x / pointer_gain), int(first_y / pointer_gain))
+        .hold(Gesture.KEY_LEFTCTRL, True)
+        .click(Gesture.BTN_LEFT)
+        .hold(Gesture.KEY_LEFTCTRL, False)
+        .run()
+    )
     expect("1 selected", 15)
     # Two rows down with Shift: everything from the first one to that one.
-    mouse.move(0, int((third_y - first_y) / pointer_gain))
-    mouse.hold(Mouse.KEY_LEFTSHIFT, True)
-    mouse.click(Mouse.BTN_LEFT)
-    mouse.hold(Mouse.KEY_LEFTSHIFT, False)
+    (
+        Gesture()
+        .to_corner()
+        .move(int(x / pointer_gain), int(third_y / pointer_gain))
+        .hold(Gesture.KEY_LEFTSHIFT, True)
+        .click(Gesture.BTN_LEFT)
+        .hold(Gesture.KEY_LEFTSHIFT, False)
+        .run()
+    )
     node = expect(r"3 selected", 15)
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
@@ -1072,18 +1114,22 @@ def ctrl_click_selects():
 
 
 def tooltip_on_hover():
-    if not mouse or pointer_gain is None:
+    if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
     nodes = screen()
     button = find("^More options$", nodes)
     if not button:
         raise Skipped("no icon button to rest on")
     x, y = button[0].center
-    mouse.to_corner()
-    mouse.move(int(x / pointer_gain), int(y / pointer_gain))
-    time.sleep(2.5)
+    moves = Gesture().to_corner().move(int(x / pointer_gain), int(y / pointer_gain))
+    arrives = moves.now / 1000
+    gesture = moves.start(linger=8000)
+    # The pointer rests there while the picture is taken, a little after a tooltip would show;
+    # then the mouse goes.
+    time.sleep(1 + arrives + 3)
     picture_before = shots
     screenshot("pointer-resting-on-a-button")
+    gesture.wait(timeout=60)
     # A tooltip is a window of its own, which the dump of the window in front does not show:
     # the picture is what says whether it came.
     return f"see picture {picture_before + 1}"
@@ -1172,8 +1218,6 @@ def main():
     step("A song opens in a window of its own", open_in_new_window, required=False)
     step("Ctrl and Shift change what a click selects", ctrl_click_selects, required=False)
     step("A button says what it does under the pointer", tooltip_on_hover, required=False)
-    if mouse:
-        mouse.close()
     step("It speaks Turkish", turkish)
     step("Nothing crashed", no_crash)
 
