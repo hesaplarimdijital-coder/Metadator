@@ -87,6 +87,27 @@ builds `:app:assembleFossRelease -Pmetadator.fork=dex`:
   `build-report.txt` of the errors, the warnings and the end of each step's output. A release
   asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
 
+### The APK is then used (`.github/smoke`)
+
+A second job installs the published APK on an emulator and uses it through `adb`, as somebody at a
+desk would: nothing of the app is replaced or instrumented, so what is tried is what is installed
+on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it tries.
+
+- `make_audio.sh` makes the songs with FFmpeg: four tracks of one album, each a different answer
+  for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz).
+- `start_emulator.sh` boots an emulator with no window: a display of 1920 x 1080 at the density of
+  a monitor, and a keyboard with real keys. It drives `sdkmanager` itself, for the one thing the
+  runner does not ship: a system image.
+- `smoke.py` is the user. It reads the screen as the accessibility tree has it
+  (`uiautomator dump`), presses keys and taps (`input`), plugs in a mouse the system believes in
+  (`uinput`), changes the display under the app (`wm`, `cmd uimode`), and compares each song the
+  app wrote with what it was before, with FFprobe. Every step leaves a picture of the screen.
+- **It is a report, not a gate.** `smoke-report.txt` and `smoke.zip` (the pictures, the screens as
+  text, the device's log) are published next to the APK. A step that needs the network, or the
+  made-up mouse, is reported and does not fail the run.
+- **`[smoke-only]` in a commit message** skips the build: the APK already published is tried
+  again. For a push that only changes the scripts.
+
 ## Changing a workflow
 
 - A workflow runs as it is in the branch that triggered it, so a change is tested by its own pull

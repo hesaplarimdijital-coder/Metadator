@@ -4,6 +4,10 @@ name: Metadator DeX APK
 # it can be downloaded straight to a phone. This branch lives in a repository that is not a fork of
 # Metadator; the upstream CI workflow only runs on master, v2 and pull requests, so it never fires
 # here.
+#
+# The APK is then used on an emulator (see .github/smoke), and what happened there is published
+# next to it. A push that only changes how the APK is tried says so in its message, with
+# [smoke-only], and the APK already published is tried again without being built again.
 on:
   push:
     branches: [metadator-dex]
@@ -20,6 +24,7 @@ concurrency:
 jobs:
   apk:
     name: APK
+    if: ${{ !contains(github.event.head_commit.message, '[smoke-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -109,3 +114,70 @@ jobs:
           if [ -f metadator-dex.apk ]; then
             gh release upload metadator-dex-apk metadator-dex.apk --clobber
           fi
+
+  # Nothing above has run the app. This does: on an emulator as wide as a monitor, with a keyboard
+  # and a mouse, through adb, so that what is tried is the very APK that was published. It is a
+  # report, not a gate: the APK is out already, and the online sources the cover finder asks are
+  # not this build's to answer for.
+  smoke:
+    name: Use it on an emulator
+    needs: apk
+    if: ${{ !cancelled() && (needs.apk.result == 'success' || needs.apk.result == 'skipped') }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Take the APK that was published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download metadator-dex-apk --pattern metadator-dex.apk --dir .
+
+      - name: Make the songs to try it on
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg >/dev/null
+          fi
+          bash .github/smoke/make_audio.sh smoke-songs
+
+      # The runner's processor can run the emulator's as its own, once its user is allowed to.
+      - name: Let the emulator use the processor's virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start the emulator
+        id: emulator
+        run: |
+          set -o pipefail
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          bash .github/smoke/start_emulator.sh 2>&1 | tee emulator-start.log
+
+      - name: Use the app
+        id: use
+        run: |
+          set -o pipefail
+          python3 .github/smoke/smoke.py metadator-dex.apk smoke-songs smoke-out 2>&1 | tee smoke.log
+
+      # As with the build, the log of a run cannot be downloaded: what happened goes to the
+      # release, as a report to read and the pictures taken along the way.
+      - name: Publish what happened
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p smoke-out
+          cp emulator-start.log emulator.log smoke.log smoke-out/ 2>/dev/null || true
+          {
+            echo "commit $GITHUB_SHA"
+            echo "emulator: ${{ steps.emulator.outcome }}, the app: ${{ steps.use.outcome }}"
+            echo
+            cat smoke-out/report.txt 2>/dev/null || tail -n 80 emulator-start.log 2>/dev/null
+          } > smoke-report.txt || true
+          (cd smoke-out && zip -q -r ../smoke.zip . -x 'pulled/*')
+          gh release upload metadator-dex-apk smoke-report.txt smoke.zip --clobber
+

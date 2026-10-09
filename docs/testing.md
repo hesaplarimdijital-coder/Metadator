@@ -14,6 +14,29 @@
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
 
+## On an emulator, by a script
+
+The APK of the `metadator-dex` branch is used on an emulator after each build
+(`.github/smoke/smoke.py`, see [ci.md](ci.md#the-apk-is-then-used-githubsmoke)). The script goes
+through the app as a person would, and stops at nothing: each step is tried whatever became of
+the one before, and the report says which held.
+
+| What is tried | How it is told |
+|---|---|
+| The app opens, asks to see the music, and lists four songs copied to the device | What the screen says |
+| F1 lists the shortcuts; Ctrl+F searches; Ctrl+A, Ctrl+E, Ctrl+K, Ctrl+S and Ctrl+W do what the list says | What the screen says after each |
+| The lossless check: a genuine FLAC, one made from an MP3 of 128 kbps, one upsampled to 96 kHz, and an MP3 it has nothing to say about | The verdict on the card |
+| The cover finder, for one song and for the four together, against the real sources | The sheet's best match and its reasons. Not required: the sources are not ours |
+| Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
+| The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
+| A narrow window | One pane at a time |
+| A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput` |
+| Turkish | What the screen says |
+| Nothing crashed | The device's crash log |
+
+It is one pass on one emulator (Android 15, x86-64), with the files it makes itself. It says the
+build works there; it does not say how the app feels, and it is not Samsung DeX.
+
 ## Conventions
 
 - Ports are tested with fakes, not mocks of the framework. `FakeTagFiles` behaves like TagLib:
