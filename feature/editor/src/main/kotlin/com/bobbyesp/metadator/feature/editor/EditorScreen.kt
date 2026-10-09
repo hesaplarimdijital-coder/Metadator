@@ -3,10 +3,15 @@
  */
 package com.bobbyesp.metadator.feature.editor
 
+import android.view.KeyEvent
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,10 +80,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -104,6 +117,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.ShapedIcon
 import com.bobbyesp.metadator.core.designsystem.component.TonalFieldDefaults
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.sidesOf
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -112,6 +126,8 @@ import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.feature.editor.components.CoverCard
 import com.bobbyesp.metadator.feature.editor.components.FileInfoCard
 import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
@@ -123,6 +139,7 @@ import com.bobbyesp.metadator.tags.api.FieldKind
 import com.bobbyesp.metadator.tags.api.TagField
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.launch
 
 /** The fields of each section, in order. */
 private val MainFields =
@@ -162,6 +179,7 @@ internal fun EditorScreen(
     state: EditorState,
     onIntent: (EditorIntent) -> Unit,
     onFindMetadata: () -> Unit,
+    onFindCover: () -> Unit,
     onClose: () -> Unit,
     showClose: Boolean,
     modifier: Modifier = Modifier,
@@ -186,9 +204,22 @@ internal fun EditorScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) onIntent(EditorIntent.SetCoverFromUri(uri.toString()))
         }
+    val changeCover = {
+        pickCover.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val haze = rememberHazeState()
     val focusManager = LocalFocusManager.current
+    val fieldsState = rememberLazyListState()
+    EditorShortcuts(
+        state = state,
+        fieldsState = fieldsState,
+        onIntent = onIntent,
+        onFindMetadata = onFindMetadata,
+        onFindCover = onFindCover,
+        onChangeCover = changeCover,
+        onClose = leave,
+    )
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -237,18 +268,16 @@ internal fun EditorScreen(
                                 loadingCover = state.loadingCover,
                                 warnSmall = state.settings.warnSmallArtwork,
                                 isPlaying = state.isPlayingThis,
-                                onChangeCover = {
-                                    pickCover.launch(
-                                        PickVisualMediaRequest(
-                                            ActivityResultContracts.PickVisualMedia.ImageOnly
-                                        )
-                                    )
-                                },
-                                onFindCover = onFindMetadata,
+                                onChangeCover = changeCover,
+                                onFindCover = onFindCover,
                                 onRemoveCover = { onIntent(EditorIntent.RemoveCover) },
                                 onRevertCover = { onIntent(EditorIntent.RevertCover) },
                                 onPlay = { onIntent(EditorIntent.Play) },
-                                modifier = m,
+                                // On a desktop a picture is dragged in from the file manager.
+                                modifier =
+                                    m.imageDropTarget { uri ->
+                                        onIntent(EditorIntent.SetCoverFromUri(uri))
+                                    },
                             )
                         }
 
@@ -269,6 +298,7 @@ internal fun EditorScreen(
                                 LazyColumn(
                                     modifier =
                                         Modifier.weight(1f).padding(start = Spacing.extraLarge),
+                                    state = fieldsState,
                                     contentPadding =
                                         PaddingValues(bottom = Spacing.floatingClearance),
                                 ) {
@@ -278,6 +308,7 @@ internal fun EditorScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
+                                state = fieldsState,
                                 contentPadding =
                                     PaddingValues(
                                         start = Spacing.screen,
@@ -367,17 +398,25 @@ private fun EditorTopBar(
     TopAppBar(
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
-            IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
-                Icon(
-                    if (showClose) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.close),
-                )
+            Tooltip(stringResource(R.string.close)) {
+                IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
+                    Icon(
+                        if (showClose) Icons.Rounded.Close
+                        else Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.close),
+                    )
+                }
             }
         },
         actions = {
             Box {
-                IconButton(onClick = { menuOpen = true }, shapes = IconButtonDefaults.shapes()) {
-                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options))
+                Tooltip(stringResource(R.string.more_options)) {
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options))
+                    }
                 }
                 ActionMenu(
                     expanded = menuOpen,
@@ -425,21 +464,179 @@ private fun EditorToolbar(
         },
         modifier = modifier,
     ) {
-        IconButton(onClick = onFindMetadata, shapes = IconButtonDefaults.shapes()) {
-            Icon(Icons.Rounded.TravelExplore, stringResource(R.string.lookup_find))
+        Tooltip(stringResource(R.string.lookup_find)) {
+            IconButton(onClick = onFindMetadata, shapes = IconButtonDefaults.shapes()) {
+                Icon(Icons.Rounded.TravelExplore, stringResource(R.string.lookup_find))
+            }
         }
-        IconButton(
-            onClick = onFindLyrics,
-            enabled = !findingLyrics,
-            shapes = IconButtonDefaults.shapes(),
-        ) {
-            if (findingLyrics) LoadingIndicator()
-            else Icon(Icons.Rounded.Lyrics, stringResource(R.string.lyrics_find))
+        Tooltip(stringResource(R.string.lyrics_find)) {
+            IconButton(
+                onClick = onFindLyrics,
+                enabled = !findingLyrics,
+                shapes = IconButtonDefaults.shapes(),
+            ) {
+                if (findingLyrics) LoadingIndicator()
+                else Icon(Icons.Rounded.Lyrics, stringResource(R.string.lyrics_find))
+            }
         }
-        IconButton(onClick = onRevertAll, enabled = dirty, shapes = IconButtonDefaults.shapes()) {
-            Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.revert_all))
+        Tooltip(stringResource(R.string.revert_all)) {
+            IconButton(
+                onClick = onRevertAll,
+                enabled = dirty,
+                shapes = IconButtonDefaults.shapes(),
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.revert_all))
+            }
         }
     }
+}
+
+/** What the editor does from the keyboard, whatever has the focus. */
+@Composable
+private fun EditorShortcuts(
+    state: EditorState,
+    fieldsState: LazyListState,
+    onIntent: (EditorIntent) -> Unit,
+    onFindMetadata: () -> Unit,
+    onFindCover: () -> Unit,
+    onChangeCover: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val ready = state.status == EditorStatus.Ready
+    val scope = rememberCoroutineScope()
+    KeyboardShortcuts(
+        title = stringResource(R.string.shortcuts_editor),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_S,
+                    stringResource(R.string.save),
+                    ctrl = true,
+                    enabled = ready,
+                ) {
+                    onIntent(EditorIntent.Save)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_L,
+                    stringResource(R.string.lookup_find),
+                    ctrl = true,
+                    enabled = ready,
+                    action = onFindMetadata,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_L,
+                    stringResource(R.string.lyrics_find),
+                    ctrl = true,
+                    shift = true,
+                    enabled = ready && !state.findingLyrics,
+                ) {
+                    onIntent(EditorIntent.FindLyrics)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_K,
+                    stringResource(R.string.cover_find_online),
+                    ctrl = true,
+                    enabled = ready,
+                    action = onFindCover,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_K,
+                    stringResource(R.string.cover_change),
+                    ctrl = true,
+                    shift = true,
+                    enabled = ready,
+                    action = onChangeCover,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_P,
+                    stringResource(R.string.play_song),
+                    ctrl = true,
+                    enabled = ready,
+                ) {
+                    onIntent(EditorIntent.Play)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_W,
+                    stringResource(R.string.close),
+                    ctrl = true,
+                    action = onClose,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_PAGE_DOWN,
+                    stringResource(CoreUiR.string.shortcut_page_down),
+                    enabled = ready,
+                    repeats = true,
+                ) {
+                    scope.launch { fieldsState.scrollBy(fieldsState.pageHeight()) }
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_PAGE_UP,
+                    stringResource(CoreUiR.string.shortcut_page_up),
+                    enabled = ready,
+                    repeats = true,
+                ) {
+                    scope.launch { fieldsState.scrollBy(-fieldsState.pageHeight()) }
+                },
+            ),
+    )
+}
+
+/** Most of what is in view: a field or two stay, to keep the place. */
+private fun LazyListState.pageHeight(): Float = layoutInfo.viewportSize.height * 0.85f
+
+/**
+ * Takes a picture dropped on this element, as one dragged out of a file manager on a desktop is,
+ * and hands [onDropped] where it is. While one is held over it, an outline says it can be let go.
+ */
+@Composable
+private fun Modifier.imageDropTarget(onDropped: (uri: String) -> Unit): Modifier {
+    val activity = LocalActivity.current
+    val currentOnDropped by rememberUpdatedState(onDropped)
+    var hovered by remember { mutableStateOf(false) }
+    val target =
+        remember(activity) {
+            object : DragAndDropTarget {
+                override fun onEntered(event: DragAndDropEvent) {
+                    hovered = true
+                }
+
+                override fun onExited(event: DragAndDropEvent) {
+                    hovered = false
+                }
+
+                override fun onEnded(event: DragAndDropEvent) {
+                    hovered = false
+                }
+
+                override fun onDrop(event: DragAndDropEvent): Boolean {
+                    val drag = event.toAndroidDragEvent()
+                    // The picture is the other app's: this is what allows reading it. It lasts
+                    // as long as the activity, which is longer than reading it takes.
+                    activity?.requestDragAndDropPermissions(drag)
+                    val clip = drag.clipData ?: return false
+                    val uri =
+                        (0 until clip.itemCount).firstNotNullOfOrNull { clip.getItemAt(it).uri }
+                            ?: return false
+                    currentOnDropped(uri.toString())
+                    return true
+                }
+            }
+        }
+    return dragAndDropTarget(
+            shouldStartDragAndDrop = { event ->
+                event.mimeTypes().any { it.startsWith("image/") }
+            },
+            target = target,
+        )
+        .then(
+            if (hovered) {
+                Modifier.border(
+                    width = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = MaterialTheme.shapes.extraLarge,
+                )
+            } else Modifier
+        )
 }
 
 /** Every editable section, as items of the editor's list. Each is a group, as the app's lists. */

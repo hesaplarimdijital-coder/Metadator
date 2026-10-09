@@ -51,6 +51,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
         val state by viewModel.state.collectAsStateWithLifecycle()
         ShowMessages(viewModel.messages)
         val openFile = rememberOpenFileLauncher { uri -> navigator.goTo(Editor(uri.toString())) }
+        val openInNewWindow = rememberNewWindowOpener()
 
         LibraryScreen(
             state = state,
@@ -60,6 +61,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
                 navigator.goTo(Collection(collection.type, collection.key, collection.title))
             },
             onEditTracks = { tracks -> navigator.goTo(BatchEditor(tracks.map { it.ref.uri })) },
+            onOpenInNewWindow = openInNewWindow,
             onOpenSettings = { navigator.goTo(Settings) },
             onOpenFile = { openFile.launch(arrayOf("audio/*")) },
         )
@@ -75,6 +77,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
         LaunchedEffect(Unit) { viewModel.onIntent(LibraryIntent.Start) }
         val player: PlayerController = koinInject()
         val playback by player.state.collectAsStateWithLifecycle()
+        val openInNewWindow = rememberNewWindowOpener()
 
         val collection =
             remember(state, key) {
@@ -93,6 +96,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             showBack = true,
             onBack = navigator::goBack,
             onOpenTrack = { navigator.goTo(Editor(it.ref.uri)) },
+            onOpenInNewWindow = openInNewWindow,
             onPlay = { tracks, index, shuffle -> player.play(tracks, index, shuffle) },
             onEditAll = { tracks: List<Track> ->
                 navigator.goTo(BatchEditor(tracks.map { it.ref.uri }))
@@ -137,6 +141,31 @@ private fun rememberOpenFileLauncher(onPicked: (Uri) -> Unit) =
             onPicked(uri)
         }
     }
+
+/**
+ * Opens a song's editor in a window of its own, beside this one where windows can be: two songs
+ * side by side on a desktop. It is the editor other apps open with "Edit with", asked for by this
+ * app; a new one for each song, so that a second song does not take the first one's window.
+ */
+@Composable
+private fun rememberNewWindowOpener(): (Track) -> Unit {
+    val context = LocalContext.current
+    return remember(context) {
+        { track ->
+            val intent =
+                Intent(Intent.ACTION_EDIT)
+                    .setDataAndType(Uri.parse(track.ref.uri), "audio/*")
+                    .setPackage(context.packageName)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
+                            Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT
+                    )
+            // Nothing to fall back to: the song still opens here with a click.
+            runCatching { context.startActivity(intent) }
+        }
+    }
+}
 
 /** What a wide window shows beside the library while no song is open. */
 @Composable

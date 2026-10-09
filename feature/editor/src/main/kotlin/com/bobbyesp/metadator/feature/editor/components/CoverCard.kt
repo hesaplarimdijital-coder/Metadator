@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.ActionButtonGroup
 import com.bobbyesp.metadator.core.designsystem.component.GroupAction
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.feature.editor.ImageInfo
@@ -107,35 +108,41 @@ fun CoverCard(
                     scaleOut(motion.fastEffectsSpec(), targetScale = 0.6f) +
                         fadeOut(motion.fastEffectsSpec()),
             ) {
-                FilledTonalIconButton(
-                    onClick = onRevertCover,
-                    shapes = IconButtonDefaults.shapes(),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.Undo,
-                        contentDescription = stringResource(R.string.cover_revert),
-                    )
+                Tooltip(stringResource(R.string.cover_revert)) {
+                    FilledTonalIconButton(
+                        onClick = onRevertCover,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.Undo,
+                            contentDescription = stringResource(R.string.cover_revert),
+                        )
+                    }
                 }
             }
-            FilledIconToggleButton(
-                checked = isPlaying,
-                onCheckedChange = { onPlay() },
-                shapes = IconButtonDefaults.toggleableShapes(),
-                // A toggle only for its shape: it stays in the primary color while playing too.
-                colors =
-                    IconButtonDefaults.filledIconToggleButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        checkedContainerColor = MaterialTheme.colorScheme.primary,
-                        checkedContentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.medium).size(56.dp),
-            ) {
-                Icon(
-                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription =
-                        stringResource(if (isPlaying) R.string.pause_song else R.string.play_song),
-                )
+            val playLabel =
+                stringResource(if (isPlaying) R.string.pause_song else R.string.play_song)
+            Tooltip(playLabel, Modifier.align(Alignment.BottomEnd).padding(Spacing.medium)) {
+                FilledIconToggleButton(
+                    checked = isPlaying,
+                    onCheckedChange = { onPlay() },
+                    shapes = IconButtonDefaults.toggleableShapes(),
+                    // A toggle only for its shape: it stays in the primary color while playing
+                    // too.
+                    colors =
+                        IconButtonDefaults.filledIconToggleButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            checkedContainerColor = MaterialTheme.colorScheme.primary,
+                            checkedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    modifier = Modifier.size(56.dp),
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = playLabel,
+                    )
+                }
             }
         }
 

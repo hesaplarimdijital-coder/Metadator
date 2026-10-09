@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator
 
+import android.view.KeyEvent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -38,6 +40,10 @@ import com.bobbyesp.metadator.core.navigation.MetadatorNavDisplay
 import com.bobbyesp.metadator.core.navigation.overlay.rememberOverlaySceneStrategy
 import com.bobbyesp.metadator.core.navigation.pane.sharingTheWindow
 import com.bobbyesp.metadator.core.navigation.rememberNavigator
+import com.bobbyesp.metadator.core.ui.R as CoreUiR
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.Shortcut
+import com.bobbyesp.metadator.core.ui.input.ShortcutsHelp
 import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
 import com.bobbyesp.metadator.feature.batch.batchSection
 import com.bobbyesp.metadator.feature.editor.editorSection
@@ -82,7 +88,37 @@ fun MetadatorApp(onExit: () -> Unit) {
     // The player belongs to browsing; the editors have their own controls and need the room.
     val top = backStack.lastOrNull()
     val showPlayer = top == Library || top is Collection
-    val playback by koinInject<PlayerController>().state.collectAsStateWithLifecycle()
+    val player = koinInject<PlayerController>()
+    val playback by player.state.collectAsStateWithLifecycle()
+    // Before the screens: a screen that wants one of these keys for itself comes later, and has
+    // it.
+    ShortcutsHelp()
+    KeyboardShortcuts(
+        title = stringResource(CoreUiR.string.shortcuts_group_playback),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_SPACE,
+                    stringResource(CoreUiR.string.shortcut_play_pause),
+                    enabled = playback.isActive,
+                    action = player::togglePlayPause,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_DPAD_RIGHT,
+                    stringResource(CoreUiR.string.shortcut_next_song),
+                    ctrl = true,
+                    enabled = playback.isActive,
+                    action = player::skipToNext,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_DPAD_LEFT,
+                    stringResource(CoreUiR.string.shortcut_previous_song),
+                    ctrl = true,
+                    enabled = playback.isActive,
+                    action = player::skipToPrevious,
+                ),
+            ),
+    )
     val snackbarClearance by
         animateDpAsState(
             targetValue =

@@ -51,4 +51,15 @@
     <string name="back">Back</string>
     <string name="no_song_open_title">Pick a song</string>
     <string name="no_song_open_description">Its tags open here, next to your library.</string>
+
+    <string name="keyboard_shortcuts">Keyboard shortcuts</string>
+    <string name="shortcuts_library">Library</string>
+    <string name="shortcut_search">Search the library</string>
+    <string name="shortcut_list_start">Go to the first song</string>
+    <string name="shortcut_list_end">Go to the last song</string>
+    <string name="edit_song">Edit tags</string>
+    <string name="play_song">Play</string>
+    <string name="select_song">Select</string>
+    <string name="deselect_song">Remove from the selection</string>
+    <string name="open_in_new_window">Open in a new window</string>
 </resources>

@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.feature.library
 
+import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -17,6 +18,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,16 +35,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -52,7 +57,9 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
@@ -91,9 +98,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
@@ -107,8 +117,10 @@ import com.bobbyesp.metadator.core.designsystem.component.ActionChip
 import com.bobbyesp.metadator.core.designsystem.component.ActionMenu
 import com.bobbyesp.metadator.core.designsystem.component.Choice
 import com.bobbyesp.metadator.core.designsystem.component.ConnectedChoices
+import com.bobbyesp.metadator.core.designsystem.component.ContextMenuArea
 import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbar
 import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbarDefaults
+import com.bobbyesp.metadator.core.designsystem.component.HeldKeys
 import com.bobbyesp.metadator.core.designsystem.component.ItemIcon
 import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
@@ -116,17 +128,25 @@ import com.bobbyesp.metadator.core.designsystem.component.PlaceholderCard
 import com.bobbyesp.metadator.core.designsystem.component.PopupMenu
 import com.bobbyesp.metadator.core.designsystem.component.PopupMenuGroup
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
+import com.bobbyesp.metadator.core.designsystem.component.trackHeldKeys
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.blurHalo
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
 import com.bobbyesp.metadator.core.model.TrackSort
+import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.core.ui.component.CollectionCard
 import com.bobbyesp.metadator.core.ui.component.TrackListItem
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
+import com.bobbyesp.metadator.core.ui.input.Shortcut
+import com.bobbyesp.metadator.core.ui.input.hasHardwareKeyboard
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -136,6 +156,7 @@ internal fun LibraryScreen(
     onOpenTrack: (Track) -> Unit,
     onOpenCollection: (TrackCollection) -> Unit,
     onEditTracks: (List<Track>) -> Unit,
+    onOpenInNewWindow: (Track) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenFile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -145,6 +166,18 @@ internal fun LibraryScreen(
         if (permission.status == PermissionStatus.Granted) onIntent(LibraryIntent.Start)
     }
     BackHandler(enabled = state.selecting) { onIntent(LibraryIntent.ClearSelection) }
+
+    val searchFocus = remember { FocusRequester() }
+    LibraryShortcuts(
+        state = state,
+        granted = permission.status == PermissionStatus.Granted,
+        onIntent = onIntent,
+        // The field is not there while songs are being selected: its bar is the selection's.
+        onSearch = { runCatching { searchFocus.requestFocus() } },
+        onEditTracks = onEditTracks,
+        onOpenSettings = onOpenSettings,
+        onOpenFile = onOpenFile,
+    )
 
     // The lists, recorded for the selection toolbar that floats over them.
     val haze = rememberHazeState()
@@ -169,6 +202,7 @@ internal fun LibraryScreen(
                     SearchTopBar(
                         query = state.filter.search,
                         onQueryChange = { onIntent(LibraryIntent.Search(it)) },
+                        focusRequester = searchFocus,
                         enabled = permission.status == PermissionStatus.Granted,
                         onOpenSettings = onOpenSettings,
                         onOpenFile = onOpenFile,
@@ -196,6 +230,8 @@ internal fun LibraryScreen(
                             onIntent = onIntent,
                             onOpenTrack = onOpenTrack,
                             onOpenCollection = onOpenCollection,
+                            onEditTracks = onEditTracks,
+                            onOpenInNewWindow = onOpenInNewWindow,
                         )
                 }
             }
@@ -242,12 +278,15 @@ internal fun LibraryScreen(
 private fun SearchTopBar(
     query: String,
     onQueryChange: (String) -> Unit,
+    focusRequester: FocusRequester,
     enabled: Boolean,
     onOpenSettings: () -> Unit,
     onOpenFile: () -> Unit,
     onRescan: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+    val shortcuts = LocalShortcutDispatcher.current
+    val showShortcuts = shortcuts != null && hasHardwareKeyboard()
     var menuOpen by remember { mutableStateOf(false) }
     Box(
         modifier =
@@ -261,7 +300,10 @@ private fun SearchTopBar(
             value = query,
             onValueChange = onQueryChange,
             enabled = enabled,
-            modifier = Modifier.widthIn(max = SearchBarMaxWidth).fillMaxWidth(),
+            modifier =
+                Modifier.widthIn(max = SearchBarMaxWidth)
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
             placeholder = {
                 Text(
                     stringResource(R.string.search_library),
@@ -277,28 +319,32 @@ private fun SearchTopBar(
                         enter = fadeIn() + scaleIn(),
                         exit = fadeOut() + scaleOut(),
                     ) {
-                        IconButton(
-                            onClick = {
-                                onQueryChange("")
-                                focusManager.clearFocus()
-                            },
-                            shapes = IconButtonDefaults.shapes(),
-                        ) {
-                            Icon(
-                                Icons.Rounded.Clear,
-                                contentDescription = stringResource(R.string.clear_search),
-                            )
+                        Tooltip(stringResource(R.string.clear_search)) {
+                            IconButton(
+                                onClick = {
+                                    onQueryChange("")
+                                    focusManager.clearFocus()
+                                },
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Clear,
+                                    contentDescription = stringResource(R.string.clear_search),
+                                )
+                            }
                         }
                     }
                     Box {
-                        IconButton(
-                            onClick = { menuOpen = true },
-                            shapes = IconButtonDefaults.shapes(),
-                        ) {
-                            Icon(
-                                Icons.Rounded.MoreVert,
-                                contentDescription = stringResource(R.string.more_options),
-                            )
+                        Tooltip(stringResource(R.string.more_options)) {
+                            IconButton(
+                                onClick = { menuOpen = true },
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.MoreVert,
+                                    contentDescription = stringResource(R.string.more_options),
+                                )
+                            }
                         }
                         ActionMenu(
                             expanded = menuOpen,
@@ -321,6 +367,13 @@ private fun SearchTopBar(
                                         Icons.Rounded.Settings,
                                         onClick = onOpenSettings,
                                     ),
+                                    // Only where there are keys to press.
+                                    MenuAction(
+                                            stringResource(R.string.keyboard_shortcuts),
+                                            Icons.Rounded.Keyboard,
+                                            onClick = { shortcuts?.isHelpRequested = true },
+                                        )
+                                        .takeIf { showShortcuts },
                                 ),
                         )
                     }
@@ -354,19 +407,23 @@ private fun SelectionTopBar(count: Int, onClose: () -> Unit, onSelectAll: () -> 
     TopAppBar(
         title = { Text(pluralStringResource(R.plurals.selected_count, count, count)) },
         navigationIcon = {
-            IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.close_selection),
-                )
+            Tooltip(stringResource(R.string.close_selection)) {
+                IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.close_selection),
+                    )
+                }
             }
         },
         actions = {
-            IconButton(onClick = onSelectAll, shapes = IconButtonDefaults.shapes()) {
-                Icon(
-                    Icons.Rounded.SelectAll,
-                    contentDescription = stringResource(R.string.select_all),
-                )
+            Tooltip(stringResource(R.string.select_all)) {
+                IconButton(onClick = onSelectAll, shapes = IconButtonDefaults.shapes()) {
+                    Icon(
+                        Icons.Rounded.SelectAll,
+                        contentDescription = stringResource(R.string.select_all),
+                    )
+                }
             }
         },
     )
@@ -381,11 +438,13 @@ private fun SelectionToolbar(onEdit: () -> Unit, onPlay: () -> Unit) {
             Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_together))
         },
     ) {
-        IconButton(onClick = onPlay, shapes = IconButtonDefaults.shapes()) {
-            Icon(
-                Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(R.string.play_selection),
-            )
+        Tooltip(stringResource(R.string.play_selection)) {
+            IconButton(onClick = onPlay, shapes = IconButtonDefaults.shapes()) {
+                Icon(
+                    Icons.Rounded.PlayArrow,
+                    contentDescription = stringResource(R.string.play_selection),
+                )
+            }
         }
     }
 }
@@ -424,6 +483,8 @@ private fun LibraryContent(
     onIntent: (LibraryIntent) -> Unit,
     onOpenTrack: (Track) -> Unit,
     onOpenCollection: (TrackCollection) -> Unit,
+    onEditTracks: (List<Track>) -> Unit,
+    onOpenInNewWindow: (Track) -> Unit,
 ) {
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
@@ -484,7 +545,14 @@ private fun LibraryContent(
                         label = "LibraryTab",
                     ) { tab ->
                         when (tab) {
-                            LibraryTab.Songs -> SongList(state, onIntent, onOpenTrack)
+                            LibraryTab.Songs ->
+                                SongList(
+                                    state,
+                                    onIntent,
+                                    onOpenTrack,
+                                    onEditTracks,
+                                    onOpenInNewWindow,
+                                )
                             LibraryTab.Albums -> AlbumGrid(state.albums, onOpenCollection)
                             LibraryTab.Artists ->
                                 CollectionList(
@@ -606,9 +674,51 @@ private fun SongList(
     state: LibraryState,
     onIntent: (LibraryIntent) -> Unit,
     onOpenTrack: (Track) -> Unit,
+    onEditTracks: (List<Track>) -> Unit,
+    onOpenInNewWindow: (Track) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // The keys that move through a long list, for when nothing in it has the focus to take them.
+    KeyboardShortcuts(
+        title = stringResource(R.string.tab_songs),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_PAGE_DOWN,
+                    stringResource(CoreUiR.string.shortcut_page_down),
+                    repeats = true,
+                ) {
+                    scope.launch { listState.scrollBy(listState.pageHeight()) }
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_PAGE_UP,
+                    stringResource(CoreUiR.string.shortcut_page_up),
+                    repeats = true,
+                ) {
+                    scope.launch { listState.scrollBy(-listState.pageHeight()) }
+                },
+                Shortcut(KeyEvent.KEYCODE_MOVE_HOME, stringResource(R.string.shortcut_list_start)) {
+                    scope.launch { listState.scrollToItem(0) }
+                },
+                Shortcut(KeyEvent.KEYCODE_MOVE_END, stringResource(R.string.shortcut_list_end)) {
+                    scope.launch { listState.scrollToItem(state.tracks.size) }
+                },
+            ),
+    )
+
+    // Ctrl and Shift, as they were when a song was clicked.
+    val heldKeys = remember { HeldKeys() }
+    val selectLabel = stringResource(R.string.select_song)
+    val deselectLabel = stringResource(R.string.deselect_song)
+    val editLabel = stringResource(R.string.edit_song)
+    val playLabel = stringResource(R.string.play_song)
+    val editTogetherLabel = stringResource(R.string.edit_together)
+    val newWindowLabel = stringResource(R.string.open_in_new_window)
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys),
+        state = listState,
         contentPadding =
             PaddingValues(
                 start = Spacing.screen,
@@ -642,15 +752,19 @@ private fun SongList(
                         Modifier.padding(start = ButtonDefaults.IconSpacing),
                     )
                 }
-                FilledIconButton(
-                    onClick = { onIntent(LibraryIntent.PlayAll(shuffle = false)) },
-                    shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.padding(start = Spacing.small),
+                Tooltip(
+                    stringResource(R.string.play_all),
+                    Modifier.padding(start = Spacing.small),
                 ) {
-                    Icon(
-                        Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(R.string.play_all),
-                    )
+                    FilledIconButton(
+                        onClick = { onIntent(LibraryIntent.PlayAll(shuffle = false)) },
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        Icon(
+                            Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(R.string.play_all),
+                        )
+                    }
                 }
             }
         }
@@ -659,23 +773,140 @@ private fun SongList(
             key = { _, track -> track.id.value },
             contentType = { _, _ -> "track" },
         ) { index, track ->
-            TrackListItem(
-                track = track,
-                selected = track.id in state.selection,
-                selecting = state.selecting,
-                isPlaying = track.id == state.playingId,
-                isPlaybackRunning = state.playbackRunning,
-                shapes = GroupShapes.listItemShapes(index, state.tracks.size),
-                onClick = {
-                    if (state.selecting) onIntent(LibraryIntent.ToggleSelection(track.id))
-                    else onOpenTrack(track)
+            val selected = track.id in state.selection
+            ContextMenuArea(
+                actions = {
+                    listOfNotNull(
+                        MenuAction(editLabel, Icons.Rounded.Edit) { onOpenTrack(track) },
+                        MenuAction(playLabel, Icons.Rounded.PlayArrow) {
+                            onIntent(LibraryIntent.Play(track))
+                        },
+                        MenuAction(
+                            if (selected) deselectLabel else selectLabel,
+                            if (selected) Icons.Rounded.Close else Icons.Rounded.Check,
+                        ) {
+                            onIntent(LibraryIntent.ToggleSelection(track.id))
+                        },
+                        // On one of several selected songs, the menu is also the selection's.
+                        MenuAction(editTogetherLabel, Icons.Rounded.EditNote) {
+                                onEditTracks(state.selectedTracks)
+                            }
+                            .takeIf { selected && state.selection.size > 1 },
+                        MenuAction(newWindowLabel, Icons.AutoMirrored.Rounded.OpenInNew) {
+                            onOpenInNewWindow(track)
+                        },
+                    )
                 },
-                onLongClick = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
-                onPlay = { onIntent(LibraryIntent.Play(track)) },
                 modifier = Modifier.animateItem(),
-            )
+            ) {
+                TrackListItem(
+                    track = track,
+                    selected = selected,
+                    selecting = state.selecting,
+                    isPlaying = track.id == state.playingId,
+                    isPlaybackRunning = state.playbackRunning,
+                    shapes = GroupShapes.listItemShapes(index, state.tracks.size),
+                    onClick = {
+                        // As a file manager selects: Shift takes everything up to the song, Ctrl
+                        // the song alone, and neither opens it.
+                        val shift = heldKeys.shift
+                        val ctrl = heldKeys.ctrl
+                        heldKeys.clear()
+                        when {
+                            shift -> onIntent(LibraryIntent.SelectRangeTo(track.id))
+                            ctrl || state.selecting ->
+                                onIntent(LibraryIntent.ToggleSelection(track.id))
+                            else -> onOpenTrack(track)
+                        }
+                    },
+                    onLongClick = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
+                    onPlay = { onIntent(LibraryIntent.Play(track)) },
+                )
+            }
         }
     }
+}
+
+/** Most of what is in view: a line or two stay, to keep the place. */
+private fun LazyListState.pageHeight(): Float = layoutInfo.viewportSize.height * 0.85f
+
+/** What the library does from the keyboard, whatever has the focus. */
+@Composable
+private fun LibraryShortcuts(
+    state: LibraryState,
+    granted: Boolean,
+    onIntent: (LibraryIntent) -> Unit,
+    onSearch: () -> Unit,
+    onEditTracks: (List<Track>) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenFile: () -> Unit,
+) {
+    val onSongs = granted && state.tab == LibraryTab.Songs && state.tracks.isNotEmpty()
+    val editSelection = { onEditTracks(state.selectedTracks) }
+    val rescan = { onIntent(LibraryIntent.Refresh) }
+    KeyboardShortcuts(
+        title = stringResource(R.string.shortcuts_library),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_F,
+                    stringResource(R.string.shortcut_search),
+                    ctrl = true,
+                    enabled = granted && !state.selecting,
+                    action = onSearch,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_A,
+                    stringResource(R.string.select_all),
+                    ctrl = true,
+                    enabled = onSongs,
+                ) {
+                    onIntent(LibraryIntent.SelectAll)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_E,
+                    stringResource(R.string.edit_together),
+                    ctrl = true,
+                    enabled = state.selecting,
+                    action = editSelection,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_ENTER,
+                    stringResource(R.string.edit_together),
+                    enabled = state.selecting,
+                    action = editSelection,
+                ),
+                Shortcut(KeyEvent.KEYCODE_O, stringResource(R.string.open_file), ctrl = true) {
+                    onOpenFile()
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_R,
+                    stringResource(R.string.rescan_library),
+                    ctrl = true,
+                    enabled = granted,
+                    action = rescan,
+                ),
+                Shortcut(
+                    KeyEvent.KEYCODE_F5,
+                    stringResource(R.string.rescan_library),
+                    enabled = granted,
+                    action = rescan,
+                ),
+                Shortcut(KeyEvent.KEYCODE_COMMA, stringResource(R.string.settings), ctrl = true) {
+                    onOpenSettings()
+                },
+            ) +
+                LibraryTab.entries.mapIndexed { index, tab ->
+                    Shortcut(
+                        KeyEvent.KEYCODE_1 + index,
+                        stringResource(tab.label),
+                        ctrl = true,
+                        enabled = granted,
+                    ) {
+                        onIntent(LibraryIntent.SelectTab(tab))
+                    }
+                },
+    )
 }
 
 @Composable

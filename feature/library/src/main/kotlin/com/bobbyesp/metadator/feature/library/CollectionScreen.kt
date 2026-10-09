@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -38,8 +39,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.ActionButtonGroup
+import com.bobbyesp.metadator.core.designsystem.component.ContextMenuArea
 import com.bobbyesp.metadator.core.designsystem.component.GroupAction
 import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
+import com.bobbyesp.metadator.core.designsystem.component.MenuAction
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.sidesOf
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -59,6 +63,7 @@ internal fun CollectionScreen(
     showBack: Boolean,
     onBack: () -> Unit,
     onOpenTrack: (Track) -> Unit,
+    onOpenInNewWindow: (Track) -> Unit,
     onPlay: (tracks: List<Track>, index: Int, shuffle: Boolean) -> Unit,
     onEditAll: (List<Track>) -> Unit,
 ) {
@@ -82,11 +87,13 @@ internal fun CollectionScreen(
                     },
                 navigationIcon = {
                     if (showBack) {
-                        IconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
-                            Icon(
-                                Icons.AutoMirrored.Rounded.ArrowBack,
-                                stringResource(R.string.back),
-                            )
+                        Tooltip(stringResource(R.string.back)) {
+                            IconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    stringResource(R.string.back),
+                                )
+                            }
                         }
                     }
                 },
@@ -99,6 +106,9 @@ internal fun CollectionScreen(
             return@Scaffold
         }
         val tracks = collection.tracks
+        val editLabel = stringResource(R.string.edit_song)
+        val playLabel = stringResource(R.string.play_song)
+        val newWindowLabel = stringResource(R.string.open_in_new_window)
         LazyColumn(
             modifier = Modifier.fillMaxSize().sidesOf(padding),
             contentPadding =
@@ -119,15 +129,29 @@ internal fun CollectionScreen(
                 )
             }
             itemsIndexed(tracks, key = { _, it -> it.id.value }) { index, track ->
-                TrackListItem(
-                    track = track,
-                    onClick = { onOpenTrack(track) },
-                    onLongClick = { onOpenTrack(track) },
-                    onPlay = { onPlay(tracks, index, false) },
-                    isPlaying = track.id == playingTrack?.id,
-                    isPlaybackRunning = isPlaybackRunning,
-                    shapes = GroupShapes.listItemShapes(index, tracks.size),
-                )
+                ContextMenuArea(
+                    actions = {
+                        listOf(
+                            MenuAction(editLabel, Icons.Rounded.Edit) { onOpenTrack(track) },
+                            MenuAction(playLabel, Icons.Rounded.PlayArrow) {
+                                onPlay(tracks, index, false)
+                            },
+                            MenuAction(newWindowLabel, Icons.AutoMirrored.Rounded.OpenInNew) {
+                                onOpenInNewWindow(track)
+                            },
+                        )
+                    }
+                ) {
+                    TrackListItem(
+                        track = track,
+                        onClick = { onOpenTrack(track) },
+                        onLongClick = { onOpenTrack(track) },
+                        onPlay = { onPlay(tracks, index, false) },
+                        isPlaying = track.id == playingTrack?.id,
+                        isPlaybackRunning = isPlaybackRunning,
+                        shapes = GroupShapes.listItemShapes(index, tracks.size),
+                    )
+                }
             }
         }
     }

@@ -140,4 +140,5 @@
     <string name="lookup_apply">Use selected</string>
     <string name="lookup_back">Back to results</string>
     <string name="lookup_applied">Applied. Review and save when ready</string>
+    <string name="shortcuts_editor">Editor</string>
 </resources>

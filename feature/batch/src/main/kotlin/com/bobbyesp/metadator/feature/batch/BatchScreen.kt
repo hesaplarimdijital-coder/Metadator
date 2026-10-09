@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.feature.batch
 
+import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,6 +59,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SwitchItem
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.readableWidth
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.batch.FileNamePattern
@@ -65,6 +67,8 @@ import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.tags.api.ArtworkChange
 import com.bobbyesp.metadator.tags.api.TagField
 
@@ -75,6 +79,26 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) onIntent(BatchIntent.SetCoverFromUri(uri.toString()))
         }
+    KeyboardShortcuts(
+        title = stringResource(R.string.shortcuts_batch),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_S,
+                    stringResource(R.string.batch_apply),
+                    ctrl = true,
+                    enabled = state.canApply,
+                ) {
+                    onIntent(BatchIntent.Apply)
+                },
+                Shortcut(
+                    KeyEvent.KEYCODE_W,
+                    stringResource(R.string.close),
+                    ctrl = true,
+                    action = onClose,
+                ),
+            ),
+    )
 
     Scaffold(
         topBar = {
@@ -89,8 +113,10 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.Rounded.Close, stringResource(R.string.close))
+                    Tooltip(stringResource(R.string.close)) {
+                        IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
+                            Icon(Icons.Rounded.Close, stringResource(R.string.close))
+                        }
                     }
                 },
             )

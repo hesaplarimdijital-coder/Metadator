@@ -82,6 +82,9 @@ sealed interface LibraryIntent {
 
     data class ToggleSelection(val id: TrackId) : LibraryIntent
 
+    /** Selects every song from the one last selected to this one, as a click with Shift does. */
+    data class SelectRangeTo(val id: TrackId) : LibraryIntent
+
     data object SelectAll : LibraryIntent
 
     data object ClearSelection : LibraryIntent
@@ -113,6 +116,9 @@ class LibraryViewModel(
     ) {
     private val query = MutableStateFlow(Query(currentState.filter, currentState.sort))
     private var observing: Job? = null
+
+    /** The song a range is selected from: the last one selected on its own. */
+    private var selectionAnchor: TrackId? = null
 
     private data class Query(val filter: LibraryFilter, val sort: SortOrder)
 
@@ -160,7 +166,8 @@ class LibraryViewModel(
                 updateQuery { copy(sort = sort.copy(ascending = !sort.ascending)) }
             LibraryIntent.ClearFilters ->
                 updateQuery { copy(filter = LibraryFilter(search = filter.search)) }
-            is LibraryIntent.ToggleSelection ->
+            is LibraryIntent.ToggleSelection -> {
+                selectionAnchor = intent.id
                 setState {
                     copy(
                         selection =
@@ -168,9 +175,34 @@ class LibraryViewModel(
                             else selection + intent.id
                     )
                 }
+            }
+            is LibraryIntent.SelectRangeTo -> {
+                val anchor = selectionAnchor
+                if (anchor == null) selectionAnchor = intent.id
+                setState {
+                    val from = tracks.indexOfFirst { it.id == anchor }
+                    val to = tracks.indexOfFirst { it.id == intent.id }
+                    when {
+                        to < 0 -> this
+                        // Nothing to start from, or it is no longer listed: this one alone.
+                        from < 0 -> copy(selection = selection + intent.id)
+                        else ->
+                            copy(
+                                selection =
+                                    selection +
+                                        tracks.subList(minOf(from, to), maxOf(from, to) + 1).map {
+                                            it.id
+                                        }
+                            )
+                    }
+                }
+            }
             LibraryIntent.SelectAll ->
                 setState { copy(selection = tracks.mapTo(mutableSetOf()) { it.id }) }
-            LibraryIntent.ClearSelection -> setState { copy(selection = emptySet()) }
+            LibraryIntent.ClearSelection -> {
+                selectionAnchor = null
+                setState { copy(selection = emptySet()) }
+            }
             LibraryIntent.Refresh -> refresh()
             is LibraryIntent.Play -> {
                 val queue = currentState.tracks

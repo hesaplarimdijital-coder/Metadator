@@ -39,4 +39,37 @@
     <string name="field_label">Sello</string>
     <string name="field_grouping">Agrupación</string>
     <string name="field_lyrics">Letra</string>
+
+    <string name="shortcuts_title">Atajos de teclado</string>
+    <string name="shortcuts_close">Cerrar</string>
+    <string name="shortcuts_group_general">En todas partes</string>
+    <string name="shortcut_show_shortcuts">Mostrar los atajos de teclado</string>
+    <string name="shortcuts_group_playback">Reproducción</string>
+    <string name="shortcut_play_pause">Reproducir o pausar</string>
+    <string name="shortcut_next_song">Canción siguiente</string>
+    <string name="shortcut_previous_song">Canción anterior</string>
+    <string name="shortcuts_group_keys">Las teclas de siempre</string>
+    <string name="shortcut_back">Volver, o cerrar lo que esté abierto</string>
+    <string name="shortcut_next_control">Pasar al siguiente control</string>
+    <string name="shortcut_activate">Usar el control enfocado</string>
+    <string name="shortcuts_group_mouse">Con el ratón</string>
+    <string name="shortcut_mouse_menu">Lo que se puede hacer con una canción</string>
+    <string name="shortcut_mouse_add">Añadir una canción a la selección</string>
+    <string name="shortcut_mouse_range">Seleccionar todas las canciones hasta esa</string>
+    <string name="mouse_right_click">Clic derecho</string>
+    <string name="mouse_click">Clic</string>
+    <string name="key_ctrl">Ctrl</string>
+    <string name="key_alt">Alt</string>
+    <string name="key_shift">Mayús</string>
+    <string name="key_space">Espacio</string>
+    <string name="key_enter">Intro</string>
+    <string name="key_escape">Esc</string>
+    <string name="key_tab">Tab</string>
+    <string name="key_delete">Supr</string>
+    <string name="key_home">Inicio</string>
+    <string name="key_end">Fin</string>
+    <string name="key_page_up">Re Pág</string>
+    <string name="key_page_down">Av Pág</string>
+    <string name="shortcut_page_down">Bajar una página</string>
+    <string name="shortcut_page_up">Subir una página</string>
 </resources>

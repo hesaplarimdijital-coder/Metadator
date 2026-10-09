@@ -58,11 +58,9 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
             ?.let { Color(it) }
 
     MetadatorAccentTheme(accent = accent) {
-        EditorScreen(
-            state = state,
-            onIntent = viewModel::onIntent,
-            onFindMetadata = {
-                val draft = state.draft ?: return@EditorScreen
+        val findMetadata = {
+            val draft = state.draft
+            if (draft != null) {
                 showLookup = true
                 if (lookupState.title.isEmpty() && lookupState.artist.isEmpty()) {
                     lookup.start(
@@ -75,7 +73,13 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
                             state.loaded?.audio?.durationMs ?: state.loaded?.track?.durationMs,
                     )
                 }
-            },
+            }
+        }
+        EditorScreen(
+            state = state,
+            onIntent = viewModel::onIntent,
+            onFindMetadata = findMetadata,
+            onFindCover = findMetadata,
             onClose = onClose,
             showClose = !LocalPaneContext.current.isSolePane,
         )

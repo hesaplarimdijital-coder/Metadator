@@ -51,4 +51,15 @@
     <string name="back">Atrás</string>
     <string name="no_song_open_title">Elige una canción</string>
     <string name="no_song_open_description">Sus etiquetas se abren aquí, junto a tu biblioteca.</string>
+
+    <string name="keyboard_shortcuts">Atajos de teclado</string>
+    <string name="shortcuts_library">Biblioteca</string>
+    <string name="shortcut_search">Buscar en la biblioteca</string>
+    <string name="shortcut_list_start">Ir a la primera canción</string>
+    <string name="shortcut_list_end">Ir a la última canción</string>
+    <string name="edit_song">Editar etiquetas</string>
+    <string name="play_song">Reproducir</string>
+    <string name="select_song">Seleccionar</string>
+    <string name="deselect_song">Quitar de la selección</string>
+    <string name="open_in_new_window">Abrir en una ventana nueva</string>
 </resources>
