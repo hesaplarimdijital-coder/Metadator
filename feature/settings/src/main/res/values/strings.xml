@@ -52,6 +52,7 @@
     <string name="lookup_sources_description">Searched together. Nothing is sent but the song\'s title, artist and album.</string>
     <string name="provider_musicbrainz_description">The open music encyclopedia, with covers from the Cover Art Archive</string>
     <string name="provider_deezer_description">Large catalogue of commercial releases, covers up to 1000 px</string>
+    <string name="provider_itunes_description">The catalogue of the iTunes Store in your region, with large covers</string>
     <string name="provider_other_description">Online metadata</string>
 
     <string name="version">Version %1$s</string>

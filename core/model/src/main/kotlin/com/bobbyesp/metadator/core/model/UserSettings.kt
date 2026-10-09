@@ -14,7 +14,8 @@ data class UserSettings(
     val multiValueMode: MultiValueMode = MultiValueMode.Separate,
     val multiValueSeparator: String = "; ",
     val warnSmallArtwork: Boolean = true,
-    val enabledProviders: Set<String> = setOf(PROVIDER_MUSICBRAINZ, PROVIDER_DEEZER),
+    val enabledProviders: Set<String> =
+        setOf(PROVIDER_MUSICBRAINZ, PROVIDER_DEEZER, PROVIDER_ITUNES),
     val successfulSaves: Int = 0,
 ) {
     companion object {
@@ -23,6 +24,7 @@ data class UserSettings(
 
         const val PROVIDER_MUSICBRAINZ = "musicbrainz"
         const val PROVIDER_DEEZER = "deezer"
+        const val PROVIDER_ITUNES = "itunes"
     }
 }
 

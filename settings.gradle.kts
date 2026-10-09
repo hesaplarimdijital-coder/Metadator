@@ -62,6 +62,8 @@ include(":lookup:musicbrainz")
 
 include(":lookup:deezer")
 
+include(":lookup:itunes")
+
 include(":lyrics:api")
 
 include(":lyrics:lrclib")

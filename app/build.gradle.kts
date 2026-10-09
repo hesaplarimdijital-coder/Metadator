@@ -95,6 +95,7 @@ dependencies {
     implementation(project(":library:mediastore"))
     implementation(project(":lookup:musicbrainz"))
     implementation(project(":lookup:deezer"))
+    implementation(project(":lookup:itunes"))
     implementation(project(":lyrics:lrclib"))
     implementation(project(":player:media3"))
 

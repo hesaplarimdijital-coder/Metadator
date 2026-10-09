@@ -213,6 +213,8 @@ fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
                                             R.string.provider_musicbrainz_description
                                         UserSettings.PROVIDER_DEEZER ->
                                             R.string.provider_deezer_description
+                                        UserSettings.PROVIDER_ITUNES ->
+                                            R.string.provider_itunes_description
                                         else -> R.string.provider_other_description
                                     }
                                 ),
