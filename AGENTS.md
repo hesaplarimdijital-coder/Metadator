@@ -75,7 +75,8 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
 
 - One back stack and one Navigation 3 `NavDisplay` (`MetadatorNavDisplay`). Keys carry ids or URIs,
   never models.
-- Features get a `Navigator`; they never touch the stack.
+- Features get a `Navigator`; they never touch the stack. A list opens what is chosen in it with
+  `showDetail`, which replaces the detail on top unless that one `hold`s unsaved changes.
 - On wide windows, list-detail puts the editor beside the library. A destination is told whether it
   shares the window (`LocalPaneContext`); it never measures the window itself.
 - The player is not a destination: the shell measures the window and passes it a `PlayerLayout`.

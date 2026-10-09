@@ -50,13 +50,15 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
         val viewModel: LibraryViewModel = koinViewModel()
         val state by viewModel.state.collectAsStateWithLifecycle()
         ShowMessages(viewModel.messages)
-        val openFile = rememberOpenFileLauncher { uri -> navigator.goTo(Editor(uri.toString())) }
+        val openFile = rememberOpenFileLauncher { uri ->
+            navigator.showDetail(Editor(uri.toString()))
+        }
         val openInNewWindow = rememberNewWindowOpener()
 
         LibraryScreen(
             state = state,
             onIntent = viewModel::onIntent,
-            onOpenTrack = { navigator.goTo(Editor(it.ref.uri)) },
+            onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
             onOpenCollection = { collection ->
                 navigator.goTo(Collection(collection.type, collection.key, collection.title))
             },
@@ -95,7 +97,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             isPlaybackRunning = playback.isPlaying,
             showBack = true,
             onBack = navigator::goBack,
-            onOpenTrack = { navigator.goTo(Editor(it.ref.uri)) },
+            onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
             onOpenInNewWindow = openInNewWindow,
             onPlay = { tracks, index, shuffle -> player.play(tracks, index, shuffle) },
             onEditAll = { tracks: List<Track> ->

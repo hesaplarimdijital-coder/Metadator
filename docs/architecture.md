@@ -71,6 +71,13 @@ whether they share the window (`LocalPaneContext`), never measure it. The list-d
 told not to move the focus to the pane it shows (`paneDirective` in `MetadatorApp`): it would give
 it to the library's search field, and open the keyboard, on every rotation to a wide window.
 
+A feature moves through the stack with its `Navigator` and nothing else. `goTo` adds a
+destination. `showDetail` is what a list uses for what is chosen in it: the choice takes the place
+of the detail on top when that is of the same kind, so that on a wide window, where the list stays
+beside its detail, choosing song after song does not pile up an editor for each. A detail that
+holds what must not be thrown away says so with `hold` (the editor, while it has unsaved changes),
+and stays under the next one instead.
+
 Every transition between screens is in `NavigationMotion`:
 
 - **Forward**: the new screen springs in from the end, over the old one, which moves a quarter of

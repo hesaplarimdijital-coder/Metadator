@@ -31,6 +31,13 @@ entries in the manifest that only Samsung reads.
   wide window, the editor goes to two columns from 760 dp, and the player has layouts of its own.
   They now change while a window is dragged, not only on a rotation.
 
+**Choosing another song changes the song in the editor.** On a wide window the library stays
+beside the editor, and a desktop is used by clicking one song after another. Each used to open an
+editor over the last, for Esc to walk back through one by one, each still holding its song. A list
+now shows what was chosen with `Navigator.showDetail`, which puts it in place of the editor on
+top, unless that one has changes nobody saved (`Navigator.hold`, told by the editor): then the new
+one opens over it, and Back finds the unsaved one where it was.
+
 **A song can be opened in a window of its own** (the menu on a song, below): two editors side by
 side, or one beside the library. It is `ExternalEditorActivity`, the editor other apps open with
 "Edit with", started by the app itself in a new task for each song

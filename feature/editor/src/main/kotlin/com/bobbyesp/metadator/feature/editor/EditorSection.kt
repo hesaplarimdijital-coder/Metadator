@@ -6,9 +6,11 @@ package com.bobbyesp.metadator.feature.editor
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -36,13 +38,27 @@ import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun EntryProviderScope<NavKey>.editorSection(navigator: Navigator) {
     entry<Editor>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-        EditorDestination(uri = key.uri, onClose = { navigator.removeDestination(key) })
+        EditorDestination(
+            uri = key.uri,
+            onClose = { navigator.removeDestination(key) },
+            // Another song chosen in the library beside it must not take the place of this one
+            // while it has changes nobody saved.
+            onUnsavedChanges = { navigator.hold(key, it) },
+        )
     }
 }
 
-/** The editor for [uri], for any host: the main activity's stack or the external editor's. */
+/**
+ * The editor for [uri], for any host: the main activity's stack or the external editor's.
+ *
+ * @param onUnsavedChanges told whether there are changes not yet saved, each time that changes
+ */
 @Composable
-fun EditorDestination(uri: String, onClose: () -> Unit) {
+fun EditorDestination(
+    uri: String,
+    onClose: () -> Unit,
+    onUnsavedChanges: (Boolean) -> Unit = {},
+) {
     val viewModel: EditorViewModel = koinViewModel(key = uri) { parametersOf(ContentRef(uri)) }
     val lookup: LookupViewModel = koinViewModel(key = "lookup:$uri")
     val covers: CoverFinderViewModel = koinViewModel(key = "covers:$uri")
@@ -52,6 +68,10 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
     var showLookup by rememberSaveable(uri) { mutableStateOf(false) }
     // Not saved: what it showed would be gone with the process, and the song not yet read again.
     var showCovers by remember(uri) { mutableStateOf(false) }
+
+    val unsaved = state.isDirty
+    val currentOnUnsavedChanges by rememberUpdatedState(onUnsavedChanges)
+    LaunchedEffect(unsaved) { currentOnUnsavedChanges(unsaved) }
 
     ShowMessages(viewModel.messages)
     viewModel.effects.CollectEffects { effect ->

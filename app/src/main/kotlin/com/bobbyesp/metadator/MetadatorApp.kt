@@ -167,7 +167,7 @@ fun MetadatorApp(onExit: () -> Unit) {
             // Last, so that opened it covers everything, the snackbar included.
             PlayerSheet(
                 visible = showPlayer,
-                onEdit = { uri -> navigator.goTo(Editor(uri)) },
+                onEdit = { uri -> navigator.showDetail(Editor(uri)) },
                 layout = playerLayout,
                 expansion = playerExpansion,
                 backdrop = backdrop,
