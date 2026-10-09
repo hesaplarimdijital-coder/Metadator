@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
@@ -73,6 +74,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
 import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.lookup.FieldProposal
@@ -154,8 +156,10 @@ private fun SearchStage(
     onSearch: () -> Unit,
     onOpen: (LookupCandidate) -> Unit,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
+        state = listState,
         contentPadding =
             PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
@@ -391,8 +395,10 @@ private fun ComparisonStage(
     val hasCover = candidate.artworkUrl != null
 
     Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+        val listState = rememberLazyListState()
         LazyColumn(
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.weight(1f, fill = false).scrollbar(listState),
+            state = listState,
             contentPadding = PaddingValues(horizontal = Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {

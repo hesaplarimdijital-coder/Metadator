@@ -102,7 +102,8 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   from `Spacing`, grouped-list shapes from `GroupShapes`. Menus are `ActionMenu`/`PopupMenu`,
   exclusive options are `ConnectedChoices`, text fields are `TonalTextField` (no outlined fields),
   chips are `ToggleChip`/`ActionChip`/`LabelChip`, a floating toolbar is `FloatingActionToolbar`,
-  a sheet that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`.
+  a sheet that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`, and
+  what scrolls says where it is with `Modifier.scrollbar`.
 - Blur comes from `MetadatorBlurDefaults`, and stands in for shadows: `Modifier.frosted` (Haze)
   for a surface floating over content, `Modifier.blurHalo` to lift what floats (it keeps its shadow
   only where `isHaloSupported` is false), `Modifier.outOfFocus` for what something opens over,

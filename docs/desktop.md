@@ -71,6 +71,11 @@ The list of shortcuts is built from what is registered, so it is always the trut
 (F1, Ctrl+/, or "Keyboard shortcuts" in the library's menu while a keyboard is attached), and in
 the system's own list (`onProvideKeyboardShortcuts`).
 
+The list is longer than a small window. Whoever opened it with a key has no wheel to move it with,
+so it takes the focus as it opens: the arrows, Page Up, Page Down, Home and End move through it,
+Tab goes on to its button, and Esc closes it. A scrollbar at its edge stays in sight: without
+one, a list cut short looks like a list that ends there.
+
 **To add a shortcut**, add a `Shortcut` to the screen's `KeyboardShortcuts`. Do not handle keys
 with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 
@@ -105,7 +110,8 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 
 ## Mouse
 
-`core/designsystem/.../component/Pointer.kt` has the three things a mouse adds.
+`core/designsystem/.../component/Pointer.kt` has the three things a mouse adds, and
+`Scrollbar.kt` a fourth.
 
 - **The second button opens a menu** (`ContextMenuArea`), where the pointer is, with what can be
   done with a song: edit, play, select, edit the selection together, open in a new window. The
@@ -116,6 +122,9 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
   (`LibraryIntent.SelectRangeTo`). As in a file manager.
 - **A button that is only an icon says what it does** when the pointer rests on it (`Tooltip`). The
   text is the one a screen reader was already given.
+- **What scrolls says where it is** (`Modifier.scrollbar`, Material's own behind it): the songs,
+  the albums, the editor's fields, the batch editor and the sheets that search show a scrollbar
+  while they move, and the list of shortcuts shows one all the time. It is a sign, not a handle.
 
 And two things that need no code of the app's: the wheel scrolls every list, and Material's
 components show where the pointer and the focus are.

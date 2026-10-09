@@ -118,6 +118,7 @@ import com.bobbyesp.metadator.core.designsystem.component.ShapedIcon
 import com.bobbyesp.metadator.core.designsystem.component.TonalFieldDefaults
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
 import com.bobbyesp.metadator.core.designsystem.component.Tooltip
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.component.sidesOf
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -284,7 +285,9 @@ internal fun EditorScreen(
                     BoxWithConstraints(Modifier.fillMaxSize().imePadding().hazeSource(haze)) {
                         if (maxWidth >= TwoColumnWidth) {
                             // Wide: the cover and the file stay in view while the fields scroll.
-                            Row(Modifier.fillMaxSize().padding(horizontal = Spacing.extraLarge)) {
+                            // The fields reach the edge, where their scrollbar is, and keep
+                            // their own margin from it.
+                            Row(Modifier.fillMaxSize().padding(start = Spacing.extraLarge)) {
                                 Column(
                                     Modifier.width(320.dp)
                                         .verticalScroll(rememberScrollState())
@@ -297,17 +300,22 @@ internal fun EditorScreen(
                                 }
                                 LazyColumn(
                                     modifier =
-                                        Modifier.weight(1f).padding(start = Spacing.extraLarge),
+                                        Modifier.weight(1f)
+                                            .padding(start = Spacing.extraLarge)
+                                            .scrollbar(fieldsState),
                                     state = fieldsState,
                                     contentPadding =
-                                        PaddingValues(bottom = Spacing.floatingClearance),
+                                        PaddingValues(
+                                            end = Spacing.extraLarge,
+                                            bottom = Spacing.floatingClearance,
+                                        ),
                                 ) {
                                     fields(state, draft, onIntent)
                                 }
                             }
                         } else {
                             LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().scrollbar(fieldsState),
                                 state = fieldsState,
                                 contentPadding =
                                     PaddingValues(

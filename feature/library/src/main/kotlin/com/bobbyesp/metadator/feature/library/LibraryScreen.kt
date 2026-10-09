@@ -40,6 +40,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -129,6 +130,7 @@ import com.bobbyesp.metadator.core.designsystem.component.PopupMenu
 import com.bobbyesp.metadator.core.designsystem.component.PopupMenuGroup
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.Tooltip
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.component.trackHeldKeys
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -717,7 +719,7 @@ private fun SongList(
     val newWindowLabel = stringResource(R.string.open_in_new_window)
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys),
+        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(listState),
         state = listState,
         contentPadding =
             PaddingValues(
@@ -911,9 +913,11 @@ private fun LibraryShortcuts(
 
 @Composable
 private fun AlbumGrid(albums: List<TrackCollection.Album>, onOpen: (TrackCollection) -> Unit) {
+    val gridState = rememberLazyGridState()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 156.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().scrollbar(gridState),
+        state = gridState,
         contentPadding =
             PaddingValues(
                 start = Spacing.screen,
@@ -946,8 +950,10 @@ private fun CollectionList(
     icon: ImageVector,
     onOpen: (TrackCollection) -> Unit,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().scrollbar(listState),
+        state = listState,
         contentPadding =
             PaddingValues(
                 start = Spacing.screen,

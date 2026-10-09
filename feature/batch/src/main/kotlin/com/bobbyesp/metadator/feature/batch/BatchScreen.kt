@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -62,6 +63,7 @@ import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
 import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.readableWidth
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.batch.FileNamePattern
 import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
@@ -152,9 +154,15 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             LoadingScreen(Modifier.padding(padding))
             return@Scaffold
         }
+        val listState = rememberLazyListState()
         LazyColumn(
             modifier =
-                Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding(),
+                Modifier.fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .imePadding()
+                    .scrollbar(listState),
+            state = listState,
             contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.small),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

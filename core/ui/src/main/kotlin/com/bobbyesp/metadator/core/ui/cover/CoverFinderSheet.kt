@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.AspectRatio
@@ -53,6 +54,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
 import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.cover.CoverReason
@@ -86,8 +88,10 @@ fun CoverFinderSheet(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         )
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        val listState = rememberLazyListState()
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
+            state = listState,
             contentPadding =
                 PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),
             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),

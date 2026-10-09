@@ -5,6 +5,8 @@ package com.bobbyesp.metadator.core.ui.input
 
 import android.content.res.Configuration
 import android.view.KeyEvent
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,12 +23,26 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.ui.R
+import kotlinx.coroutines.launch
 
 /**
  * The shortcuts every screen of an activity has, and the list of all of them when it is asked for.
@@ -72,8 +88,36 @@ private fun ShortcutsDialog(groups: List<ShortcutGroup>, onDismiss: () -> Unit) 
         icon = { Icon(Icons.Rounded.Keyboard, contentDescription = null) },
         title = { Text(stringResource(R.string.shortcuts_title)) },
         text = {
+            val scroll = rememberScrollState()
+            val scope = rememberCoroutineScope()
+            val line = with(LocalDensity.current) { LineStep.toPx() }
+            // The list is longer than a small window, and whoever asked for it with a key has no
+            // wheel to move it with. So it takes the focus, and the keys that move through a page
+            // move through it. Tab still goes on to the button, and Esc closes.
+            val listFocus = remember { FocusRequester() }
+            LaunchedEffect(Unit) { runCatching { listFocus.requestFocus() } }
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier =
+                    Modifier.scrollbar(scroll, alwaysVisible = true)
+                        .onKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                            val page = scroll.viewportSize * PageShare
+                            when (event.key) {
+                                Key.DirectionDown -> scope.launch { scroll.scrollBy(line) }
+                                Key.DirectionUp -> scope.launch { scroll.scrollBy(-line) }
+                                Key.PageDown -> scope.launch { scroll.scrollBy(page) }
+                                Key.PageUp -> scope.launch { scroll.scrollBy(-page) }
+                                Key.MoveHome -> scope.launch { scroll.scrollTo(0) }
+                                Key.MoveEnd -> scope.launch { scroll.scrollTo(scroll.maxValue) }
+                                else -> return@onKeyEvent false
+                            }
+                            true
+                        }
+                        .verticalScroll(scroll)
+                        .focusRequester(listFocus)
+                        .focusable()
+                        // Room for the bar that says where in the list this is.
+                        .padding(end = Spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(Spacing.small),
             ) {
                 // The screen in front first: it is the one whose keys were looked for.
@@ -123,6 +167,12 @@ private fun ShortcutsDialog(groups: List<ShortcutGroup>, onDismiss: () -> Unit) 
         },
     )
 }
+
+/** How far an arrow key moves the list: about a row of it. */
+private val LineStep = 48.dp
+
+/** How much of what is in sight a page key moves the list by: the rest stays, to read on from. */
+private const val PageShare = 0.85f
 
 @Composable
 private fun GroupTitle(title: String) {
