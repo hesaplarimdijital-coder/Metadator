@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.common.formatDuration
+import com.bobbyesp.metadator.core.designsystem.component.ClosesOnEscape
 import com.bobbyesp.metadator.core.designsystem.component.ItemIcon
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
@@ -111,38 +112,40 @@ fun LookupSheet(
         )
     val motion = MaterialTheme.motionScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        // Keyed by the stage, not by the comparison: ticking a field makes a new comparison, and
-        // that must update the list in place rather than animate in a whole new one.
-        AnimatedContent(
-            targetState = state.comparison,
-            contentKey = { it != null },
-            // The comparison comes in from the side the results leave by, and goes back the same
-            // way: one step forward, one step back.
-            transitionSpec = {
-                val direction = if (targetState != null) 1 else -1
-                (slideInHorizontally(motion.defaultSpatialSpec()) { direction * it / 4 } +
-                    fadeIn(motion.defaultEffectsSpec())) togetherWith
-                    (slideOutHorizontally(motion.defaultSpatialSpec()) { -direction * it / 4 } +
-                        fadeOut(motion.fastEffectsSpec()))
-            },
-            label = "LookupStage",
-        ) { comparison ->
-            if (comparison == null) {
-                SearchStage(state, onQueryChange, onSearch, onOpen)
-            } else {
-                ComparisonStage(
-                    comparison = comparison,
-                    onToggle = onToggle,
-                    onCheckOnly = onCheckOnly,
-                    onToggleCover = onToggleCover,
-                    onBack = onBackToResults,
-                    onApply = {
-                        onApply(
-                            comparison.selectedFields,
-                            comparison.candidate.artworkUrl.takeIf { comparison.includeCover },
-                        )
-                    },
-                )
+        ClosesOnEscape(sheetState, onDismiss) {
+            // Keyed by the stage, not by the comparison: ticking a field makes a new comparison,
+            // and that must update the list in place rather than animate in a whole new one.
+            AnimatedContent(
+                targetState = state.comparison,
+                contentKey = { it != null },
+                // The comparison comes in from the side the results leave by, and goes back the
+                // same way: one step forward, one step back.
+                transitionSpec = {
+                    val direction = if (targetState != null) 1 else -1
+                    (slideInHorizontally(motion.defaultSpatialSpec()) { direction * it / 4 } +
+                        fadeIn(motion.defaultEffectsSpec())) togetherWith
+                        (slideOutHorizontally(motion.defaultSpatialSpec()) { -direction * it / 4 } +
+                            fadeOut(motion.fastEffectsSpec()))
+                },
+                label = "LookupStage",
+            ) { comparison ->
+                if (comparison == null) {
+                    SearchStage(state, onQueryChange, onSearch, onOpen)
+                } else {
+                    ComparisonStage(
+                        comparison = comparison,
+                        onToggle = onToggle,
+                        onCheckOnly = onCheckOnly,
+                        onToggleCover = onToggleCover,
+                        onBack = onBackToResults,
+                        onApply = {
+                            onApply(
+                                comparison.selectedFields,
+                                comparison.candidate.artworkUrl.takeIf { comparison.includeCover },
+                            )
+                        },
+                    )
+                }
             }
         }
     }

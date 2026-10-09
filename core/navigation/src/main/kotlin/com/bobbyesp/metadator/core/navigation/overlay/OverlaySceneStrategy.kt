@@ -24,6 +24,7 @@ import androidx.navigation3.scene.Scene
 import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SceneStrategyScope
 import androidx.window.core.layout.WindowSizeClass
+import com.bobbyesp.metadator.core.designsystem.component.ClosesOnEscape
 
 /** How an overlay destination is being presented. */
 enum class OverlayPresentation {
@@ -193,8 +194,10 @@ private data class SheetScene<T : Any>(
         sheetState = state
 
         ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
-            CompositionLocalProvider(LocalOverlayContext provides overlayContext) {
-                entry.Content()
+            ClosesOnEscape(state, onDismiss) {
+                CompositionLocalProvider(LocalOverlayContext provides overlayContext) {
+                    entry.Content()
+                }
             }
         }
     }

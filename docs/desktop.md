@@ -64,6 +64,10 @@ What follows from asking last, after the views:
   every song.
 - A dialog, a sheet and a menu are windows of their own. What is under them gets no keys, so
   Ctrl+S does not save behind a dialog.
+- Esc closes them. A dialog and a menu do it themselves; Material's sheet does not, since its
+  window takes the key for a cancel it ignores, so every sheet's content goes in
+  `ClosesOnEscape`. That content takes the focus as the sheet opens: the key only reaches what
+  holds the focus, and a sheet opened with Ctrl+K has had nothing in it clicked.
 - When two screens on show want the same key, the one that came last has it: the editor over the
   library beside it.
 
@@ -84,7 +88,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | Where | Keys | Does |
 |---|---|---|
 | Everywhere | F1, Ctrl+/ | Shows the shortcuts |
-| | Esc | Goes back, or closes what is open (Android's own) |
+| | Esc | Goes back, or closes what is open (Android's own; the sheets' own, `ClosesOnEscape`) |
 | | Tab, arrows, Enter | Move the focus, and use what has it (Compose's own) |
 | Player | Space | Plays or pauses |
 | | Ctrl+→, Ctrl+← | Next and previous song |

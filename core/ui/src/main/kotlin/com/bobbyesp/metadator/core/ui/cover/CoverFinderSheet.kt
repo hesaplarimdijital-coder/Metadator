@@ -49,6 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.ClosesOnEscape
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SheetButton
@@ -88,164 +89,176 @@ fun CoverFinderSheet(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         )
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        val listState = rememberLazyListState()
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
-            state = listState,
-            contentPadding =
-                PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-        ) {
-            item(key = "query") {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                    Text(
-                        stringResource(R.string.cover_finder_title),
-                        style = MaterialTheme.typography.headlineSmallEmphasized,
-                        modifier = Modifier.padding(bottom = Spacing.small),
-                    )
-                    SheetQueryField(
-                        label = stringResource(R.string.field_title),
-                        value = state.title,
-                        onValueChange = { onQueryChange(it, state.artist, state.album) },
-                    )
-                    SheetQueryField(
-                        label = stringResource(R.string.field_artist),
-                        value = state.artist,
-                        onValueChange = { onQueryChange(state.title, it, state.album) },
-                    )
-                    SheetQueryField(
-                        label = stringResource(R.string.field_album),
-                        value = state.album,
-                        onValueChange = { onQueryChange(state.title, state.artist, it) },
-                        onSearch = onSearch,
-                    )
-                    SheetButton(
-                        text = stringResource(R.string.cover_finder_search),
-                        icon = Icons.Rounded.Search,
-                        onClick = onSearch,
-                        enabled = state.status != CoverFinderStatus.Searching,
-                        modifier = Modifier.fillMaxWidth().padding(top = Spacing.small),
-                    )
-                }
+        ClosesOnEscape(sheetState, onDismiss) {
+            CoverFinderContent(state, onQueryChange, onSearch, onUse, useLabel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun CoverFinderContent(
+    state: CoverFinderState,
+    onQueryChange: (title: String, artist: String, album: String) -> Unit,
+    onSearch: () -> Unit,
+    onUse: (CoverSuggestion) -> Unit,
+    useLabel: String,
+) {
+    val listState = rememberLazyListState()
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
+        state = listState,
+        contentPadding =
+            PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+    ) {
+        item(key = "query") {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                Text(
+                    stringResource(R.string.cover_finder_title),
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
+                    modifier = Modifier.padding(bottom = Spacing.small),
+                )
+                SheetQueryField(
+                    label = stringResource(R.string.field_title),
+                    value = state.title,
+                    onValueChange = { onQueryChange(it, state.artist, state.album) },
+                )
+                SheetQueryField(
+                    label = stringResource(R.string.field_artist),
+                    value = state.artist,
+                    onValueChange = { onQueryChange(state.title, it, state.album) },
+                )
+                SheetQueryField(
+                    label = stringResource(R.string.field_album),
+                    value = state.album,
+                    onValueChange = { onQueryChange(state.title, state.artist, it) },
+                    onSearch = onSearch,
+                )
+                SheetButton(
+                    text = stringResource(R.string.cover_finder_search),
+                    icon = Icons.Rounded.Search,
+                    onClick = onSearch,
+                    enabled = state.status != CoverFinderStatus.Searching,
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.small),
+                )
             }
-            when (val status = state.status) {
-                CoverFinderStatus.Idle -> Unit
-                CoverFinderStatus.Searching ->
-                    item(key = "searching") {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(Spacing.huge).animateItem(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Spacing.medium),
-                        ) {
-                            ContainedLoadingIndicator()
-                            Text(
-                                stringResource(R.string.cover_finder_searching),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
-                is CoverFinderStatus.Results -> {
-                    val best = status.suggestions.firstOrNull()
-                    val others = status.suggestions.drop(1)
-                    if (best == null) {
-                        item(key = "state") {
-                            SheetMessage(
-                                Icons.Rounded.SearchOff,
-                                stringResource(R.string.cover_finder_no_results),
-                                Modifier.animateItem(),
-                            )
-                        }
-                    } else {
-                        item(key = "best") {
-                            BestCover(
-                                suggestion = best,
-                                useLabel = useLabel,
-                                onUse = { onUse(best) },
-                                modifier = Modifier.padding(top = Spacing.medium).animateItem(),
-                            )
-                        }
-                        item(key = "how") {
-                            Text(
-                                stringResource(R.string.cover_finder_how),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier =
-                                    Modifier.padding(
-                                            horizontal = Spacing.small,
-                                            vertical = Spacing.small,
-                                        )
-                                        .animateItem(),
-                            )
-                        }
-                    }
-                    if (others.isNotEmpty()) {
-                        item(key = "others") {
-                            SectionHeader(
-                                stringResource(R.string.cover_finder_others),
-                                Modifier.animateItem(),
-                            )
-                        }
-                    }
-                    itemsIndexed(others, key = { _, it -> it.url }) { index, suggestion ->
-                        OtherCover(suggestion, index, others.size, Modifier.animateItem()) {
-                            onUse(suggestion)
-                        }
-                    }
-                    if (status.failedProviders.isNotEmpty()) {
-                        item(key = "partial") {
-                            Text(
-                                stringResource(
-                                    R.string.cover_finder_partial,
-                                    status.failedProviders.joinToString(", "),
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                                        .padding(top = Spacing.medium)
-                                        .animateItem(),
-                            )
-                        }
+        }
+        when (val status = state.status) {
+            CoverFinderStatus.Idle -> Unit
+            CoverFinderStatus.Searching ->
+                item(key = "searching") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.huge).animateItem(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.medium),
+                    ) {
+                        ContainedLoadingIndicator()
+                        Text(
+                            stringResource(R.string.cover_finder_searching),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
-                CoverFinderStatus.NoProviders ->
+            is CoverFinderStatus.Results -> {
+                val best = status.suggestions.firstOrNull()
+                val others = status.suggestions.drop(1)
+                if (best == null) {
                     item(key = "state") {
                         SheetMessage(
-                            Icons.Rounded.TravelExplore,
-                            stringResource(R.string.cover_finder_no_sources),
+                            Icons.Rounded.SearchOff,
+                            stringResource(R.string.cover_finder_no_results),
                             Modifier.animateItem(),
                         )
                     }
-                CoverFinderStatus.Offline ->
-                    item(key = "state") {
-                        SheetMessage(
-                            Icons.Rounded.CloudOff,
-                            stringResource(R.string.cover_finder_offline),
-                            Modifier.animateItem(),
-                            isError = true,
+                } else {
+                    item(key = "best") {
+                        BestCover(
+                            suggestion = best,
+                            useLabel = useLabel,
+                            onUse = { onUse(best) },
+                            modifier = Modifier.padding(top = Spacing.medium).animateItem(),
                         )
                     }
-                CoverFinderStatus.RateLimited ->
-                    item(key = "state") {
-                        SheetMessage(
-                            Icons.Rounded.HourglassTop,
-                            stringResource(R.string.cover_finder_busy),
+                    item(key = "how") {
+                        Text(
+                            stringResource(R.string.cover_finder_how),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier =
+                                Modifier.padding(
+                                        horizontal = Spacing.small,
+                                        vertical = Spacing.small,
+                                    )
+                                    .animateItem(),
+                        )
+                    }
+                }
+                if (others.isNotEmpty()) {
+                    item(key = "others") {
+                        SectionHeader(
+                            stringResource(R.string.cover_finder_others),
                             Modifier.animateItem(),
                         )
                     }
-                CoverFinderStatus.Failed ->
-                    item(key = "state") {
-                        SheetMessage(
-                            Icons.Rounded.ErrorOutline,
-                            stringResource(R.string.cover_finder_failed),
-                            Modifier.animateItem(),
-                            isError = true,
+                }
+                itemsIndexed(others, key = { _, it -> it.url }) { index, suggestion ->
+                    OtherCover(suggestion, index, others.size, Modifier.animateItem()) {
+                        onUse(suggestion)
+                    }
+                }
+                if (status.failedProviders.isNotEmpty()) {
+                    item(key = "partial") {
+                        Text(
+                            stringResource(
+                                R.string.cover_finder_partial,
+                                status.failedProviders.joinToString(", "),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier.fillMaxWidth().padding(top = Spacing.medium).animateItem(),
                         )
                     }
+                }
             }
+            CoverFinderStatus.NoProviders ->
+                item(key = "state") {
+                    SheetMessage(
+                        Icons.Rounded.TravelExplore,
+                        stringResource(R.string.cover_finder_no_sources),
+                        Modifier.animateItem(),
+                    )
+                }
+            CoverFinderStatus.Offline ->
+                item(key = "state") {
+                    SheetMessage(
+                        Icons.Rounded.CloudOff,
+                        stringResource(R.string.cover_finder_offline),
+                        Modifier.animateItem(),
+                        isError = true,
+                    )
+                }
+            CoverFinderStatus.RateLimited ->
+                item(key = "state") {
+                    SheetMessage(
+                        Icons.Rounded.HourglassTop,
+                        stringResource(R.string.cover_finder_busy),
+                        Modifier.animateItem(),
+                    )
+                }
+            CoverFinderStatus.Failed ->
+                item(key = "state") {
+                    SheetMessage(
+                        Icons.Rounded.ErrorOutline,
+                        stringResource(R.string.cover_finder_failed),
+                        Modifier.animateItem(),
+                        isError = true,
+                    )
+                }
         }
     }
 }
