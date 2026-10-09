@@ -116,6 +116,9 @@ sealed interface EditorIntent {
 
     data class SetCoverFromUri(val uri: String) : EditorIntent
 
+    /** Uses the cover an online source has at [url]. */
+    data class SetCoverFromUrl(val url: String) : EditorIntent
+
     data object RemoveCover : EditorIntent
 
     data object RevertCover : EditorIntent
@@ -185,6 +188,8 @@ class EditorViewModel(
             EditorIntent.RevertAll -> editDraft { revertAll() }
             is EditorIntent.SetCoverFromUri ->
                 setCover { images.read(intent.uri)?.let { it.bytes to it.mimeType } }
+            is EditorIntent.SetCoverFromUrl ->
+                setCover { artworkDownloader.download(intent.url)?.let { it.bytes to it.mimeType } }
             EditorIntent.RemoveCover -> editDraft { removeCover() }
             EditorIntent.RevertCover -> editDraft { revertCover() }
             EditorIntent.Save -> save()

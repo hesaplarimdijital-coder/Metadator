@@ -293,7 +293,7 @@ private fun SearchStage(
 }
 
 @Composable
-private fun QueryField(
+internal fun QueryField(
     label: Int,
     value: String,
     onDone: (() -> Unit)? = null,
@@ -317,7 +317,7 @@ private fun QueryField(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SheetButton(
+internal fun SheetButton(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
@@ -340,7 +340,7 @@ private fun SheetButton(
 
 /** Why there are no results, under the shape the app's empty screens use. */
 @Composable
-private fun StateMessage(
+internal fun StateMessage(
     icon: ImageVector,
     text: String,
     modifier: Modifier = Modifier,

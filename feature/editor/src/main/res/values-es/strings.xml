@@ -46,6 +46,29 @@
     <string name="cover_unreadable">No se pudo leer esa imagen</string>
     <string name="cover_none">Sin portada</string>
 
+    <string name="cover_finder_title">Buscar una portada</string>
+    <string name="cover_finder_searching">Buscando portadas y comparándolas…</string>
+    <string name="cover_finder_no_results">No se encontraron portadas. Prueba con menos palabras.</string>
+    <string name="cover_finder_best">La mejor coincidencia</string>
+    <string name="cover_finder_others">Otras portadas</string>
+    <string name="cover_finder_use">Usar esta portada</string>
+    <string name="cover_finder_no_album">Álbum desconocido</string>
+    <string name="cover_finder_how">Elegida en este dispositivo: por lo bien que cada lanzamiento coincide con las etiquetas, por la propia imagen y por cuántas fuentes tienen la misma.</string>
+    <string name="cover_reason_same_release">La portada del lanzamiento con el que está etiquetado este archivo</string>
+    <string name="cover_reason_same_recording">Viene con esta misma grabación</string>
+    <string name="cover_reason_album">El álbum coincide</string>
+    <string name="cover_reason_artist">El artista coincide</string>
+    <string name="cover_reason_title">La canción está en este lanzamiento</string>
+    <string name="cover_reason_year">El año coincide</string>
+    <string name="cover_reason_sources">%1$d fuentes tienen esta misma imagen</string>
+    <string name="cover_reason_same_as_current">La misma imagen que la portada del archivo</string>
+    <string name="cover_reason_larger">Una copia más grande de la portada del archivo</string>
+    <string name="cover_reason_high_resolution">Lo bastante grande para verse nítida en cualquier parte</string>
+    <string name="cover_reason_album_differs">Las etiquetas nombran otro álbum</string>
+    <string name="cover_reason_various">Un recopilatorio de varios artistas</string>
+    <string name="cover_reason_low_resolution">Pequeña: puede verse borrosa en una pantalla grande</string>
+    <string name="cover_reason_not_square">No es cuadrada: puede ser un escaneo de la carátula</string>
+
     <string name="lyrics_find">Buscar letra</string>
     <string name="lyrics_synced">Sincronizada</string>
     <string name="lyrics_found_synced">Letra sincronizada añadida</string>

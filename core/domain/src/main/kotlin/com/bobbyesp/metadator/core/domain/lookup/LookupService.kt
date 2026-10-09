@@ -8,6 +8,7 @@ import com.bobbyesp.metadator.lookup.api.LookupCandidate
 import com.bobbyesp.metadator.lookup.api.LookupQuery
 import com.bobbyesp.metadator.lookup.api.LookupResult
 import com.bobbyesp.metadator.lookup.api.MetadataProvider
+import com.bobbyesp.metadator.lookup.api.ProvidedArtwork
 import com.bobbyesp.metadator.lookup.api.rank
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -24,6 +25,19 @@ class LookupService(
 ) {
     val availableProviders: List<MetadataProvider>
         get() = providers
+
+    /**
+     * The covers the enabled providers can name from ids the file already carries, without a
+     * search, each with the provider that named it.
+     */
+    suspend fun artworkFor(
+        identifiers: Map<String, String>
+    ): List<Pair<MetadataProvider, ProvidedArtwork>> {
+        val enabled = settings.settings.first().enabledProviders
+        return providers
+            .filter { it.id in enabled }
+            .flatMap { provider -> provider.artworkFor(identifiers).map { provider to it } }
+    }
 
     suspend fun search(query: LookupQuery): LookupOutcome {
         val enabled = settings.settings.first().enabledProviders

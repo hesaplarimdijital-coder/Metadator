@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.feature.editor
 
+import com.bobbyesp.metadator.feature.editor.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.feature.editor.lookup.LookupViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.bind
@@ -12,4 +13,5 @@ val editorModule = module {
     single { AndroidImageSource(get(), get(), get()) } bind ImageSource::class
     viewModelOf(::EditorViewModel)
     viewModelOf(::LookupViewModel)
+    viewModelOf(::CoverFinderViewModel)
 }

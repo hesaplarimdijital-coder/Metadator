@@ -8,6 +8,7 @@ import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -15,12 +16,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorAccentTheme
+import com.bobbyesp.metadator.core.domain.cover.CoverRequest
+import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.navigation.Editor
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.pane.LocalPaneContext
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import com.bobbyesp.metadator.feature.editor.cover.CoverFinderSheet
+import com.bobbyesp.metadator.feature.editor.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.feature.editor.lookup.LookupSheet
 import com.bobbyesp.metadator.feature.editor.lookup.LookupViewModel
 import com.bobbyesp.metadator.tags.api.TagField
@@ -40,9 +45,13 @@ fun EntryProviderScope<NavKey>.editorSection(navigator: Navigator) {
 fun EditorDestination(uri: String, onClose: () -> Unit) {
     val viewModel: EditorViewModel = koinViewModel(key = uri) { parametersOf(ContentRef(uri)) }
     val lookup: LookupViewModel = koinViewModel(key = "lookup:$uri")
+    val covers: CoverFinderViewModel = koinViewModel(key = "covers:$uri")
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lookupState by lookup.state.collectAsStateWithLifecycle()
+    val coverState by covers.state.collectAsStateWithLifecycle()
     var showLookup by rememberSaveable(uri) { mutableStateOf(false) }
+    // Not saved: what it showed would be gone with the process, and the song not yet read again.
+    var showCovers by remember(uri) { mutableStateOf(false) }
 
     ShowMessages(viewModel.messages)
     viewModel.effects.CollectEffects { effect ->
@@ -75,11 +84,18 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
                 }
             }
         }
+        val findCover = {
+            val draft = state.draft
+            if (draft != null) {
+                showCovers = true
+                covers.start(coverRequest(state, draft))
+            }
+        }
         EditorScreen(
             state = state,
             onIntent = viewModel::onIntent,
             onFindMetadata = findMetadata,
-            onFindCover = findMetadata,
+            onFindCover = findCover,
             onClose = onClose,
             showClose = !LocalPaneContext.current.isSolePane,
         )
@@ -104,5 +120,39 @@ fun EditorDestination(uri: String, onClose: () -> Unit) {
                 onDismiss = { showLookup = false },
             )
         }
+
+        if (showCovers) {
+            CoverFinderSheet(
+                state = coverState,
+                onQueryChange = covers::setQuery,
+                onSearch = covers::search,
+                onUse = { suggestion ->
+                    viewModel.onIntent(EditorIntent.SetCoverFromUrl(suggestion.url))
+                    showCovers = false
+                },
+                onDismiss = { showCovers = false },
+            )
+        }
     }
+}
+
+/** The song as it stands in the editor, unsaved changes included: what a cover is looked for. */
+private fun coverRequest(state: EditorState, draft: TagDraft): CoverRequest {
+    val tags = draft.tags
+    return CoverRequest(
+        title = tags.first(TagField.Title.key) ?: state.loaded?.track?.title.orEmpty(),
+        artist = tags[TagField.Artist.key].firstOrNull(),
+        album = tags.first(TagField.Album.key),
+        albumArtist = tags[TagField.AlbumArtist.key].firstOrNull(),
+        year = tags.first(TagField.Date.key)?.take(4)?.toIntOrNull(),
+        durationMs = state.loaded?.audio?.durationMs ?: state.loaded?.track?.durationMs,
+        isrc = tags.first(TagField.Isrc.key),
+        // The ids of an earlier lookup, which name the very release the file was tagged as.
+        identifiers =
+            tags.keys
+                .filter { it.startsWith("MUSICBRAINZ_") }
+                .mapNotNull { key -> tags.first(key)?.let { key to it } }
+                .toMap(),
+        currentCover = draft.cover?.data,
+    )
 }

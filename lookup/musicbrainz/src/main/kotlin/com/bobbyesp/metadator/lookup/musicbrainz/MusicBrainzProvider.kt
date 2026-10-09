@@ -9,6 +9,7 @@ import com.bobbyesp.metadator.lookup.api.LookupCandidate
 import com.bobbyesp.metadator.lookup.api.LookupQuery
 import com.bobbyesp.metadator.lookup.api.LookupResult
 import com.bobbyesp.metadator.lookup.api.MetadataProvider
+import com.bobbyesp.metadator.lookup.api.ProvidedArtwork
 import com.bobbyesp.metadator.lookup.api.rank
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -67,6 +68,22 @@ class MusicBrainzProvider(
         }
     }
 
+    override fun artworkFor(identifiers: Map<String, String>): List<ProvidedArtwork> =
+        // The release itself first: the group's cover is the cover of one of its releases, which
+        // may be another edition.
+        listOf("release" to TAG_RELEASE, "release-group" to TAG_RELEASE_GROUP).mapNotNull {
+            (kind, tag) ->
+            identifiers[tag]
+                ?.trim()
+                ?.takeIf { MBID.matches(it) }
+                ?.let { id ->
+                    ProvidedArtwork(
+                        url = "$COVER_ART_URL/$kind/$id/front-1200",
+                        thumbnailUrl = "$COVER_ART_URL/$kind/$id/front-250",
+                    )
+                }
+        }
+
     private suspend fun <T> throttled(block: suspend () -> T): T = rateLimit.withLock {
         val wait = lastRequestAt + MIN_INTERVAL_MS - clock()
         if (wait > 0) delay(wait.milliseconds)
@@ -81,6 +98,12 @@ class MusicBrainzProvider(
         const val ID = "musicbrainz"
         private const val BASE_URL = "https://musicbrainz.org/ws/2"
         private const val COVER_ART_URL = "https://coverartarchive.org"
+        private const val TAG_RELEASE = "MUSICBRAINZ_ALBUMID"
+        private const val TAG_RELEASE_GROUP = "MUSICBRAINZ_RELEASEGROUPID"
+
+        /** What a MusicBrainz id looks like: anything else in the tag is not put in a URL. */
+        private val MBID =
+            Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
         private const val RESULT_LIMIT = 15
         private const val MAX_CANDIDATES = 20
         private const val MIN_INTERVAL_MS = 1_100L
@@ -160,8 +183,8 @@ class MusicBrainzProvider(
                     identifiers =
                         buildMap {
                             put("MUSICBRAINZ_TRACKID", id)
-                            put("MUSICBRAINZ_ALBUMID", release.id)
-                            releaseGroupId?.let { put("MUSICBRAINZ_RELEASEGROUPID", it) }
+                            put(TAG_RELEASE, release.id)
+                            releaseGroupId?.let { put(TAG_RELEASE_GROUP, it) }
                             artistCredit.firstOrNull()?.artist?.id?.let {
                                 put("MUSICBRAINZ_ARTISTID", it)
                             }

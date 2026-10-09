@@ -7,6 +7,7 @@ import com.bobbyesp.metadator.BuildConfig
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.common.AppInfo
 import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.data.AndroidImageSampler
 import com.bobbyesp.metadator.core.data.AndroidStringProvider
 import com.bobbyesp.metadator.core.data.DataStoreSettingsRepository
 import com.bobbyesp.metadator.core.data.createSettingsDataStore
@@ -15,6 +16,8 @@ import com.bobbyesp.metadator.core.database.RoomTagBackupStore
 import com.bobbyesp.metadator.core.database.RoomTrackTagCache
 import com.bobbyesp.metadator.core.database.TagBackupFiles
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
+import com.bobbyesp.metadator.core.domain.cover.FindCoversUseCase
+import com.bobbyesp.metadator.core.domain.cover.ImageSampler
 import com.bobbyesp.metadator.core.domain.editor.LoadTrackUseCase
 import com.bobbyesp.metadator.core.domain.library.TagCompletedAudioLibrary
 import com.bobbyesp.metadator.core.domain.lookup.LookupService
@@ -48,6 +51,7 @@ import com.bobbyesp.metadator.library.mediastore.MediaStoreWriteAccess
 import com.bobbyesp.metadator.library.mediastore.RecoverableAccessCache
 import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
 import com.bobbyesp.metadator.lookup.deezer.DeezerProvider
+import com.bobbyesp.metadator.lookup.itunes.ITunesProvider
 import com.bobbyesp.metadator.lookup.musicbrainz.MusicBrainzProvider
 import com.bobbyesp.metadator.lyrics.api.LyricsProvider
 import com.bobbyesp.metadator.lyrics.lrclib.LrcLibProvider
@@ -126,6 +130,8 @@ private val engineModule = module {
     single<ArtworkDownloader> { KtorArtworkDownloader(get()) }
     single { MusicBrainzProvider(get()) }
     single { DeezerProvider(get()) }
+    single { ITunesProvider(get()) }
+    single<ImageSampler> { AndroidImageSampler(get()) }
     single<LyricsProvider> { LrcLibProvider(get()) }
 
     single<PlayerController> { Media3PlayerController(androidContext(), get(MainScope)) }
@@ -138,7 +144,13 @@ private val domainModule = module {
     factory { FindLyricsUseCase(get()) }
     factory { LoadLyricsUseCase(get(), get()) }
     factory { CheckLosslessUseCase(get(), get()) }
-    single { LookupService(listOf(get<MusicBrainzProvider>(), get<DeezerProvider>()), get()) }
+    factory { FindCoversUseCase(get(), get(), get(), get()) }
+    single {
+        LookupService(
+            listOf(get<MusicBrainzProvider>(), get<DeezerProvider>(), get<ITunesProvider>()),
+            get(),
+        )
+    }
     single { BatchRunner(get(AppScope), get()) }
 }
 

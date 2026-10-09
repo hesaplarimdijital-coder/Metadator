@@ -105,9 +105,15 @@ class DeezerProvider(private val client: HttpClient) : MetadataProvider {
                 discNumber = diskNumber,
                 isrc = isrc,
                 durationMs = duration?.times(1000),
-                artworkUrl = album?.coverXl,
-                artworkThumbnailUrl = album?.coverMedium,
+                artworkUrl = album?.coverXl?.takeUnless { it.isPlaceholder() },
+                artworkThumbnailUrl = album?.coverMedium?.takeUnless { it.isPlaceholder() },
             )
         }
+
+        /**
+         * An album without a cover still gets a URL, with nothing where the picture's name goes,
+         * and Deezer answers it with its own stand-in picture.
+         */
+        private fun String.isPlaceholder(): Boolean = contains("/cover//")
     }
 }
