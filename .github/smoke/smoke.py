@@ -257,6 +257,27 @@ def expect_gone(pattern, timeout=20):
         time.sleep(1)
 
 
+def shortcuts_open(nodes=None, title=SHORTCUTS):
+    """Whether the list of shortcuts is in front. Its title alone does not say so: the library's
+    sidebar has a place of that name, from which a click opens the list. The list's own title is
+    the one with nothing around it that takes a click."""
+    nodes = screen() if nodes is None else nodes
+    return any(not node.pressed_as().takes_click for node in nodes if node.says(title))
+
+
+def expect_shortcuts(shown=True, timeout=15, title=SHORTCUTS):
+    """Waits until the list of shortcuts is in front, or gone from it."""
+    deadline = time.time() + timeout
+    while True:
+        nodes = screen()
+        if nodes and shortcuts_open(nodes, title) == shown:
+            return nodes
+        if time.time() > deadline:
+            state = "in front" if shown else "gone"
+            raise Failed(f"the list of shortcuts is not {state} after {timeout} s: {said_on(nodes)[:30]}")
+        time.sleep(1)
+
+
 def tap(node):
     x, y = node.center
     shell(f"input tap {x} {y}")
@@ -352,7 +373,7 @@ def home():
             else:
                 shell(f"am start -n {PACKAGE}/{MAIN}")
                 time.sleep(3)
-        elif find(SHORTCUTS, nodes) or find("^Find a cover$", nodes):
+        elif shortcuts_open(nodes) or find("^Find a cover$", nodes):
             key(KEY_ESCAPE)
         elif find("^Discard$", nodes):
             tap(find("^Discard$", nodes)[0])
@@ -604,8 +625,7 @@ def two_panes():
 
 def shortcut_list():
     key(KEY_F1)
-    expect(SHORTCUTS, 15)
-    nodes = screen()
+    nodes = expect_shortcuts()
     # The screen in front comes first in the list, so the library's are in sight.
     for wanted in ("^Library$", "Search the library", "^Ctrl$", "^Close$"):
         if not find(wanted, nodes):
@@ -624,7 +644,7 @@ def shortcut_list():
         expect("Search the library", 15)
         scrolled = "End and Home move through it"
     key(KEY_ESCAPE)
-    expect_gone(SHORTCUTS, 15)
+    expect_shortcuts(shown=False)
     expect("One More Time", 15)
     return f"F1 shows them, {scrolled}, Esc closes them. The list starts: {listed[:24]}"
 
@@ -912,7 +932,7 @@ def follows_the_display():
     # same: the list of shortcuts belongs to the activity, and a new one would start without it.
     instance = activity_instance()
     key(KEY_F1)
-    expect(SHORTCUTS, 15)
+    expect_shortcuts()
     notes = []
     changes = [
         ("a smaller window", ["wm size 1280x800"]),
@@ -931,7 +951,7 @@ def follows_the_display():
             if instance and now and now != instance:
                 raise Failed(f"{name}: the activity was recreated ({instance} -> {now})")
             try:
-                expect(SHORTCUTS, 15)
+                expect_shortcuts()
             except Failed as closed:
                 raise Failed(f"{name}: what was open is gone. {closed}")
             screenshot("display-" + slug(name))
@@ -942,7 +962,7 @@ def follows_the_display():
         shell("cmd uimode night no")
         time.sleep(2)
     key(KEY_ESCAPE)
-    expect_gone(SHORTCUTS, 15)
+    expect_shortcuts(shown=False)
     return f"the same activity ({instance}), with its list still open, through: {', '.join(notes)}"
 
 
@@ -1560,10 +1580,10 @@ def turkish():
         expect("Gerçek kayıpsız gibi görünüyor", 120)
         screenshot("turkish-editor")
         key(KEY_F1)
-        expect("^Klavye kısayolları$", 15)
+        expect_shortcuts(title="^Klavye kısayolları$")
         screenshot("turkish-shortcuts")
         key(KEY_ESCAPE)
-        expect_gone("^Klavye kısayolları$", 15)
+        expect_shortcuts(shown=False, title="^Klavye kısayolları$")
     finally:
         shell(f"cmd locale set-app-locales {PACKAGE} --locales en-US")
         time.sleep(4)
