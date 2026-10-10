@@ -37,7 +37,7 @@
     <string name="remove_value">%1$s değerini kaldır</string>
 
     <string name="cover">Kapak</string>
-    <string name="cover_change">Kapağı değiştir</string>
+    <string name="cover_change">Kapak seç</string>
     <string name="cover_remove">Kapağı kaldır</string>
     <string name="cover_revert">Özgün kapağı koru</string>
     <string name="cover_find_online">Çevrimiçi kapak bul</string>
