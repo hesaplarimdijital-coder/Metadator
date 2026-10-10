@@ -130,7 +130,8 @@ class LibraryQualityScanner(
 
     private suspend fun work() {
         val stored = runCatching { withContext(dispatchers.io) { store.load() } }.getOrNull()
-        synchronized(known) { stored?.forEach { known[it.uri] = it } }
+        // A verdict recorded meanwhile is newer than the one the store had.
+        synchronized(known) { stored?.forEach { if (it.uri !in known) known[it.uri] = it } }
         while (true) {
             val tracks = library.value ?: library.first { it != null }!!
             publish(tracks, checking = null)

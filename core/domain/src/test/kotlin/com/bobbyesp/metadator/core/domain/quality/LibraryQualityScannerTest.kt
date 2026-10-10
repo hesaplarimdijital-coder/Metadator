@@ -125,6 +125,20 @@ class LibraryQualityScannerTest {
         assertEquals(2, scanner.state.value.checked)
     }
 
+    @Test
+    fun `a verdict made elsewhere is kept, and the song is not checked again`() = runTest {
+        val store = MemoryStore()
+        // Nothing can be opened: a song checked here would come out unreadable.
+        val scanner = scanner(store, opened = emptyMap())
+
+        scanner.record(flac, LosslessVerdict.Lossless)
+        scanner.submit(listOf(flac))
+        runCurrent()
+
+        assertEquals(TrackQuality.Checked(LosslessVerdict.Lossless), scanner.state.value.of(flac))
+        assertEquals(listOf(flac.ref.uri), store.saved.map { it.uri })
+    }
+
     private fun track(id: Long, name: String) =
         Track(
             id = TrackId(id),

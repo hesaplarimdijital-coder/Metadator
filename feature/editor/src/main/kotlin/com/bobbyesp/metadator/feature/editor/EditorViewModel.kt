@@ -16,6 +16,7 @@ import com.bobbyesp.metadator.core.domain.editor.TrackPositions
 import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
 import com.bobbyesp.metadator.core.domain.lyrics.FindLyricsUseCase
 import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
+import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
 import com.bobbyesp.metadator.core.domain.quality.LosslessCheckResult
 import com.bobbyesp.metadator.core.domain.quality.LosslessReport
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
@@ -145,6 +146,7 @@ class EditorViewModel(
     private val writeAccess: WriteAccess,
     private val findLyricsUseCase: FindLyricsUseCase,
     private val checkLossless: CheckLosslessUseCase,
+    private val libraryQuality: LibraryQualityScanner,
     private val artworkDownloader: ArtworkDownloader,
     private val images: ImageSource,
     private val settingsRepository: SettingsRepository,
@@ -284,13 +286,22 @@ class EditorViewModel(
                             if (named) LosslessCheckState.Checking else LosslessCheckState.None
                     )
                 }
+                val result = checkLossless(ref)
                 val checked =
-                    when (val result = checkLossless(ref)) {
+                    when (result) {
                         is LosslessCheckResult.Checked -> LosslessCheckState.Done(result.report)
                         LosslessCheckResult.NotApplicable -> LosslessCheckState.None
                         LosslessCheckResult.Unreadable -> unreadable
                     }
                 setState { copy(lossless = checked) }
+                // The library then says the same of the song, without checking it again.
+                val track = loaded.track
+                if (track != null && result != LosslessCheckResult.NotApplicable) {
+                    libraryQuality.record(
+                        track,
+                        (result as? LosslessCheckResult.Checked)?.report?.verdict,
+                    )
+                }
             }
     }
 
