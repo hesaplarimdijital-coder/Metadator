@@ -1289,40 +1289,54 @@ def click_at(node, held):
 def selected_songs(nodes):
     """The songs whose rows are checked, from the top one down."""
     checked = [node for node in nodes if node.checked]
-    return [
-        title
-        for title in sorted(SONGS, key=lambda title: row(title, nodes).top)
-        if any(node.holds(re.escape(title)) for node in checked)
-    ]
+    found = []
+    for title in SONGS:
+        shown = [node for node in find(re.escape(title), nodes) if not node.is_field]
+        if shown and any(node.holds(re.escape(title)) for node in checked):
+            found.append((min(node.top for node in shown), title))
+    return [title for _, title in sorted(found)]
+
+
+class Box:
+    """A part of the screen to aim at: rows next to each other, any of which will do."""
+
+    def __init__(self, nodes):
+        self.left = min(node.left for node in nodes)
+        self.top = min(node.top for node in nodes)
+        self.right = max(node.right for node in nodes)
+        self.bottom = max(node.bottom for node in nodes)
 
 
 def ctrl_click_selects():
     if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
     order = [next(title for title in SONGS if node.holds(re.escape(title))) for node in rows()]
-    # Ctrl+click, aimed at the first song: whichever it lands on is selected, and it alone.
+    # Where a pointer lands is known to within a sixth or so, less than a row: the clicks are
+    # aimed at the middle of several rows, and what they selected is read from the screen.
+    # Ctrl+click on any song: the one it lands on is selected, and it alone.
     chosen, landed, nodes = [], None, []
     for _ in range(3):
-        landed = click_at(rows()[0], Gesture.KEY_LEFTCTRL)
+        landed = click_at(Box(rows()), Gesture.KEY_LEFTCTRL)
         nodes = screen()
         chosen = selected_songs(nodes)
         if chosen:
             break
-        log(f"    a Ctrl+click landed at {landed}, and selected nothing")
+        log(f"    a Ctrl+click landed at {landed}, and selected nothing: {home()}")
     if not chosen:
         raise Skipped(f"no Ctrl+click landed on a song; the last one at {landed}")
     if len(chosen) != 1 or not find("^1 selected$", nodes):
         raise Failed(f"a Ctrl+click selected {chosen}: {said_on(nodes)[:30]}")
     first = order.index(chosen[0])
-    # Shift+click two songs away: every song from that one to the first, and no other. The rows
-    # have moved, under the bar of the selection.
-    target = first + 2 if first + 2 < len(order) else first - 2
+    # Shift+click on a song on the side of it with more of them: every song from that one to the
+    # first, and no other. The rows have moved, under the bar of the selection.
     now = chosen
     for _ in range(3):
-        landed = click_at(row(order[target]), Gesture.KEY_LEFTSHIFT)
+        listed = rows()
+        above, below = listed[:first], listed[first + 1 :]
+        landed = click_at(Box(above if len(above) > len(below) else below), Gesture.KEY_LEFTSHIFT)
         nodes = screen()
         now = selected_songs(nodes)
-        if len(now) > 1:
+        if len(now) > 1 or not find(r"^\d selected$", nodes):
             break
         log(f"    a Shift+click landed at {landed}, and selected {now}")
     if len(now) < 2:
@@ -1341,29 +1355,49 @@ def ctrl_click_selects():
     )
 
 
+def pointer_position():
+    """Where the made-up mouse's pointer is, or was last: its last event's place."""
+    events = mouse_events(newer_than_ms=9000)
+    return (round(events[-1][1]), round(events[-1][2])) if events else None
+
+
 def tooltip_on_hover():
+    global pointer_gain
     if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
-    nodes = screen()
-    button = find("^More options$", nodes)
-    if not button:
-        raise Skipped("no icon button to rest on")
-    x, y = button[0].center
-    moves = Gesture().to_corner().move(*counts(x, y))
-    arrives = moves.now / 1000
-    gesture = moves.start(linger=8000)
-    # The pointer rests there while the picture is taken, a little after a tooltip would show;
-    # then the mouse goes.
-    time.sleep(1 + arrives + 3)
-    picture_before = shots
-    rested = where_clicked()
-    screenshot("pointer-resting-on-a-button")
-    gesture.wait(timeout=60)
-    # A tooltip is a window of its own, which the dump of the window in front does not show:
-    # the picture is what says whether it came.
-    on = landed_row(rested, button)
-    where = "on the button" if on is not None else f"off the button at {button[0]!r}"
-    return f"the pointer rested at {rested}, {where}: see picture {picture_before + 1}"
+    width, height = display_size()
+    rested = None
+    for _ in range(3):
+        icon = find("^More options$")
+        if not icon:
+            raise Skipped("no icon button to rest on")
+        # The whole button, whose tooltip shows wherever on it the pointer rests: its icon is half
+        # as wide.
+        button = icon[0].pressed_as()
+        sent = counts(*aim(button))
+        moves = Gesture().to_corner().move(*sent)
+        arrives = moves.now / 1000
+        gesture = moves.start(linger=8000)
+        # The pointer rests there while the picture is taken, a little after a tooltip would
+        # show; then the mouse goes.
+        time.sleep(1 + arrives + 3)
+        rested = pointer_position()
+        on = landed_row(rested, [button]) is not None
+        picture = shots + 1
+        if on:
+            screenshot("pointer-resting-on-a-button")
+        gesture.wait(timeout=60)
+        if on:
+            # A tooltip is a window of its own, which the dump of the window in front does not
+            # show: the picture is what says whether it came.
+            return f"the pointer rested at {rested}, on the button: see picture {picture}"
+        log(f"    the pointer rested at {rested}, off the button at {button!r}")
+        if rested:
+            pointer_gain = (
+                corrected(pointer_gain[0], sent[0], rested[0], width),
+                corrected(pointer_gain[1], sent[1], rested[1], height),
+            )
+    raise Skipped(f"the pointer never rested on the button; the last time at {rested}")
 
 
 # --- Songs on the SD card ----------------------------------------------------------------------
