@@ -26,7 +26,6 @@
     <string name="field_genre">Genres</string>
     <string name="field_track">Track</string>
     <string name="field_disc">Disc</string>
-    <string name="field_of">of</string>
     <string name="field_composer">Composers</string>
     <string name="field_lyricist">Lyricists</string>
     <string name="field_conductor">Conductor</string>
@@ -121,4 +120,5 @@
     <string name="column_format">Format</string>
     <string name="column_quality">Quality</string>
     <string name="column_duration">Length</string>
+    <string name="field_total">Total</string>
 </resources>

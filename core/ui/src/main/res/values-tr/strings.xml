@@ -26,7 +26,6 @@
     <string name="field_genre">Türler</string>
     <string name="field_track">Parça</string>
     <string name="field_disc">Disk</string>
-    <string name="field_of">/</string>
     <string name="field_composer">Besteciler</string>
     <string name="field_lyricist">Söz yazarları</string>
     <string name="field_conductor">Şef</string>
@@ -121,4 +120,5 @@
     <string name="column_format">Biçim</string>
     <string name="column_quality">Kalite</string>
     <string name="column_duration">Süre</string>
+    <string name="field_total">Toplam</string>
 </resources>

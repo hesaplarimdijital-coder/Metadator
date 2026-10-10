@@ -26,7 +26,6 @@
     <string name="field_genre">Géneros</string>
     <string name="field_track">Pista</string>
     <string name="field_disc">Disco</string>
-    <string name="field_of">de</string>
     <string name="field_composer">Compositores</string>
     <string name="field_lyricist">Letristas</string>
     <string name="field_conductor">Director</string>
@@ -121,4 +120,5 @@
     <string name="column_format">Formato</string>
     <string name="column_quality">Calidad</string>
     <string name="column_duration">Duración</string>
+    <string name="field_total">Total</string>
 </resources>

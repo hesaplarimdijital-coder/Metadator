@@ -314,7 +314,7 @@ fun PositionField(
             PositionCell(
                 value = total,
                 onValueChange = { onChange(number, it) },
-                description = stringResource(CoreUiR.string.field_of),
+                description = stringResource(CoreUiR.string.field_total),
                 changed = changed,
                 modifier = Modifier.weight(1f),
                 trailing = if (changed) ({ RevertButton(label, onRevert) }) else null,

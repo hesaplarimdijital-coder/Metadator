@@ -443,21 +443,15 @@ private fun fileFacts(state: EditorState): List<String> {
     val loaded = state.loaded ?: return emptyList()
     val bits = (state.lossless as? LosslessCheckState.Done)?.report?.bitsPerSample
     val audio = loaded.audio
-    val format =
-        listOfNotNull(
-                loaded.fileExtension?.uppercase(Locale.ROOT),
-                bits?.let { stringResource(R.string.fact_bits, it) },
-                audio?.sampleRateHz?.takeIf { it > 0 }?.let { kiloHertz(it) },
-                audio
-                    ?.bitrateKbps
-                    ?.takeIf { it > 0 && bits == null }
-                    ?.let {
-                        stringResource(R.string.file_bitrate_value, it)
-                    },
-            )
-            .joinToString(" · ")
+    // One chip each, so that the head wraps them where it is narrow rather than cutting one short.
     return listOfNotNull(
-        format.ifEmpty { null },
+        loaded.fileExtension?.uppercase(Locale.ROOT),
+        bits?.let { stringResource(R.string.fact_bits, it) },
+        audio?.sampleRateHz?.takeIf { it > 0 }?.let { kiloHertz(it) },
+        audio
+            ?.bitrateKbps
+            ?.takeIf { it > 0 && bits == null }
+            ?.let { stringResource(R.string.file_bitrate_value, it) },
         state.coverInfo?.let { stringResource(R.string.cover_size, it.width, it.height) },
     )
 }
