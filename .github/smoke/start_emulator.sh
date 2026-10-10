@@ -79,15 +79,17 @@ hw.cpu.ncore=4
 disk.dataPartition.size=3G
 CONFIG
 
-# Without direct memory for GL: with it the emulator offers to read the screen back by DMA, which
-# the Android 17 image's graphics mapper does not take, and aborts on. Surface Flinger then fails
-# over and over, the system's interface stops answering, and every screenshot fails too. Turned
-# off for this user's emulators, and on the command line.
+# With direct memory for GL and the shared slots it needs: the Android 17 image's graphics mapper
+# reads the screen back only by DMA, which the emulator offers with both and not by default on
+# this runner. Without them the mapper aborts, Surface Flinger with it, over and over: the
+# system's interface stops answering, and every screenshot fails too. Turned on for this user's
+# emulators, and on the command line.
 mkdir -p "$HOME/.android"
-echo "GLDirectMem = off" >>"$HOME/.android/advancedFeatures.ini"
+printf 'GLDirectMem = on\nHasSharedSlotsHostMemoryAllocator = on\n' \
+  >>"$HOME/.android/advancedFeatures.ini"
 nohup "$sdk/emulator/emulator" -avd smoke -no-window -no-audio -no-boot-anim -no-snapshot \
-  -gpu swiftshader_indirect -feature -GLDirectMem -camera-back none -camera-front none \
-  >emulator.log 2>&1 &
+  -gpu swiftshader_indirect -feature GLDirectMem,HasSharedSlotsHostMemoryAllocator \
+  -camera-back none -camera-front none >emulator.log 2>&1 &
 
 adb="$sdk/platform-tools/adb"
 timeout 300 "$adb" wait-for-device

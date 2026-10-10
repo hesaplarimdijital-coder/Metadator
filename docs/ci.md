@@ -101,7 +101,12 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   display of 1920 x 1080 at the density of a monitor, a keyboard with real keys, and an SD card of
   512 MB. It drives `sdkmanager` itself, for the one thing the runner does not ship: a system image
   (the one with 4 KB pages when there is one, else the one with 16 KB pages, which the app's native
-  library is aligned for).
+  library is aligned for). Android 17 says it has booted before its system server is done
+  starting, so the device counts as ready only once the package service, storage and the media
+  store answer and the system server keeps its pid. GL direct memory and the shared slots it needs
+  are turned on: the image's graphics mapper reads the screen back only by DMA, which the emulator
+  offers with both and not by default there, and without it the mapper aborts, taking Surface
+  Flinger and every screenshot with it.
 - `smoke.py` is the user. It reads the screen as the accessibility tree has it
   (`uiautomator dump`), presses keys and taps (`input`), plugs in a mouse the system believes in
   (`uinput`) and steers it by where the input system says its pointer is (`dumpsys input`), changes the display under the
