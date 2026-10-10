@@ -79,8 +79,15 @@ hw.cpu.ncore=4
 disk.dataPartition.size=3G
 CONFIG
 
+# Without direct memory for GL: with it the emulator offers to read the screen back by DMA, which
+# the Android 17 image's graphics mapper does not take, and aborts on. Surface Flinger then fails
+# over and over, the system's interface stops answering, and every screenshot fails too. Turned
+# off for this user's emulators, and on the command line.
+mkdir -p "$HOME/.android"
+echo "GLDirectMem = off" >>"$HOME/.android/advancedFeatures.ini"
 nohup "$sdk/emulator/emulator" -avd smoke -no-window -no-audio -no-boot-anim -no-snapshot \
-  -gpu swiftshader_indirect -camera-back none -camera-front none >emulator.log 2>&1 &
+  -gpu swiftshader_indirect -feature -GLDirectMem -camera-back none -camera-front none \
+  >emulator.log 2>&1 &
 
 adb="$sdk/platform-tools/adb"
 timeout 300 "$adb" wait-for-device
@@ -131,6 +138,11 @@ for _ in $(seq 1 60); do
 done
 if [ -z "$ready" ]; then
   echo "The system did not settle: the steps will say what did not answer."
+fi
+# Whether the screen can be read back: one picture of it, and the crash log after.
+"$adb" shell screencap -p /sdcard/boot.png >/dev/null 2>&1 || true
+if "$adb" logcat -d -b crash 2>/dev/null | grep -q "hasReadColorBufferDma"; then
+  echo "The graphics mapper aborts when the screen is read back (ReadColorBufferDma)."
 fi
 "$adb" shell getprop ro.build.fingerprint
 "$adb" shell wm size

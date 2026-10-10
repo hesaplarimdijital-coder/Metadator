@@ -174,10 +174,15 @@ class Node:
 last_dump = ""
 
 
+# The system's "isn't responding" dialogs that were waited out, for the report: on a busy emulator
+# its own processes can be slow to answer, and the dialog would stand in front of the app.
+waited_out = []
+
+
 def screen(attempts=4):
     """What the window in front shows, as the accessibility tree has it."""
     global last_dump
-    for _ in range(attempts):
+    for _ in range(attempts + 3):
         said = shell("uiautomator dump /sdcard/window_dump.xml", timeout=60)
         if "dumped to" in said:
             raw = adb("exec-out", "cat", "/sdcard/window_dump.xml", binary=True)
@@ -199,6 +204,14 @@ def screen(attempts=4):
 
             for top in root.findall("node"):
                 read(top, None)
+            stuck = [node for node in nodes if node.says("isn.t responding")]
+            wait = [node for node in nodes if node.says("^Wait$")]
+            if stuck and wait and len(waited_out) < 10:
+                waited_out.append(stuck[0].text or stuck[0].description)
+                log(f"    the system says {waited_out[-1]!r}: waiting")
+                tap(wait[0])
+                time.sleep(3)
+                continue
             return nodes
         time.sleep(1)
     return []
@@ -1773,6 +1786,8 @@ finally:
             report.write(f"[{outcome}] {name}\n")
             if detail:
                 report.write(f"    {detail}\n")
+        if waited_out:
+            report.write(f"\nWaited out on the way: {waited_out}\n")
     print(open(os.path.join(out_dir, "report.txt"), encoding="utf-8").read())
     log_file.close()
 
