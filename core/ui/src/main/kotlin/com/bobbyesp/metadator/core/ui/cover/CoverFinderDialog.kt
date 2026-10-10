@@ -305,24 +305,40 @@ private fun Results(
     useLabel: String,
 ) {
     Row(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.width(380.dp)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            BestCoverPanel(best, onUse = { onUse(best) }, useLabel = useLabel)
-            if (failedProviders.isNotEmpty()) {
-                Text(
-                    stringResource(
-                        R.string.cover_finder_partial,
-                        failedProviders.joinToString(", "),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Studio.colors.textTertiary,
-                )
+        Column(Modifier.width(380.dp).fillMaxHeight()) {
+            val scroll = rememberScrollState()
+            Column(
+                Modifier.weight(1f)
+                    .fillMaxWidth()
+                    .scrollbar(scroll)
+                    .verticalScroll(scroll)
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                BestCoverPanel(best)
+                if (failedProviders.isNotEmpty()) {
+                    Text(
+                        stringResource(
+                            R.string.cover_finder_partial,
+                            failedProviders.joinToString(", "),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Studio.colors.textTertiary,
+                    )
+                }
             }
+            // The choice stays in sight, however much speaks for it: on a window of a desktop's
+            // height the reasons alone reach below the dialog's edge.
+            StudioButton(
+                text = useLabel,
+                onClick = { onUse(best) },
+                icon = Icons.Rounded.Check,
+                style = StudioButtonStyle.Primary,
+                modifier =
+                    Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
+                        .fillMaxWidth()
+                        .heightIn(min = 40.dp),
+            )
         }
         Box(Modifier.width(1.dp).fillMaxHeight().background(Studio.colors.line))
         Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -354,7 +370,7 @@ private fun Results(
 
 /** The cover to use: large, with how sure the choice is and what speaks for it. */
 @Composable
-private fun BestCoverPanel(suggestion: CoverSuggestion, onUse: () -> Unit, useLabel: String) {
+private fun BestCoverPanel(suggestion: CoverSuggestion) {
     val colors = Studio.colors
     val album = suggestion.album ?: stringResource(R.string.cover_finder_no_album)
     Box {
@@ -416,13 +432,6 @@ private fun BestCoverPanel(suggestion: CoverSuggestion, onUse: () -> Unit, useLa
             }
         }
     }
-    StudioButton(
-        text = useLabel,
-        onClick = onUse,
-        icon = Icons.Rounded.Check,
-        style = StudioButtonStyle.Primary,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
-    )
 }
 
 /** Another cover: its picture, how large and from where, and how good a match. */
