@@ -205,8 +205,10 @@ private fun BatchHead(state: BatchState, onClose: () -> Unit, modifier: Modifier
                 Box(
                     Modifier.offset(x = (index * 12).dp, y = ((2 - index) * 6).dp)
                         .size(48.dp)
-                        .background(Studio.colors.raisedHigh, RoundedCornerShape(9.dp))
-                        .border(2.dp, Studio.colors.panel, RoundedCornerShape(9.dp)),
+                        // A tone below the panel's and an edge: each card of the stack is told
+                        // from the one under it in either theme, with no shadow.
+                        .background(Studio.colors.raised, RoundedCornerShape(9.dp))
+                        .border(1.dp, Studio.colors.lineStrong, RoundedCornerShape(9.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
