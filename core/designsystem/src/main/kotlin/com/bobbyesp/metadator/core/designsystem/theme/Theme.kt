@@ -88,18 +88,24 @@ fun MetadatorTheme(settings: UserSettings = UserSettings(), content: @Composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MetadatorAccentTheme(accent: Color?, content: @Composable () -> Unit) {
-    if (accent == null) {
-        content()
-        return
-    }
     val base = Studio.colors
+    val baseScheme = MaterialTheme.colorScheme
+    // The same layers with an accent or without: a song's color arrives after the song, and content
+    // that moved into other layers would be composed anew, its state lost. The player's sheet
+    // would even take its seekable transition into a second Transition, which throws.
     val studio =
         remember(base, accent) {
-            val text = readableAccent(accent, base.isDark)
-            val fill = readableAccent(accent, isDark = false)
-            base.copy(accent = text, accentFill = fill, accentSoft = text.copy(alpha = 0.16f))
+            if (accent == null) base
+            else {
+                val text = readableAccent(accent, base.isDark)
+                val fill = readableAccent(accent, isDark = false)
+                base.copy(accent = text, accentFill = fill, accentSoft = text.copy(alpha = 0.16f))
+            }
         }
-    val scheme = remember(studio) { studio.toColorScheme() }
+    val scheme =
+        remember(studio, baseScheme) {
+            if (studio === base) baseScheme else studio.toColorScheme()
+        }
     CompositionLocalProvider(LocalStudioColors provides studio) {
         MaterialExpressiveTheme(
             colorScheme = scheme,
