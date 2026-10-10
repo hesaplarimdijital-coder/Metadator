@@ -7,6 +7,9 @@
 #   03  an MP3, which the check has nothing to say about
 #   04  a FLAC of 96 kHz made from the first: lossless, with nothing above what a CD holds
 #
+# And two of another album in <out>/Homework, for an SD card: a genuine FLAC and one made from an
+# MP3, out of a sound of their own.
+#
 # The sound is noise. Only its spectrum matters here, and the tags, which are a real album's so
 # that the online sources have a cover for it.
 set -euo pipefail
@@ -46,5 +49,28 @@ ffmpeg -v error -y -i "$work/source.wav" -ar 96000 -c:a flac \
   -metadata "title=Harder, Better, Faster, Stronger" -metadata "track=4" "${tags[@]}" \
   "$album/04 - Harder, Better, Faster, Stronger.flac"
 
+homework="$out/Homework"
+mkdir -p "$homework"
+card_tags=(
+  -metadata "artist=Daft Punk"
+  -metadata "album=Homework"
+  -metadata "album_artist=Daft Punk"
+  -metadata "date=1997"
+  -metadata "REPLAYGAIN_TRACK_GAIN=-5.20 dB"
+  -metadata "MY_NOTE=keep me too"
+)
+
+ffmpeg -v error -y -f lavfi -i "anoisesrc=d=16:c=pink:r=44100:a=0.6:s=11" \
+  -ac 2 -c:a pcm_s16le "$work/card.wav"
+
+ffmpeg -v error -y -i "$work/card.wav" -c:a flac \
+  -metadata "title=Around the World" -metadata "track=1" "${card_tags[@]}" \
+  "$homework/01 - Around the World.flac"
+
+ffmpeg -v error -y -i "$work/card.wav" -c:a libmp3lame -b:a 128k "$work/card.mp3"
+ffmpeg -v error -y -i "$work/card.mp3" -c:a flac \
+  -metadata "title=Da Funk" -metadata "track=2" "${card_tags[@]}" \
+  "$homework/02 - Da Funk.flac"
+
 rm -r "$work"
-ls -l "$album"
+ls -l "$album" "$homework"

@@ -94,14 +94,18 @@ desk would: nothing of the app is replaced or instrumented, so what is tried is 
 on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it tries.
 
 - `make_audio.sh` makes the songs with FFmpeg: four tracks of one album, each a different answer
-  for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz).
+  for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz),
+  and two of another album for the SD card.
 - `start_emulator.sh` boots an emulator with no window: a display of 1920 x 1080 at the density of
-  a monitor, and a keyboard with real keys. It drives `sdkmanager` itself, for the one thing the
-  runner does not ship: a system image.
+  a monitor, a keyboard with real keys, and an SD card of 512 MB. It drives `sdkmanager` itself,
+  for the one thing the runner does not ship: a system image.
 - `smoke.py` is the user. It reads the screen as the accessibility tree has it
   (`uiautomator dump`), presses keys and taps (`input`), plugs in a mouse the system believes in
-  (`uinput`), changes the display under the app (`wm`, `cmd uimode`), and compares each song the
-  app wrote with what it was before, with FFprobe. Every step leaves a picture of the screen.
+  (`uinput`) and reads where its clicks landed (`dumpsys input`), changes the display under the
+  app (`wm`, `cmd uimode`), puts songs on the SD card behind the media store's back (`su`, or
+  `adb push` when there is none), and compares each song the app wrote with what it was before,
+  with FFprobe. Every step leaves a picture of the screen. When the emulator has no SD card, it
+  asks the system for one made out of a file (`sm set-virtual-disk`).
 - **It is a report, not a gate.** `smoke-report.txt` and `smoke.zip` (the pictures, the screens as
   text, the device's log) are published next to the APK. A step that needs the network, or the
   made-up mouse, is reported and does not fail the run.

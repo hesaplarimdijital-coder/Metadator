@@ -3,8 +3,8 @@
 
 This is not a unit test. It is the check that the APK, as built, opens, lists songs, tells a real
 FLAC from one made out of an MP3, finds a cover, writes it without touching anything else, follows
-its window as it changes, and answers to a keyboard and a mouse. Everything goes through adb, so
-the APK tried is the one that is published, untouched.
+its window as it changes, answers to a keyboard and a mouse, and does all of that for songs on an
+SD card too. Everything goes through adb, so the APK tried is the one that is published, untouched.
 
 Usage: smoke.py <apk> <songs dir> <out dir>
 
@@ -29,10 +29,12 @@ MUSIC = "/sdcard/Music/Discovery"
 
 # Key codes, as android.view.KeyEvent numbers them.
 KEY_1 = 8
+KEY_4 = 11
 KEY_A = 29
 KEY_E = 33
 KEY_F = 34
 KEY_K = 39
+KEY_R = 46
 KEY_S = 47
 KEY_W = 51
 KEY_SHIFT = 59
@@ -53,6 +55,14 @@ SONGS = {
     "Digital Love": "03 - Digital Love.mp3",
     "Harder, Better, Faster, Stronger": "04 - Harder, Better, Faster, Stronger.flac",
 }
+
+# Two songs of another album, put on the SD card late in the run, when the steps that count the
+# songs on screen are done.
+CARD_SONGS = {
+    "Around the World": "01 - Around the World.flac",
+    "Da Funk": "02 - Da Funk.flac",
+}
+CARD_FOLDER = "Music/Homework"
 
 # Something only the library shows, and always: the last of its tabs.
 LIBRARY = "^Folders$"
@@ -377,11 +387,13 @@ def probe(path):
     return {"tags": tags, "pictures": pictures, "sound": sound}
 
 
-def pull(file_name):
+def pull(file_name, folder=MUSIC):
     target = os.path.join(out_dir, "pulled")
     os.makedirs(target, exist_ok=True)
     local = os.path.join(target, file_name)
-    adb("pull", f"{MUSIC}/{file_name}", local, timeout=120)
+    if os.path.exists(local):
+        os.remove(local)
+    adb("pull", f"{folder}/{file_name}", local, timeout=120)
     return local
 
 
@@ -466,6 +478,50 @@ def copy_songs():
             return f"MediaStore lists {len(songs)} songs"
         time.sleep(3)
     raise Failed(f"MediaStore lists {listed_songs()}")
+
+
+# Where the SD card is: its root as apps see it, and where the system mounts it underneath that.
+card = None
+
+
+def public_volumes():
+    """The volumes mounted besides the device's own storage: [(id, file system uuid)]."""
+    found = []
+    for line in shell("sm list-volumes public").splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0].startswith("public:") and parts[1] == "mounted":
+            if parts[2] != "null":
+                found.append((parts[0], parts[2]))
+    return found
+
+
+def prepare_card():
+    """The emulator's SD card, or, when it has none, one the system makes out of a file."""
+    global card
+    volumes = public_volumes()
+    made = ""
+    if not volumes:
+        shell("sm set-virtual-disk true")
+        disk = None
+        deadline = time.time() + 60
+        while disk is None and time.time() < deadline:
+            time.sleep(2)
+            disks = [line.strip() for line in shell("sm list-disks").splitlines()]
+            disk = next((line for line in disks if line.startswith("disk:")), None)
+        if disk is None:
+            listed = shell("sm list-volumes all").strip()
+            raise Skipped(f"the device has no SD card, and could make none: {listed[:200]}")
+        shell(f"sm partition {disk} public", timeout=180)
+        deadline = time.time() + 90
+        while not volumes and time.time() < deadline:
+            time.sleep(3)
+            volumes = public_volumes()
+        made = "made by the system out of a file, "
+    if not volumes:
+        raise Skipped(f"no SD card was mounted: {shell('sm list-volumes all').strip()[:200]}")
+    volume, uuid = volumes[0]
+    card = {"root": f"/storage/{uuid}", "underneath": f"/mnt/media_rw/{uuid}"}
+    return f"an SD card {made}mounted at {card['root']} ({volume})"
 
 
 # --- The steps ---------------------------------------------------------------------------------
@@ -667,11 +723,11 @@ def save_song():
     return check_written(["01 - One More Time.flac"])
 
 
-def check_written(file_names):
+def check_written(file_names, folder=MUSIC):
     """Each file has a cover now, and everything else it had is as it was."""
     notes = []
     for file_name in file_names:
-        after = probe(pull(file_name))
+        after = probe(pull(file_name, folder))
         was = before[file_name]
         if not after["pictures"]:
             raise Failed(f"{file_name} has no picture after the save")
@@ -990,14 +1046,14 @@ class Gesture:
 
 
 # How far the pointer goes, across and down, for each count the mouse sends: read from where the
-# first menu opened, which is where the pointer was.
+# clicks landed, and read again after each one, since it changes from run to run.
 pointer_gain = None
 
 
 def counts(x, y):
     """What to send the mouse from the top left corner to bring the pointer to (x, y)."""
     gain_x, gain_y = pointer_gain
-    return int(x / gain_x), int(y / gain_y)
+    return max(1, round(x / gain_x)), max(1, round(y / gain_y))
 
 
 def window_of(node):
@@ -1005,6 +1061,75 @@ def window_of(node):
     while node.parent is not None:
         node = node.parent
     return node
+
+
+def display_size():
+    sizes = re.findall(r"size: (\d+)x(\d+)", shell("wm size"))
+    width, height = sizes[-1] if sizes else (1920, 1080)
+    return int(width), int(height)
+
+
+def mouse_events(newer_than_ms=20000):
+    """The last mouse events the system handed to a window, oldest first: [(action, x, y)].
+
+    The input system keeps the last few events it dispatched, with where the pointer was, in the
+    display's own coordinates. That is the one way to see the pointer: the screen dump leaves it
+    out, and a picture of the screen does not say where its tip is.
+    """
+    lines = shell("dumpsys input", timeout=60).splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip().startswith("RecentQueue")), None)
+    if start is None:
+        return []
+    events, depth = [], None
+    for line in lines[start + 1 :]:
+        indent = len(line) - len(line.lstrip())
+        depth = indent if depth is None else depth
+        if not line.strip() or indent < depth:
+            break
+        if "source=MOUSE" not in line:
+            continue
+        action = re.search(r"action=(\w+)", line)
+        point = re.search(r"pointers=\[0: \((-?[\d.]+), (-?[\d.]+)\)", line)
+        age = re.search(r"age=([\d.]+)ms", line)
+        if action and point and (not age or float(age.group(1)) < newer_than_ms):
+            events.append((action.group(1), float(point.group(1)), float(point.group(2))))
+    return events
+
+
+def where_clicked():
+    """Where the last click of the made-up mouse was, or where its pointer last was."""
+    events = mouse_events()
+    clicks = [event for event in events if event[0] in ("BUTTON_PRESS", "DOWN")]
+    last = clicks[-1] if clicks else (events[-1] if events else None)
+    return (round(last[1]), round(last[2])) if last else None
+
+
+def landed_row(point, listed):
+    """Which of the rows [listed] a point is on, if any."""
+    if point is None:
+        return None
+    x, y = point
+    return next(
+        (
+            index
+            for index, node in enumerate(listed)
+            if node.left <= x < node.right and node.top <= y < node.bottom
+        ),
+        None,
+    )
+
+
+def corrected(gain, sent, landed, edge):
+    """The travel per count that a click's landing place says, to aim the next one by."""
+    if landed >= edge - 2:
+        # Stopped by the edge of the display: it went further than that, how far is not known.
+        return max(gain, landed / sent) * 1.6
+    if landed <= 1:
+        # It never left the corner: what it was sent was lost, and says nothing.
+        return gain
+    return landed / sent
+
+
 mouse_works = False
 
 
@@ -1046,41 +1171,62 @@ def right_click_menu():
     global pointer_gain
     if not mouse_works:
         raise Skipped("no mouse")
-    # How far the pointer goes for a count is not known yet, and changes with the system's
-    # version and how fast the mouse moves. So the click is tried along a line, at counts a step
-    # of 1.4 apart: whatever the travel per count, one of them lands on a song.
+    listed = rows()
+    # Any song will do: the middle of them leaves the most room to miss by.
+    target_x = (listed[0].left + listed[0].right) // 2
+    target_y = (listed[0].top + listed[-1].bottom) // 2
+    width, height = display_size()
+    # How far the pointer goes for a count is not known until a click has landed, and changes with
+    # the system's version and how its events bunch up on the way. So each click is aimed by where
+    # the one before it landed; when that cannot be read, along a line of guesses.
+    guesses = iter((1.0, 3.0, 0.36, 2.0, 0.5, 1.4, 0.7, 0.25))
+    gain_x = gain_y = next(guesses)
     tried = []
-    # The last run ruled out everything from 0.36 to 3 pixels a count for a mouse this slow.
-    for gain in (0.36, 0.25, 0.18, 0.5, 0.7, 1.0, 1.4, 2.0):
-        sent_x, sent_y = int(170 / gain), int(420 / gain)
+    for _ in range(7):
+        sent_x, sent_y = max(1, round(target_x / gain_x)), max(1, round(target_y / gain_y))
         Gesture().to_corner().move(sent_x, sent_y).click(Gesture.BTN_RIGHT).run()
+        landed = where_clicked()
         nodes = screen()
+        if landed_row(landed, listed) is not None and not find("Open in a new window", nodes):
+            # On a song: a menu that is still on its way is given a moment.
+            time.sleep(2)
+            nodes = screen()
+        tried.append(f"{sent_x},{sent_y} counts: {landed}")
         if find("Open in a new window", nodes):
             wanted = ["Edit tags", "Play", "Select", "Open in a new window"]
             missing = [item for item in wanted if not find("^" + item + "$", nodes)]
             if missing:
                 raise Failed(f"the menu lacks {missing}: {said_on(nodes)}")
-            # The menu opens where the pointer is, so where it is says how far the pointer went:
-            # the card that holds its items, not its window, which has room around for a shadow.
-            item = find("^Edit tags$", nodes)[0].pressed_as()
-            menu = item.parent or window_of(item)
-            pointer_gain = (menu.left / sent_x, menu.top / sent_y)
+            if landed:
+                pointer_gain = (landed[0] / sent_x, landed[1] / sent_y)
+            else:
+                # The menu opens where the pointer is: the card that holds its items, that is,
+                # not its window, which has room around it for a shadow.
+                item = find("^Edit tags$", nodes)[0].pressed_as()
+                menu = item.parent or window_of(item)
+                pointer_gain = (menu.left / sent_x, menu.top / sent_y)
             screenshot("right-click-menu")
             return (
-                f"the menu says {said_on(nodes)}; it opened at {menu.left},{menu.top} for a "
-                f"pointer sent {sent_x},{sent_y} counts: {pointer_gain[0]:.2f} x "
-                f"{pointer_gain[1]:.2f} px a count"
+                f"the menu says {said_on(nodes)}; the click landed at {landed} for {sent_x},"
+                f"{sent_y} counts ({pointer_gain[0]:.2f} x {pointer_gain[1]:.2f} px a count), "
+                f"after {len(tried)} tries"
             )
-        tried.append(gain)
         titles = "|".join(re.escape(title) for title in SONGS)
         if [node for node in nodes if node.is_field and node.says(titles)]:
             raise Failed("the second button opened the song instead of its menu")
         if find(r"\d selected", nodes):
             raise Failed("the second button selected the song instead of opening its menu")
+        if landed_row(landed, listed) is not None:
+            raise Failed(f"a right click on a song, at {landed}, opened no menu")
         # The click fell elsewhere, maybe outside the app, which a second button there sends back
         # from. Everything is put back, the app included.
-        log(f"    a right click sent {sent_x},{sent_y} counts opened no menu: {home()}")
-    raise Skipped(f"the pointer never landed on a song (gains tried: {tried})")
+        log(f"    a right click sent {sent_x},{sent_y} counts landed at {landed}: {home()}")
+        if landed is None:
+            gain_x = gain_y = next(guesses, 1.0)
+        else:
+            gain_x = corrected(gain_x, sent_x, landed[0], width)
+            gain_y = corrected(gain_y, sent_y, landed[1], height)
+    raise Skipped(f"the pointer never landed on a song: {tried}")
 
 
 def open_in_new_window():
@@ -1102,41 +1248,69 @@ def open_in_new_window():
     return "the song opened in an activity of its own, and Ctrl+W closed it"
 
 
+def click_row(index, listed, held):
+    """A click on the [index]th of [listed] with the key [held] down, aimed again after a miss.
+    Says which row it landed on, which may not be that one, and where."""
+    global pointer_gain
+    width, height = display_size()
+    x, y = aim(listed[index])
+    landed = None
+    for _ in range(3):
+        sent = counts(x, y)
+        (
+            Gesture()
+            .to_corner()
+            .move(*sent)
+            .hold(held, True)
+            .click(Gesture.BTN_LEFT)
+            .hold(held, False)
+            .run()
+        )
+        landed = where_clicked()
+        if landed:
+            pointer_gain = (
+                corrected(pointer_gain[0], sent[0], landed[0], width),
+                corrected(pointer_gain[1], sent[1], landed[1], height),
+            )
+        on = landed_row(landed, listed)
+        if on is not None:
+            return on, landed
+        log(f"    a click sent {sent} counts for row {index} landed at {landed}, on no song")
+    return None, landed
+
+
 def ctrl_click_selects():
     if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
     listed = rows()
-    x, first_y = aim(listed[0])
-    _, third_y = aim(listed[2])
-    first_title = next(title for title in SONGS if listed[0].holds(re.escape(title)))
-    (
-        Gesture()
-        .to_corner()
-        .move(*counts(x, first_y))
-        .hold(Gesture.KEY_LEFTCTRL, True)
-        .click(Gesture.BTN_LEFT)
-        .hold(Gesture.KEY_LEFTCTRL, False)
-        .run()
-    )
-    expect("1 selected", 15)
-    chosen = [row for row in rows() if row.selected or row.holds("^Selected$")]
-    if chosen and not chosen[0].holds(re.escape(first_title)):
-        raise Failed(f"Ctrl+click on {first_title!r} selected another song")
-    # Two rows down with Shift: everything from the first one to that one.
-    (
-        Gesture()
-        .to_corner()
-        .move(*counts(x, third_y))
-        .hold(Gesture.KEY_LEFTSHIFT, True)
-        .click(Gesture.BTN_LEFT)
-        .hold(Gesture.KEY_LEFTSHIFT, False)
-        .run()
-    )
-    node = expect(r"3 selected", 15)
+    titles = [next(title for title in SONGS if node.holds(re.escape(title))) for node in listed]
+    first, landed = click_row(0, listed, Gesture.KEY_LEFTCTRL)
+    if first is None:
+        raise Skipped(f"no Ctrl+click landed on a song; the last one at {landed}")
+    expect("^1 selected$", 15)
+    chosen = [node for node in rows() if node.selected or node.holds("^Selected$")]
+    if chosen and not chosen[0].holds(re.escape(titles[first])):
+        raise Failed(f"Ctrl+click on {titles[first]!r} selected another song")
+    # Two rows away with Shift: everything from the first one to that one. Shift+click on the
+    # first one again selects just it, and the next try still counts from it.
+    listed = rows()
+    target = first + 2 if first + 2 < len(listed) else first - 2
+    second = None
+    for _ in range(3):
+        second, landed = click_row(target, listed, Gesture.KEY_LEFTSHIFT)
+        if second is not None and second != first:
+            break
+    if second is None or second == first:
+        raise Skipped(f"no Shift+click landed on another song; the last one at {landed}")
+    wanted = abs(second - first) + 1
+    node = expect(f"^{wanted} selected$", 15)
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
     expect_gone(r"\d selected", 15)
-    return f"Ctrl+click selected one song, Shift+click took it to '{node.text or node.description}'"
+    return (
+        f"Ctrl+click on {titles[first]!r} selected it alone; Shift+click on {titles[second]!r} "
+        f"(at {landed}) selected the {wanted} from one to the other: {node.text!r}"
+    )
 
 
 def tooltip_on_hover():
@@ -1154,11 +1328,148 @@ def tooltip_on_hover():
     # then the mouse goes.
     time.sleep(1 + arrives + 3)
     picture_before = shots
+    rested = where_clicked()
     screenshot("pointer-resting-on-a-button")
     gesture.wait(timeout=60)
     # A tooltip is a window of its own, which the dump of the window in front does not show:
     # the picture is what says whether it came.
-    return f"see picture {picture_before + 1}"
+    on = landed_row(rested, button)
+    where = "on the button" if on is not None else f"off the button at {button[0]!r}"
+    return f"the pointer rested at {rested}, {where}: see picture {picture_before + 1}"
+
+
+# --- Songs on the SD card ----------------------------------------------------------------------
+
+card_listed = False
+
+
+def on_card(action):
+    """[action], once there are songs on the card to try it on."""
+
+    def tried():
+        if not card_listed:
+            raise Skipped("no songs on an SD card")
+        return action()
+
+    return tried
+
+
+def card_songs():
+    """The songs the media store has from the card's folder: [(title, volume)]."""
+    rows_said = shell(
+        "content query --uri content://media/external/audio/media "
+        "--projection title:volume_name:_data"
+    )
+    found = []
+    for line in rows_said.splitlines():
+        match = re.search(r"title=(.*), volume_name=(.*), _data=(.*)$", line.strip())
+        if match and f"/{CARD_FOLDER}/" in match.group(3):
+            found.append((match.group(1), match.group(2)))
+    return found
+
+
+def card_found_by_rescan():
+    """Songs put where only a scan of the card finds them are listed once the app rescans."""
+    global card_listed
+    if card is None:
+        raise Skipped("the device has no SD card")
+    home()
+    local = {name: os.path.join(songs_dir, "Homework", name) for name in CARD_SONGS.values()}
+    shell("mkdir -p /data/local/tmp/card")
+    for name, path in local.items():
+        before[name] = probe(path)
+        adb("push", path, f"/data/local/tmp/card/{name}", timeout=120)
+    # Onto the card itself, beneath the view of it apps have, which tells the media store of every
+    # file written through it: as if the card had been filled on a computer and the scan made
+    # when it went in had missed them. There, only a scan finds them.
+    underneath = f"{card['underneath']}/{CARD_FOLDER}"
+    said = shell(
+        f"su 0 sh -c 'mkdir -p \"{underneath}\" && cp /data/local/tmp/card/*.flac \"{underneath}/\""
+        f" && ls \"{underneath}\"'"
+    )
+    if all(name in said for name in CARD_SONGS.values()):
+        how = "put on the card where only a scan finds them"
+    else:
+        log(f"    as root: {said.strip()[:300]}")
+        shell(f"mkdir -p '{card['root']}/{CARD_FOLDER}'")
+        for name, path in local.items():
+            adb("push", path, f"{card['root']}/{CARD_FOLDER}/{name}", timeout=120)
+        how = "copied to the card the way apps see it, which the media store hears of at once"
+    time.sleep(4)
+    known = card_songs()
+    key(KEY_CTRL, KEY_R)
+    try:
+        expect("^Around the World$", 90)
+    except Failed:
+        key(KEY_F5)
+        expect("^Around the World$", 60)
+    expect("^Da Funk$", 15)
+    card_listed = True
+    volumes = sorted({volume for _, volume in card_songs()})
+    if "external_primary" in volumes:
+        raise Failed(f"the media store has the card's songs on the device's own storage: {volumes}")
+    screenshot("songs-on-the-card")
+    told = f"the media store knew {len(known)} of them" if known else "the media store knew neither"
+    return f"{how}; {told}, and Ctrl+R listed both. Their volume: {', '.join(volumes)}"
+
+
+def card_folder():
+    """The folder on the card says where it is, and so does the device's own."""
+    key(KEY_CTRL, KEY_4)
+    expect("^Homework$", 20)
+    nodes = screen()
+    on_card_folder = [node.text for node in nodes if re.search(r"^2 songs · .+/Music$", node.text)]
+    on_device = [node.text for node in nodes if re.search(r"^4 songs · Music$", node.text)]
+    screenshot("folders-on-the-card-and-the-device")
+    key(KEY_CTRL, KEY_1)
+    expect("One More Time", 15)
+    if not on_card_folder:
+        raise Failed(f"the card's folder does not say where it is: {said_on(nodes)[:30]}")
+    if not on_device:
+        raise Failed(f"the device's folder does not say where it is: {said_on(nodes)[:30]}")
+    name = on_card_folder[0][len("2 songs · ") : -len("/Music")]
+    return f"Homework says {on_card_folder[0]!r}, Discovery {on_device[0]!r}: the card is {name!r}"
+
+
+def card_location():
+    """The editor says where the song is: in the card's folder, under the card's name."""
+    tap(row("Around the World"))
+    verdict = expect("Looks like real lossless", 120)
+    # The file's details are at the foot of the column beside the fields, out of sight: a finger
+    # brings them up.
+    x = verdict.center[0]
+    location = None
+    for _ in range(5):
+        nodes = screen()
+        location = next((node for node in nodes if node.says(r"Music/Homework/$")), None)
+        if location:
+            break
+        shell(f"input swipe {x} 900 {x} 350 600")
+        time.sleep(1.5)
+    if location is None:
+        raise Failed(f"nothing says where the song is: {said_on(screen())[-20:]}")
+    words = location.text or location.description
+    screenshot("a-song-on-the-card")
+    if words.startswith("Music/"):
+        raise Failed(f"the location {words!r} does not say the song is on the card")
+    return f"the editor says the song is in {words!r}"
+
+
+def card_cover_saved():
+    """A cover found for a song on the card is written to it there, and nothing else changes."""
+    tap(row("Around the World"))
+    expect("Looks like real lossless", 120)
+    key(KEY_CTRL, KEY_K)
+    use, reasons = read_cover_sheet()
+    tap(use)
+    expect_gone("Other covers|Use this cover", 20)
+    expect(r"\d+ × \d+ px", 90)
+    key(KEY_CTRL, KEY_S)
+    allow_system_dialog(40)
+    expect("^Saved", 60)
+    written = check_written([CARD_SONGS["Around the World"]], f"{card['root']}/{CARD_FOLDER}")
+    key(KEY_CTRL, KEY_W)
+    return f"{written}. The sheet said: {reasons[:6]}"
 
 
 def turkish():
@@ -1202,6 +1513,7 @@ def no_crash():
 def main():
     if not step("The APK installs", install):
         return
+    step("The device has an SD card", prepare_card, required=False)
     if not step("The songs are copied to the device", copy_songs):
         return
     if not step("It opens, and asks to see the music", opens_and_asks):
@@ -1244,6 +1556,22 @@ def main():
     step("A song opens in a window of its own", open_in_new_window, required=False)
     step("Ctrl and Shift change what a click selects", ctrl_click_selects, required=False)
     step("A button says what it does under the pointer", tooltip_on_hover, required=False)
+    step("Songs put on an SD card are found by a rescan", card_found_by_rescan)
+    step("A folder on the SD card says where it is", on_card(card_folder))
+    step(
+        "A genuine FLAC on the SD card is called genuine",
+        on_card(verdict_of("Around the World", ["Looks like real lossless"])),
+    )
+    step("The editor says the song is on the SD card", on_card(card_location))
+    step(
+        "A FLAC on the SD card made from an MP3 is called that",
+        on_card(verdict_of("Da Funk", ["Made from a lossy file", "Probably made from a lossy file"])),
+    )
+    step(
+        "A cover is written to a song on the SD card, and only it (network)",
+        on_card(card_cover_saved),
+        required=cover_search_worked,
+    )
     step("It speaks Turkish", turkish)
     step("Nothing crashed", no_crash)
 

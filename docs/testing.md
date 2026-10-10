@@ -30,11 +30,13 @@ the one before, and the report says which held.
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
 | A narrow window | One pane at a time |
-| A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput` |
+| A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and each click is aimed by where the system says the one before landed |
+| An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | Turkish | What the screen says |
 | Nothing crashed | The device's crash log |
 
-It is one pass on one emulator (Android 15, x86-64), with the files it makes itself. It says the
+It is one pass on one emulator (Android 15, x86-64), with the files it makes itself and an SD card
+the emulator makes up (or the system makes out of a file, when the emulator has none). It says the
 build works there; it does not say how the app feels, and it is not Samsung DeX.
 
 ## Conventions
@@ -45,22 +47,24 @@ build works there; it does not say how the app feels, and it is not Samsung DeX.
 
 ## Not yet verified
 
-The Android layers and the UI were written without a device. Before release, check on a phone
-and a tablet, on Android 8, 10 and the latest version:
+The emulator run above is one device, one version and six short songs. Before release, check
+on a phone and a tablet, on Android 8, 10 and the latest version:
 
 - Round trip per format (MP3, FLAC, M4A, Ogg, Opus, WAV): edit one field, save, and check with
   another tag editor that every other tag and picture is unchanged. This is the most important
   check and the next automated test to write (instrumented, `tags/taglib/src/androidTest`).
 - Write access: a song from the library on Android 10 and 11+, a batch of 20 songs (one prompt on
   11+), a file opened from a file manager, a file shared read-only.
+- A real SD card, and a USB drive: songs listed with the card's name on their folders, a save to
+  one on Android 10, and the card taken out while a song from it is open.
 - Undo after a save and after a batch.
 - Process death in the editor with unsaved changes ("Don't keep activities").
 - The list-detail layout on a tablet or a foldable, TalkBack on the library and the editor.
 - Playback in the background, the media notification, and stopping when the app is swiped away
   while paused.
 
-The desktop features ([desktop.md](desktop.md)) were written without Samsung DeX at hand. On DeX,
-with a keyboard and a mouse:
+The desktop features ([desktop.md](desktop.md)) were tried on the emulator with a keyboard and a
+made-up mouse, not on Samsung DeX. On DeX, with a keyboard and a mouse:
 
 - Dock and undock the phone with the app open: it should stay where it was, not restart.
 - Drag the window from narrow to wide and back, with the lookup sheet open: the layout follows,

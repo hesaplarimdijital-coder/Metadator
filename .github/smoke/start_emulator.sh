@@ -2,7 +2,8 @@
 # Starts an Android emulator with no window of its own and waits until it has booted.
 #
 # The device is made to look like what the app is meant for here: a display as wide as a
-# monitor (1920 x 1080 at the density of one), with a keyboard that has real keys.
+# monitor (1920 x 1080 at the density of one), with a keyboard that has real keys, and an SD card
+# for music to be kept on.
 #
 # Usage: start_emulator.sh [system image]
 set -euo pipefail
@@ -32,7 +33,13 @@ done
 # not agree on where that is when left to themselves.
 export ANDROID_AVD_HOME="$HOME/.android/avd"
 mkdir -p "$ANDROID_AVD_HOME"
-echo no | "$tools/avdmanager" create avd --force --name smoke --package "$image" >/dev/null
+# With an SD card, which the tool makes as an image and lists in the device's config; without one
+# if it cannot: the steps that need it say they were not tried.
+if ! echo no | "$tools/avdmanager" create avd --force --name smoke --package "$image" \
+  --sdcard 512M >/dev/null; then
+  echo "No SD card could be made: the device has none."
+  echo no | "$tools/avdmanager" create avd --force --name smoke --package "$image" >/dev/null
+fi
 
 config="$ANDROID_AVD_HOME/smoke.avd/config.ini"
 for key in hw.lcd.width hw.lcd.height hw.lcd.density hw.keyboard hw.ramSize hw.cpu.ncore \
@@ -76,3 +83,5 @@ sleep 20
 "$adb" shell getprop ro.build.fingerprint
 "$adb" shell wm size
 "$adb" shell wm density
+grep -i sdcard "$config" || true
+"$adb" shell sm list-volumes all || true
