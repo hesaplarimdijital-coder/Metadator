@@ -35,7 +35,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** The device's songs, from MediaStore. */
+/**
+ * The device's songs, from MediaStore: those on its own storage and on an SD card or a USB drive,
+ * which MediaStore lists together.
+ */
 class MediaStoreAudioLibrary(
     private val context: Context,
     private val dispatchers: AppDispatchers,
@@ -43,6 +46,8 @@ class MediaStoreAudioLibrary(
 
     private val resolver: ContentResolver
         get() = context.contentResolver
+
+    private val volumes = StorageVolumes(context)
 
     @OptIn(FlowPreview::class)
     override fun observeTracks(): Flow<List<Track>> = callbackFlow {
@@ -74,10 +79,16 @@ class MediaStoreAudioLibrary(
             track(TrackId(id))
         }
 
+    /**
+     * Has the media scanner look again at the device's music and download folders, and at the whole
+     * of every SD card and USB drive: music on a card is often kept anywhere on it, not in a folder
+     * named for it. The scanner only reads again what changed.
+     */
     override suspend fun refresh() {
         val folders =
-            listOf(Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_DOWNLOADS)
-                .map { Environment.getExternalStoragePublicDirectory(it).absolutePath }
+            (listOf(Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_DOWNLOADS).map {
+                    Environment.getExternalStoragePublicDirectory(it).absolutePath
+                } + volumes.removableRoots())
                 .toTypedArray()
         withTimeoutOrNull(SCAN_TIMEOUT_MS.milliseconds) {
             suspendCancellableCoroutine { continuation ->
@@ -107,6 +118,7 @@ class MediaStoreAudioLibrary(
             add(MediaStore.Audio.Media.DATE_MODIFIED)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 add(MediaStore.Audio.Media.RELATIVE_PATH)
+                add(MediaStore.Audio.Media.VOLUME_NAME)
             } else {
                 add(DATA_COLUMN)
             }
@@ -116,13 +128,19 @@ class MediaStoreAudioLibrary(
                 add(MediaStore.Audio.Media.DISC_NUMBER)
             }
         }
+        // Before Android 10 a song's folder is worked out from its path and the volumes' roots.
+        val roots =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) volumes.mountedRoots()
+            else emptyList()
         return resolver
             .query(AudioCollection, projection.toTypedArray(), selection, args, null)
-            ?.use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toTrack()) } }
+            ?.use { cursor ->
+                buildList { while (cursor.moveToNext()) add(cursor.toTrack(roots)) }
+            }
             .orEmpty()
     }
 
-    private fun Cursor.toTrack(): Track {
+    private fun Cursor.toTrack(roots: List<String>): Track {
         val id = long(MediaStore.Audio.Media._ID)!!
         val albumId = long(MediaStore.Audio.Media.ALBUM_ID) ?: 0
         // MediaStore packs the disc into the thousands: 2005 is disc 2, track 5.
@@ -149,8 +167,10 @@ class MediaStoreAudioLibrary(
             sizeBytes = long(MediaStore.Audio.Media.SIZE) ?: 0,
             displayName = displayName,
             folder =
-                string(MediaStore.Audio.Media.RELATIVE_PATH)
-                    ?: string(DATA_COLUMN)?.let { relativeFolder(it) },
+                volumes.folderOf(
+                    volumeName = string(MediaStore.Audio.Media.VOLUME_NAME),
+                    relativePath = string(MediaStore.Audio.Media.RELATIVE_PATH),
+                ) ?: string(DATA_COLUMN)?.let { volumes.folderOfPath(it, roots) },
             dateAddedEpochSeconds = long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
             dateModifiedEpochSeconds = long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
             artworkRef =
@@ -170,11 +190,6 @@ class MediaStoreAudioLibrary(
     /** MediaStore spells "no value" as `<unknown>`. */
     private fun String?.known(): String? =
         this?.takeIf { it.isNotBlank() && it != MediaStore.UNKNOWN_STRING }
-
-    private fun relativeFolder(path: String): String {
-        val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/') + "/"
-        return path.removePrefix(root).substringBeforeLast('/', "") + "/"
-    }
 
     companion object {
         val AudioCollection: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI

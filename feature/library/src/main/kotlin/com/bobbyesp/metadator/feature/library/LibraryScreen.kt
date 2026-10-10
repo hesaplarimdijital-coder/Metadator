@@ -988,12 +988,9 @@ private fun CollectionList(
                 },
                 supportingContent = {
                     Text(
-                        pluralStringResource(
-                            R.plurals.song_count,
-                            collection.tracks.size,
-                            collection.tracks.size,
-                        ),
+                        collectionDetails(collection),
                         maxLines = 1,
+                        overflow = TextOverflow.MiddleEllipsis,
                     )
                 },
             ) {

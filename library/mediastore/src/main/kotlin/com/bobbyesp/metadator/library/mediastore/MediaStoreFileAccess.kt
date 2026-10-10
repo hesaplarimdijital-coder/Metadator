@@ -96,6 +96,8 @@ class ContentResolverFileInfo(
     private val dispatchers: AppDispatchers,
 ) : AudioFileInfo {
 
+    private val volumes = StorageVolumes(context)
+
     override suspend fun describe(ref: ContentRef): FileDescription? =
         withContext(dispatchers.io) {
             val uri = ref.uri.toUri()
@@ -108,6 +110,7 @@ class ContentResolverFileInfo(
                         add(MediaStore.MediaColumns.DATE_MODIFIED)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             add(MediaStore.MediaColumns.RELATIVE_PATH)
+                            add(MediaStore.MediaColumns.VOLUME_NAME)
                         } else add(MediaStoreAudioLibrary.DATA_COLUMN)
                     }
                 }
@@ -131,8 +134,13 @@ class ContentResolverFileInfo(
                         lastModifiedMillis =
                             long(MediaStore.MediaColumns.DATE_MODIFIED)?.times(1000),
                         location =
-                            string(MediaStore.MediaColumns.RELATIVE_PATH)
-                                ?: string(MediaStoreAudioLibrary.DATA_COLUMN),
+                            volumes.folderOf(
+                                volumeName = string(MediaStore.MediaColumns.VOLUME_NAME),
+                                relativePath = string(MediaStore.MediaColumns.RELATIVE_PATH),
+                            )
+                                ?: string(MediaStoreAudioLibrary.DATA_COLUMN)?.let {
+                                    volumes.folderOfPath(it, volumes.mountedRoots())
+                                },
                     )
                 }
             }

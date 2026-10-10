@@ -107,9 +107,11 @@ fun List<Track>.folders(): List<TrackCollection.Folder> = groupBy {
     it.folder.orEmpty()
 }
     .map { (folder, tracks) ->
+        val path = folder.trimEnd('/')
         TrackCollection.Folder(
             key = "folder:$folder",
-            title = folder.trimEnd('/').substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
+            title = path.substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
+            parent = path.substringBeforeLast('/', ""),
             tracks = tracks.sorted(SortOrder(TrackSort.Title)),
         )
     }

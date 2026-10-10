@@ -47,6 +47,18 @@ for has its tags read once, and what was read is cached in Room (`track_tags`) a
 modification date and size. MediaStore's values always win; the file only fills the gaps, so
 "Needs attention" means the file itself lacks the field.
 
+**SD cards and USB drives are part of the library.** MediaStore lists the songs of every mounted
+volume in one collection, and a song on a card is read, checked and written through the same
+`content://` URIs as one on the device. What differs is where it is (`StorageVolumes`):
+
+- A folder is relative to its own volume, so `Music/Album/` on a card would be taken for the
+  folder of that name on the device, and the two listed as one. A folder on any other volume is
+  shown under the volume's own name, as the system gives it ("SD card", or the card's brand).
+- The Folders tab says where each folder is, beside how many songs it has ("2 songs · SD
+  card/Music"): two folders can have the same name, as the "CD1" of two albums do.
+- "Rescan music folders" asks the scanner to look again at the device's Music and Download
+  folders, and at the whole of each card: music on a card is kept anywhere on it.
+
 Results, not exceptions: everything the user can cause or fix (no permission, file gone, format
 not supported, offline) is a sealed result the UI can explain.
 

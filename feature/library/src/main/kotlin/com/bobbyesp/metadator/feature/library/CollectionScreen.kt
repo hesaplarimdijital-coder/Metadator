@@ -77,11 +77,9 @@ internal fun CollectionScreen(
                     collection?.let {
                         {
                             Text(
-                                pluralStringResource(
-                                    R.plurals.song_count,
-                                    it.tracks.size,
-                                    it.tracks.size,
-                                )
+                                collectionDetails(it),
+                                maxLines = 1,
+                                overflow = TextOverflow.MiddleEllipsis,
                             )
                         }
                     },
@@ -207,3 +205,16 @@ private fun CollectionHeader(
 }
 
 private val ActionsMaxWidth = 520.dp
+
+/**
+ * How many songs [collection] has and, for a folder, where it is: two folders can have the same
+ * name, on the device and on an SD card, or as the "CD1" of two albums. Shortened in the middle,
+ * where neither the count nor the folder it is in is.
+ */
+@Composable
+internal fun collectionDetails(collection: TrackCollection): String {
+    val count =
+        pluralStringResource(R.plurals.song_count, collection.tracks.size, collection.tracks.size)
+    val parent = (collection as? TrackCollection.Folder)?.parent?.ifEmpty { null }
+    return listOfNotNull(count, parent).joinToString(" · ")
+}
