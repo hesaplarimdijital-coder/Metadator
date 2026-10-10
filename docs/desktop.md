@@ -151,7 +151,8 @@ On an Android 15 emulator made to look like a desktop (1920 x 1080 at the densit
 a keyboard with real keys, a mouse made up with `uinput`), by the script that uses each APK
 ([testing.md](testing.md#on-an-emulator-by-a-script)): the shortcuts, the list of them, Esc, Tab
 and Enter, the window resized and moved to another density, night, a narrow window, the second
-button's menu, a song in a window of its own, and Ctrl+click.
+button's menu, a song in a window of its own, Ctrl+click and Shift+click, and the tooltip and the
+arrow of a pointer resting on an icon button.
 
 Not on Samsung DeX itself: docking and undocking, and what One UI does with the two lines of the
 manifest that only it reads, have not been seen. See [testing.md](testing.md#not-yet-verified) for
