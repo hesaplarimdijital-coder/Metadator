@@ -497,6 +497,11 @@ private fun CollectionIcon(icon: ImageVector) {
         Modifier.size(42.dp).background(Studio.colors.accentSoft, RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Studio.colors.accent, Modifier.size(22.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Studio.colors.accent,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }

@@ -458,7 +458,7 @@ private fun fileFacts(state: EditorState): List<String> {
             .joinToString(" · ")
     return listOfNotNull(
         format.ifEmpty { null },
-        state.coverInfo?.let { "${it.width} × ${it.height}" },
+        state.coverInfo?.let { stringResource(R.string.cover_size, it.width, it.height) },
     )
 }
 
