@@ -486,15 +486,25 @@ def copy_songs():
         local = os.path.join(songs_dir, "Discovery", file_name)
         before[file_name] = probe(local)
         adb("push", local, f"{MUSIC}/{file_name}", timeout=120)
-        shell(
-            "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE "
-            f"-d 'file://{MUSIC}/{file_name}'"
-        )
-    deadline = time.time() + 90
-    while time.time() < deadline:
+
+    def ask_for_a_scan():
+        for file_name in SONGS.values():
+            shell(
+                "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE "
+                f"-d 'file://{MUSIC}/{file_name}'"
+            )
+
+    ask_for_a_scan()
+    started_at = time.time()
+    asked_again = False
+    while time.time() < started_at + 180:
         songs = listed_songs()
         if len(songs) >= len(SONGS) and all(title in SONGS for _, title, _ in songs):
-            return f"MediaStore lists {len(songs)} songs"
+            return f"MediaStore lists {len(songs)} songs, in {time.time() - started_at:.0f} s"
+        # A media store that was starting again when it was asked heard nothing: ask once more.
+        if not asked_again and time.time() > started_at + 60:
+            ask_for_a_scan()
+            asked_again = True
         time.sleep(3)
     raise Failed(f"MediaStore lists {listed_songs()}")
 
@@ -517,7 +527,12 @@ def public_volumes():
 def prepare_card():
     """The emulator's SD card, or, when it has none, one the system makes out of a file."""
     global card
+    # The emulator's own card can be mounted a while after the system says it has booted.
     volumes = public_volumes()
+    deadline = time.time() + 45
+    while not volumes and time.time() < deadline:
+        time.sleep(3)
+        volumes = public_volumes()
     made = ""
     if not volumes:
         shell("sm set-virtual-disk true")

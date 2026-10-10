@@ -74,8 +74,8 @@ hw.lcd.width=1920
 hw.lcd.height=1080
 hw.lcd.density=160
 hw.keyboard=yes
-hw.ramSize=3072
-hw.cpu.ncore=2
+hw.ramSize=4096
+hw.cpu.ncore=4
 disk.dataPartition.size=3G
 CONFIG
 
@@ -103,6 +103,35 @@ fi
 "$adb" shell settings put secure show_ime_with_hard_keyboard 0
 # What the first minute after a boot is busy with would otherwise be taken for the app's slowness.
 sleep 20
+
+# Android 17 says it has booted before its system server is done starting, and may start it again:
+# the package service, storage and the media store then answer "Can't find service" or a dead
+# object. The device is ready once all three answer, and the system server has kept its pid for a
+# while.
+ready=""
+last_pid=""
+steady=0
+for _ in $(seq 1 60); do
+  pid="$("$adb" shell pidof system_server 2>/dev/null | tr -d '\r' || true)"
+  packages="$("$adb" shell cmd package path android 2>&1 || true)"
+  volumes="$("$adb" shell sm list-volumes all 2>&1 || true)"
+  media="$("$adb" shell content query --uri content://media/external/audio/media --projection _id 2>&1 || true)"
+  if [ -n "$pid" ] && [ "$pid" = "$last_pid" ] && echo "$packages" | grep -q '^package:' &&
+    ! echo "$volumes$media" | grep -qiE "exception|can't find service|error"; then
+    steady=$((steady + 1))
+  else
+    steady=0
+  fi
+  last_pid="$pid"
+  if [ "$steady" -ge 5 ]; then
+    ready=1
+    break
+  fi
+  sleep 3
+done
+if [ -z "$ready" ]; then
+  echo "The system did not settle: the steps will say what did not answer."
+fi
 "$adb" shell getprop ro.build.fingerprint
 "$adb" shell wm size
 "$adb" shell wm density
