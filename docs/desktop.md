@@ -132,7 +132,8 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
   or removes one song, Shift takes every song from the last one selected to this one
   (`LibraryIntent.SelectRangeTo`). As in a file manager.
 - **A button that is only an icon says what it does** when the pointer rests on it (`Tooltip`). The
-  text is the one a screen reader was already given.
+  text is the one a screen reader was already given. The pointer is an arrow over it, even at the
+  end of a text field, whose I-beam would otherwise reach it.
 - **What scrolls says where it is** (`Modifier.scrollbar`, Material's own behind it): the songs,
   the albums, the editor's fields, the batch editor and the sheets that search show a scrollbar
   while they move, and the list of shortcuts shows one all the time. It is a sign, not a handle.

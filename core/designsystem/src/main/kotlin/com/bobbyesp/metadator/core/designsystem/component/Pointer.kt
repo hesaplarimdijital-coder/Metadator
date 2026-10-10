@@ -24,9 +24,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,9 @@ import androidx.compose.ui.unit.round
 /**
  * Says what [content] does when the pointer rests on it, or a finger is held on it: for a button
  * that is only an icon, whose name was until now only told to a screen reader.
+ *
+ * The pointer is an arrow over it, whatever it is in: a text field's I-beam reached the buttons at
+ * the field's ends, and made them look like more of the text.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +55,7 @@ fun Tooltip(text: String, modifier: Modifier = Modifier, content: @Composable ()
             TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = { PlainTooltip { Text(text) } },
         state = rememberTooltipState(),
-        modifier = modifier,
+        modifier = modifier.pointerHoverIcon(PointerIcon.Default),
         content = content,
     )
 }
