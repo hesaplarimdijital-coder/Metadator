@@ -982,9 +982,22 @@ class Gesture:
         )
 
 
-# How far the pointer goes for each count the mouse sends. The system adds no speed to a mouse
-# moved as slowly as this one is, so 1 is tried first; the first click that lands says which.
+# How far the pointer goes, across and down, for each count the mouse sends: read from where the
+# first menu opened, which is where the pointer was.
 pointer_gain = None
+
+
+def counts(x, y):
+    """What to send the mouse from the top left corner to bring the pointer to (x, y)."""
+    gain_x, gain_y = pointer_gain
+    return int(x / gain_x), int(y / gain_y)
+
+
+def window_of(node):
+    """The window a node is drawn in: the outermost thing around it."""
+    while node.parent is not None:
+        node = node.parent
+    return node
 mouse_works = False
 
 
@@ -1028,24 +1041,26 @@ def right_click_menu():
         raise Skipped("no mouse")
     target_x, target_y = aim(rows()[1])
     tried = []
-    gains = (pointer_gain,) if pointer_gain else (1.0, 2.0, 0.5, 1.5, 3.0, 0.75)
-    for gain in gains:
-        (
-            Gesture()
-            .to_corner()
-            .move(int(target_x / gain), int(target_y / gain))
-            .click(Gesture.BTN_RIGHT)
-            .run()
-        )
+    for gain in (1.0, 1.4, 0.7, 2.0, 0.5):
+        sent_x, sent_y = int(target_x / gain), int(target_y / gain)
+        Gesture().to_corner().move(sent_x, sent_y).click(Gesture.BTN_RIGHT).run()
         nodes = screen()
         if find("Open in a new window", nodes):
-            pointer_gain = gain
             wanted = ["Edit tags", "Play", "Select", "Open in a new window"]
             missing = [item for item in wanted if not find("^" + item + "$", nodes)]
             if missing:
                 raise Failed(f"the menu lacks {missing}: {said_on(nodes)}")
+            # The menu opens where the pointer is, so where it is says how far the pointer went:
+            # the card that holds its items, not its window, which has room around for a shadow.
+            item = find("^Edit tags$", nodes)[0].pressed_as()
+            menu = item.parent or window_of(item)
+            pointer_gain = (menu.left / sent_x, menu.top / sent_y)
             screenshot("right-click-menu")
-            return f"the menu says {said_on(nodes)}"
+            return (
+                f"the menu says {said_on(nodes)}; it opened at {menu.left},{menu.top} for a "
+                f"pointer sent {sent_x},{sent_y} counts: {pointer_gain[0]:.2f} x "
+                f"{pointer_gain[1]:.2f} px a count"
+            )
         tried.append(gain)
         titles = "|".join(re.escape(title) for title in SONGS)
         if [node for node in nodes if node.is_field and node.says(titles)]:
@@ -1086,21 +1101,25 @@ def ctrl_click_selects():
     listed = rows()
     x, first_y = aim(listed[0])
     _, third_y = aim(listed[2])
+    first_title = next(title for title in SONGS if listed[0].holds(re.escape(title)))
     (
         Gesture()
         .to_corner()
-        .move(int(x / pointer_gain), int(first_y / pointer_gain))
+        .move(*counts(x, first_y))
         .hold(Gesture.KEY_LEFTCTRL, True)
         .click(Gesture.BTN_LEFT)
         .hold(Gesture.KEY_LEFTCTRL, False)
         .run()
     )
     expect("1 selected", 15)
+    chosen = [row for row in rows() if row.selected or row.holds("^Selected$")]
+    if chosen and not chosen[0].holds(re.escape(first_title)):
+        raise Failed(f"Ctrl+click on {first_title!r} selected another song")
     # Two rows down with Shift: everything from the first one to that one.
     (
         Gesture()
         .to_corner()
-        .move(int(x / pointer_gain), int(third_y / pointer_gain))
+        .move(*counts(x, third_y))
         .hold(Gesture.KEY_LEFTSHIFT, True)
         .click(Gesture.BTN_LEFT)
         .hold(Gesture.KEY_LEFTSHIFT, False)
@@ -1121,7 +1140,7 @@ def tooltip_on_hover():
     if not button:
         raise Skipped("no icon button to rest on")
     x, y = button[0].center
-    moves = Gesture().to_corner().move(int(x / pointer_gain), int(y / pointer_gain))
+    moves = Gesture().to_corner().move(*counts(x, y))
     arrives = moves.now / 1000
     gesture = moves.start(linger=8000)
     # The pointer rests there while the picture is taken, a little after a tooltip would show;
