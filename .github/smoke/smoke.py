@@ -64,8 +64,11 @@ CARD_SONGS = {
 }
 CARD_FOLDER = "Music/Homework"
 
-# Something only the library shows, and always: the last of its tabs.
+# Something only the library shows, and always: the last of its places.
 LIBRARY = "^Folders$"
+# How many songs are selected, as the panel's head says it ("4 songs selected") and the phone's
+# ("4 selected").
+SELECTED = r"\d+ (songs? )?selected"
 SHORTCUTS = "^Keyboard shortcuts$"
 
 VERDICTS = (
@@ -347,7 +350,7 @@ def home():
         elif not find(LIBRARY, nodes):
             # The editor alone on a narrow window, or a second window: closed, the library is back.
             key(KEY_CTRL, KEY_W)
-        elif find(r"\d selected", nodes) and find("Stop selecting", nodes):
+        elif find(SELECTED, nodes) and find("Stop selecting", nodes):
             tap(find("Stop selecting", nodes)[0])
         elif find("^Clear search$", nodes):
             tap(find("^Clear search$", nodes)[0])
@@ -596,11 +599,12 @@ def search():
 
 
 def keyboard_alone():
-    """Tab until a song has the focus, then Enter: the keys reach what a tap reaches."""
-    for _ in range(8):
+    """Tab until a song has the focus, then Enter: the keys reach what a tap reaches. The sidebar,
+    the toolbar and the table's header come first."""
+    for _ in range(12):
         key(KEY_TAB)
     focused = None
-    for _ in range(14):
+    for _ in range(36):
         nodes = screen()
         focused = [node for node in nodes if node.focused]
         titles = [title for title in SONGS if focused and focused[0].holds(re.escape(title))]
@@ -806,7 +810,7 @@ def edit_together():
             tap(discard[0])
     expect("Pick a song", 20)
     key(KEY_CTRL, KEY_A)
-    expect("4 selected", 20)
+    expect(r"^4 (songs )?selected$", 20)
     screenshot("all-selected")
     key(KEY_CTRL, KEY_E)
     expect("Edit 4 songs", 30)
@@ -854,7 +858,7 @@ def leave_batch():
         elif find("^Edit 4 songs$", nodes):
             key(KEY_CTRL, KEY_W)
         elif find(LIBRARY, nodes):
-            if find(r"\d selected", nodes):
+            if find(SELECTED, nodes):
                 tap(expect("Stop selecting", 10))
             return "the library is in front"
         time.sleep(1.5)
@@ -1269,7 +1273,7 @@ def right_click_menu():
     titles = "|".join(re.escape(title) for title in SONGS)
     if [node for node in nodes if node.is_field and node.says(titles)]:
         raise Failed("the second button opened the song instead of its menu")
-    if find(r"\d selected", nodes):
+    if find(SELECTED, nodes):
         raise Failed("the second button selected the song instead of opening its menu")
     if not find("Open in a new window", nodes):
         raise Failed(f"a right click on a song, at {at}, opened no menu: {said_on(nodes)[:30]}")
@@ -1325,7 +1329,7 @@ def ctrl_click_selects():
         mouse.click(Gesture.BTN_LEFT, held=Gesture.KEY_LEFTCTRL)
         nodes = screen()
         chosen = selected_songs(nodes)
-        if chosen != [order[0]] or not find("^1 selected$", nodes):
+        if chosen != [order[0]] or not find(r"^1 (song )?selected$", nodes):
             raise Failed(f"a Ctrl+click on {order[0]!r} selected {chosen}: {said_on(nodes)[:24]}")
         # Shift+click on the third: the three from the first to it, and no other. The rows have
         # moved, under the bar of the selection.
@@ -1336,11 +1340,11 @@ def ctrl_click_selects():
         mouse.click(Gesture.BTN_LEFT, held=Gesture.KEY_LEFTSHIFT)
         nodes = screen()
         now = selected_songs(nodes)
-    if now != order[:3] or not find("^3 selected$", nodes):
+    if now != order[:3] or not find(r"^3 (songs )?selected$", nodes):
         raise Failed(f"a Shift+click on {order[2]!r} left {now} selected: {said_on(nodes)[:24]}")
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
-    expect_gone(r"\d selected", 15)
+    expect_gone(SELECTED, 15)
     return (
         f"Ctrl+click selected {order[0]!r} alone; Shift+click on {order[2]!r} selected the three "
         f"from one to the other"
@@ -1477,7 +1481,8 @@ def card_location():
         time.sleep(1.5)
     if location is None:
         raise Failed(f"nothing says where the song is: {said_on(screen())[-20:]}")
-    words = location.text or location.description
+    # The file's line says its size, its bitrate and its folder, in that order.
+    words = (location.text or location.description).split(" · ")[-1]
     screenshot("a-song-on-the-card")
     if words.startswith("Music/"):
         raise Failed(f"the location {words!r} does not say the song is on the card")
@@ -1524,6 +1529,124 @@ def turkish():
     return f"the app speaks Turkish when asked to {said.strip()[:60]}"
 
 
+def quality_scan():
+    """The library checks its lossless songs on its own, says what it found in a column of its
+    table, and lists the fake ones apart."""
+    wanted = {
+        "One More Time": "^Real lossless$",
+        "Aerodynamic": "^(Fake FLAC|Probably fake)$",
+        "Harder, Better, Faster, Stronger": "^Upscaled$",
+    }
+    deadline = time.time() + 240
+    while True:
+        nodes = screen()
+        found = {}
+        for title, pattern in wanted.items():
+            try:
+                found[title] = row(title, nodes).holds(pattern)
+            except Failed:
+                found[title] = False
+        mp3 = row("Digital Love", nodes)
+        if all(found.values()):
+            break
+        if time.time() > deadline:
+            raise Failed(f"the table's verdicts after four minutes: {found}. {said_on(nodes)[:40]}")
+        time.sleep(3)
+    if mp3.holds("^(Real lossless|Not checked|Checking…)$"):
+        raise Failed("the MP3 was given a verdict in the table")
+    screenshot("verdicts-in-the-table")
+    # The sidebar's place for the fake ones: the leftmost of what says so, the badge being in the
+    # table beside it.
+    places = [node for node in find("^Fake FLAC$") if not node.is_field]
+    if not places:
+        raise Failed("the sidebar has no place for the fake ones")
+    tap(min(places, key=lambda node: node.left).pressed_as())
+    deadline = time.time() + 20
+    while True:
+        nodes = screen()
+        listed = [title for title in SONGS if find("^" + re.escape(title) + "$", nodes)]
+        if listed == ["Aerodynamic"]:
+            break
+        if time.time() > deadline:
+            raise Failed(f"the fake ones' list shows {listed}")
+        time.sleep(1)
+    screenshot("the-fake-ones")
+    key(KEY_CTRL, KEY_1)
+    expect("One More Time", 15)
+    return f"the table said {list(wanted.values())}, and the sidebar's list held Aerodynamic alone"
+
+
+def looks():
+    """The library in the day and at night, for whoever wants to see it."""
+    home()
+    screenshot("library-in-the-day")
+    shell("cmd uimode night yes")
+    try:
+        time.sleep(4)
+        expect("One More Time", 15)
+        screenshot("library-at-night")
+        tap(row("One More Time"))
+        expect("Looks like real lossless", 120)
+        screenshot("inspector-at-night")
+        key(KEY_CTRL, KEY_W)
+        shell("wm size 1080x1920")
+        shell("wm density 420")
+        time.sleep(4)
+        expect("One More Time", 15)
+        screenshot("phone-at-night")
+        tap(row("Aerodynamic"))
+        expect("Made from a lossy file|Probably made from a lossy file", 120)
+        screenshot("phone-editor-at-night")
+        key(KEY_CTRL, KEY_W)
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        shell("cmd uimode night no")
+        time.sleep(3)
+    expect(LIBRARY, 20)
+    return "pictures of the library, the inspector and a phone's screens"
+
+
+def playback_state():
+    """The media session's state, as the system has it: 3 is playing."""
+    dumped = shell("dumpsys media_session", timeout=60)
+    ours = dumped.split(PACKAGE, 1)[1] if PACKAGE in dumped else ""
+    match = re.search(r"state=(?:PLAYING\(3\)|(\d+))", ours)
+    if not match:
+        return None
+    return 3 if match.group(1) is None else int(match.group(1))
+
+
+def keeps_playing_in_background():
+    """Android 17 stops what plays from an app in the background unless it plays as the system
+    expects: through a media session, from a foreground service. The app's does."""
+    home()
+    tap(expect("^Play all$", 15))
+    deadline = time.time() + 20
+    while playback_state() != 3:
+        if time.time() > deadline:
+            raise Skipped(f"nothing played on this emulator: {playback_state()}")
+        time.sleep(1)
+    time.sleep(2)
+    screenshot("the-player-docked-under-the-panels")
+    key(3)  # Home: the app goes to the background.
+    time.sleep(10)
+    state = playback_state()
+    hardening = [
+        line.strip()
+        for line in shell("dumpsys audio", timeout=60).splitlines()
+        if "hardening" in line.lower() or (PACKAGE in line and "mute" in line.lower())
+    ]
+    with open(os.path.join(out_dir, "audio-hardening.txt"), "w", encoding="utf-8") as file:
+        file.write("\n".join(hardening))
+    shell(f"am start -n {PACKAGE}/{MAIN}")
+    time.sleep(3)
+    shell("input keyevent 127")  # Pause, as a headset's button does.
+    if state != 3:
+        raise Failed(f"in the background the session is in state {state}: {hardening[:6]}")
+    return f"still playing ten seconds into the background. The audio service says: {hardening[:4]}"
+
+
 def no_crash():
     crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
     with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
@@ -1554,6 +1677,7 @@ def main():
     global restore_after_failure
     restore_after_failure = True
     step("On a wide window the editor has its place beside the library", two_panes)
+    step("The library checks its lossless songs, and lists the fake ones", quality_scan)
     step("F1 lists the keyboard shortcuts", shortcut_list)
     step("Ctrl+F searches", search)
     step("Tab and Enter open a song without a mouse", keyboard_alone)
@@ -1602,6 +1726,12 @@ def main():
         required=cover_search_worked,
     )
     step("It speaks Turkish", turkish)
+    step("How it looks, by day and by night, wide and narrow", looks, required=False)
+    step(
+        "Music keeps playing in the background (Android 17)",
+        keeps_playing_in_background,
+        required=False,
+    )
     step("Nothing crashed", no_crash)
 
 
