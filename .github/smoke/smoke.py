@@ -448,10 +448,23 @@ def row(title, nodes=None):
 before = {}
 
 
+# Right after boot, the package service can still turn an install down for reasons of its own:
+# those are tried again, once it answers. A failure of the APK is not.
+NOT_READY = re.compile(r"Broken pipe|Can't find service|device offline|Failure calling service")
+
+
 def install():
-    said = adb("install", "-r", apk_path, timeout=300)
-    if "Success" not in said:
-        raise Failed(said.strip()[-300:])
+    for attempt in range(4):
+        said = adb("install", "-r", apk_path, timeout=300)
+        if "Success" in said:
+            break
+        if attempt == 3 or not NOT_READY.search(said):
+            raise Failed(said.strip()[-300:])
+        log(f"    the package service is not ready: {said.strip().splitlines()[-1]}")
+        deadline = time.time() + 60
+        while time.time() < deadline and "package:" not in shell("pm path android"):
+            time.sleep(3)
+        time.sleep(5)
     # A device with a keyboard plugged in draws none on its screen. The emulator draws one all the
     # same, over half of every picture, so the ones it has are turned off: keys still type.
     for method in shell("ime list -s").split():
