@@ -1046,10 +1046,13 @@ def right_click_menu():
     global pointer_gain
     if not mouse_works:
         raise Skipped("no mouse")
-    target_x, target_y = aim(rows()[1])
+    # How far the pointer goes for a count is not known yet, and changes with the system's
+    # version and how fast the mouse moves. So the click is tried along a line, at counts a step
+    # of 1.4 apart: whatever the travel per count, one of them lands on a song.
     tried = []
-    for gain in (1.0, 1.4, 0.7, 2.0, 0.5):
-        sent_x, sent_y = int(target_x / gain), int(target_y / gain)
+    # The last run ruled out everything from 0.36 to 3 pixels a count for a mouse this slow.
+    for gain in (0.36, 0.25, 0.18, 0.5, 0.7, 1.0, 1.4, 2.0):
+        sent_x, sent_y = int(170 / gain), int(420 / gain)
         Gesture().to_corner().move(sent_x, sent_y).click(Gesture.BTN_RIGHT).run()
         nodes = screen()
         if find("Open in a new window", nodes):
