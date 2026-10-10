@@ -130,6 +130,9 @@ class Node:
         self.focused = get("focused") == "true"
         self.selected = get("selected") == "true"
         self.checked = get("checked") == "true"
+        # A song's row, while songs are being selected, is a check box, and one that is checked
+        # says it takes no click: it is still what a click on it lands on.
+        self.takes_click = self.clickable or get("checkable") == "true"
         numbers = [int(n) for n in re.findall(r"-?\d+", get("bounds", ""))]
         self.left, self.top, self.right, self.bottom = (numbers + [0, 0, 0, 0])[:4]
 
@@ -156,7 +159,7 @@ class Node:
     def pressed_as(self):
         """What a click on this lands on: itself, or the nearest thing around it that takes one."""
         node = self
-        while node is not None and not node.clickable:
+        while node is not None and not node.takes_click:
             node = node.parent
         return node or self
 
@@ -1003,11 +1006,11 @@ class Gesture:
             done_x, done_y = x, y
         return self.wait(300)
 
-    def click(self, button):
+    def click(self, button, after=400):
         self._send(self.MOUSE, [self.EV_KEY, button, 1, 0, 0, 0])
         self.wait(90)
         self._send(self.MOUSE, [self.EV_KEY, button, 0, 0, 0, 0])
-        return self.wait(400)
+        return self.wait(after)
 
     def hold(self, key_code, down):
         self._send(self.KEYS, [self.EV_KEY, key_code, 1 if down else 0, 0, 0, 0])
@@ -1096,11 +1099,20 @@ def mouse_events(newer_than_ms=20000):
     return events
 
 
+unread_dumps = 0
+
+
 def where_clicked():
     """Where the last click of the made-up mouse was, or where its pointer last was."""
+    global unread_dumps
     events = mouse_events()
     clicks = [event for event in events if event[0] in ("BUTTON_PRESS", "DOWN")]
     last = clicks[-1] if clicks else (events[-1] if events else None)
+    if last is None and unread_dumps < 3:
+        # Kept, to see why: the queue may hold other events, or say it otherwise.
+        unread_dumps += 1
+        with open(os.path.join(out_dir, f"input-unread-{unread_dumps}.txt"), "w") as file:
+            file.write(shell("dumpsys input", timeout=60))
     return (round(last[1]), round(last[2])) if last else None
 
 
@@ -1248,68 +1260,84 @@ def open_in_new_window():
     return "the song opened in an activity of its own, and Ctrl+W closed it"
 
 
-def click_row(index, listed, held):
-    """A click on the [index]th of [listed] with the key [held] down, aimed again after a miss.
-    Says which row it landed on, which may not be that one, and where."""
+def click_at(node, held):
+    """One click on the middle of [node] with the key [held] down, aimed by what the clicks
+    before said. Says where it landed, when the system says, and learns from it."""
     global pointer_gain
     width, height = display_size()
-    x, y = aim(listed[index])
-    landed = None
-    for _ in range(3):
-        sent = counts(x, y)
-        (
-            Gesture()
-            .to_corner()
-            .move(*sent)
-            .hold(held, True)
-            .click(Gesture.BTN_LEFT)
-            .hold(held, False)
-            .run()
+    sent = counts(*aim(node))
+    # The key goes up as soon as the button does: held longer, it repeats, and its repeats
+    # crowd the clicks out of the system's short list of recent events.
+    (
+        Gesture()
+        .to_corner()
+        .move(*sent)
+        .hold(held, True)
+        .click(Gesture.BTN_LEFT, after=40)
+        .hold(held, False)
+        .run()
+    )
+    landed = where_clicked()
+    if landed:
+        pointer_gain = (
+            corrected(pointer_gain[0], sent[0], landed[0], width),
+            corrected(pointer_gain[1], sent[1], landed[1], height),
         )
-        landed = where_clicked()
-        if landed:
-            pointer_gain = (
-                corrected(pointer_gain[0], sent[0], landed[0], width),
-                corrected(pointer_gain[1], sent[1], landed[1], height),
-            )
-        on = landed_row(landed, listed)
-        if on is not None:
-            return on, landed
-        log(f"    a click sent {sent} counts for row {index} landed at {landed}, on no song")
-    return None, landed
+    return landed
+
+
+def selected_songs(nodes):
+    """The songs whose rows are checked, from the top one down."""
+    checked = [node for node in nodes if node.checked]
+    return [
+        title
+        for title in sorted(SONGS, key=lambda title: row(title, nodes).top)
+        if any(node.holds(re.escape(title)) for node in checked)
+    ]
 
 
 def ctrl_click_selects():
     if not mouse_works or pointer_gain is None:
         raise Skipped("the pointer could not be aimed")
-    listed = rows()
-    titles = [next(title for title in SONGS if node.holds(re.escape(title))) for node in listed]
-    first, landed = click_row(0, listed, Gesture.KEY_LEFTCTRL)
-    if first is None:
-        raise Skipped(f"no Ctrl+click landed on a song; the last one at {landed}")
-    expect("^1 selected$", 15)
-    chosen = [node for node in rows() if node.selected or node.holds("^Selected$")]
-    if chosen and not chosen[0].holds(re.escape(titles[first])):
-        raise Failed(f"Ctrl+click on {titles[first]!r} selected another song")
-    # Two rows away with Shift: everything from the first one to that one. Shift+click on the
-    # first one again selects just it, and the next try still counts from it.
-    listed = rows()
-    target = first + 2 if first + 2 < len(listed) else first - 2
-    second = None
+    order = [next(title for title in SONGS if node.holds(re.escape(title))) for node in rows()]
+    # Ctrl+click, aimed at the first song: whichever it lands on is selected, and it alone.
+    chosen, landed, nodes = [], None, []
     for _ in range(3):
-        second, landed = click_row(target, listed, Gesture.KEY_LEFTSHIFT)
-        if second is not None and second != first:
+        landed = click_at(rows()[0], Gesture.KEY_LEFTCTRL)
+        nodes = screen()
+        chosen = selected_songs(nodes)
+        if chosen:
             break
-    if second is None or second == first:
+        log(f"    a Ctrl+click landed at {landed}, and selected nothing")
+    if not chosen:
+        raise Skipped(f"no Ctrl+click landed on a song; the last one at {landed}")
+    if len(chosen) != 1 or not find("^1 selected$", nodes):
+        raise Failed(f"a Ctrl+click selected {chosen}: {said_on(nodes)[:30]}")
+    first = order.index(chosen[0])
+    # Shift+click two songs away: every song from that one to the first, and no other. The rows
+    # have moved, under the bar of the selection.
+    target = first + 2 if first + 2 < len(order) else first - 2
+    now = chosen
+    for _ in range(3):
+        landed = click_at(row(order[target]), Gesture.KEY_LEFTSHIFT)
+        nodes = screen()
+        now = selected_songs(nodes)
+        if len(now) > 1:
+            break
+        log(f"    a Shift+click landed at {landed}, and selected {now}")
+    if len(now) < 2:
         raise Skipped(f"no Shift+click landed on another song; the last one at {landed}")
-    wanted = abs(second - first) + 1
-    node = expect(f"^{wanted} selected$", 15)
+    places = sorted(order.index(title) for title in now)
+    if places != list(range(places[0], places[-1] + 1)) or first not in (places[0], places[-1]):
+        raise Failed(f"Shift+click selected {now}, not the songs from {chosen[0]!r} to it")
+    if not find(f"^{len(now)} selected$", nodes):
+        raise Failed(f"{len(now)} songs are checked, and the bar says {said_on(nodes)[:8]}")
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
     expect_gone(r"\d selected", 15)
     return (
-        f"Ctrl+click on {titles[first]!r} selected it alone; Shift+click on {titles[second]!r} "
-        f"(at {landed}) selected the {wanted} from one to the other: {node.text!r}"
+        f"Ctrl+click selected {chosen[0]!r} alone; Shift+click, landing at {landed}, selected "
+        f"the {len(now)} from it to {order[places[-1] if places[0] == first else places[0]]!r}"
     )
 
 
