@@ -70,11 +70,12 @@ out unsigned: without a keystore Gradle builds unsigned APKs and reports success
 `GOOGLE_SERVICES_JSON_BASE64` it warns and builds the playstore APK without Crashlytics, as a fork
 would.
 
-## A branch's own APK (`metadator-dex-apk.yml`)
+## A branch's own APK (`metadator-one-apk.yml`)
 
 For a branch that lives in a repository that is not a fork of Metadator, where neither workflow
-above runs. On every push to the branch it runs the unit tests of the plain Kotlin modules and
-builds `:app:assembleFossRelease -Pmetadator.fork=dex`:
+above runs: here `metadator-one`, the app in its Studio look, which installs as Metadator One. On
+every push to the branch it runs the unit tests of the plain Kotlin modules and builds
+`:app:assembleFossRelease -Pmetadator.fork=one`:
 
 - **A release build**, since the APK is for trying the app, and a debug one is slower and brings
   LeakCanary along. It is signed with a key kept in the branch
@@ -83,7 +84,7 @@ builds `:app:assembleFossRelease -Pmetadator.fork=dex`:
 - **`-Pmetadator.fork=<name>`** gives the release an application id and a version name of its own
   (`com.bobbyesp.metadator.<name>`, and `-<name>` after the version), so that it installs next to
   the app from its store instead of being refused for its signature.
-- **The APK is published as an asset of the `metadator-dex-apk` release**, with a
+- **The APK is published as an asset of the `metadator-one-apk` release**, with a
   `build-report.txt` of the errors, the warnings and the end of each step's output. A release
   asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
 
@@ -96,9 +97,11 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
 - `make_audio.sh` makes the songs with FFmpeg: four tracks of one album, each a different answer
   for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz),
   and two of another album for the SD card.
-- `start_emulator.sh` boots an emulator with no window: a display of 1920 x 1080 at the density of
-  a monitor, a keyboard with real keys, and an SD card of 512 MB. It drives `sdkmanager` itself,
-  for the one thing the runner does not ship: a system image.
+- `start_emulator.sh` boots an emulator with no window, on Android 17 as the app targets: a
+  display of 1920 x 1080 at the density of a monitor, a keyboard with real keys, and an SD card of
+  512 MB. It drives `sdkmanager` itself, for the one thing the runner does not ship: a system image
+  (the one with 4 KB pages when there is one, else the one with 16 KB pages, which the app's native
+  library is aligned for).
 - `smoke.py` is the user. It reads the screen as the accessibility tree has it
   (`uiautomator dump`), presses keys and taps (`input`), plugs in a mouse the system believes in
   (`uinput`) and steers it by where the input system says its pointer is (`dumpsys input`), changes the display under the
@@ -110,7 +113,9 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   text, the device's log) are published next to the APK. A step that needs the network, or the
   made-up mouse, is reported and does not fail the run.
 - **`[smoke-only]` in a commit message** skips the build: the APK already published is tried
-  again. For a push that only changes the scripts.
+  again. For a push that only changes the scripts. A push that changes neither the app nor the
+  scripts (the docs) says `[skip ci]`, which GitHub reads as not to run at all; a push that runs
+  stops the run before it.
 
 ## Changing a workflow
 

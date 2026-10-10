@@ -8,6 +8,7 @@
 | JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
+| JVM unit | The check of the whole library: each lossless song once, again only once its file changed, a song added later, a verdict the editor made (`LibraryQualityScannerTest`) | `core/domain` |
 | JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
@@ -16,7 +17,7 @@ Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.
 
 ## On an emulator, by a script
 
-The APK of the `metadator-dex` branch is used on an emulator after each build
+The APK of the `metadator-one` branch is used on an emulator after each build
 (`.github/smoke/smoke.py`, see [ci.md](ci.md#the-apk-is-then-used-githubsmoke)). The script goes
 through the app as a person would, and stops at nothing: each step is tried whatever became of
 the one before, and the report says which held.
@@ -26,6 +27,7 @@ the one before, and the report says which held.
 | The app opens, asks to see the music, and lists four songs copied to the device | What the screen says |
 | F1 lists the shortcuts; Ctrl+F searches; Ctrl+A, Ctrl+E, Ctrl+K, Ctrl+S and Ctrl+W do what the list says | What the screen says after each |
 | The lossless check: a genuine FLAC, one made from an MP3 of 128 kbps, one upsampled to 96 kHz, and an MP3 it has nothing to say about | The verdict on the card |
+| The check of the whole library: the same four songs in the table, and the Fake FLAC list | Each row's quality, a dash for the MP3, and only the fake one in the list |
 | The cover finder, for one song and for the four together, against the real sources | The sheet's best match and its reasons. Not required: the sources are not ours |
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
@@ -33,9 +35,11 @@ the one before, and the report says which held.
 | A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and steered by where the input system says its pointer is |
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | Turkish | What the screen says |
+| How it looks: the library by day and by night, the editor beside it, a phone's screen | Screenshots, for a person to look at. Not required |
+| The music goes on with the app in the background | The media session's state ten seconds after Home. Not required |
 | Nothing crashed | The device's crash log |
 
-It is one pass on one emulator (Android 15, x86-64), with the files it makes itself and an SD card
+It is one pass on one emulator (Android 17, x86-64), with the files it makes itself and an SD card
 the emulator makes up (or the system makes out of a file, when the emulator has none). It says the
 build works there; it does not say how the app feels, and it is not Samsung DeX.
 
@@ -76,7 +80,9 @@ made-up mouse, not on Samsung DeX. On DeX, with a keyboard and a mouse:
 
 The lossless check was tuned on short test files ([lossless-check.md](lossless-check.md)). Try it
 on a real CD rip, on the same rip encoded to MP3 at 128, 192 and 320 kbps and saved as FLAC, and
-on a high-resolution download. The cover finder needs the network: try an album whose single has
+on a high-resolution download. Let the library check a collection of a few thousand FLAC files on
+an SD card: how long the first pass takes, that the app stays smooth meanwhile, and that a second
+start checks nothing again. The cover finder needs the network: try an album whose single has
 another cover, a song without an album tag, and a file that already has a small cover. From the
 batch editor, try a whole album, an album whose songs have no cover yet, and songs of two albums
 selected together.

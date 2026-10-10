@@ -2,7 +2,8 @@
 
 A FLAC made from an MP3 is as large as a real one, plays as one, and sounds like the MP3. Nothing
 in its tags says so. When a FLAC or a WAV file is opened, the editor looks at its audio and says
-what it finds.
+what it finds; the library looks at all of them, in the background (see
+[the whole library](#the-whole-library)).
 
 ## What it says
 
@@ -47,6 +48,30 @@ codec of the device. Nothing is written and nothing leaves the device.
 
 The rounding noise is computed from the bits the samples really use, so a lossy file padded to 24
 bits is still seen for what it is.
+
+## The whole library
+
+The editor checks the song it opens. The library checks every other FLAC and WAV file, in the
+background, so that it can say which of them are fake without each being opened
+(`LibraryQualityScanner`, one for the app, in the app's scope: the check goes on while its screens
+come and go).
+
+- **One file at a time, in the library's order.** It works through the library it was last given,
+  and starts over from the new one when the library changes: a song added is checked too, one
+  removed is not. It yields between two files, the check being heavy.
+- **Each file once.** A verdict is kept with what identified the file when it was made, its size
+  and when it was last changed (`StoredVerdict`, in `quality/verdicts.tsv` among the app's files,
+  `FileQualityStore`), so a file is checked again only once it has changed. A library of a few
+  thousand FLAC files takes minutes the first time, and nothing after that.
+- **A file it cannot decode** is kept as unreadable, and not tried again until it changes. One file
+  the decoder chokes on does not stop the others.
+- **The editor's verdict counts too** (`record`): a song checked when it was opened is not checked
+  again by the library, and the two say the same.
+
+What it found is in the library: the Quality column of the table of songs (`QualityBadge`: real
+lossless, fake, probably fake, upscaled, unclear; a dash for a lossy format, where there is nothing
+to find), and the Fake FLAC list in the sidebar, of the songs that have surely or most likely been
+through a lossy encoder (`TrackQuality.isFake`), with how far the check has got while it runs.
 
 ## How it was tuned, and how far that goes
 

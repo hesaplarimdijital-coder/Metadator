@@ -27,9 +27,12 @@ entries in the manifest that only Samsung reads.
   wide enough for the library and the editor side by side, and neither window can be dragged
   narrower than a phone.
 - **No touchscreen is asked for** (`uses-feature android.hardware.touchscreen`, not required).
-- **The layouts were already made for it.** List-detail puts the editor beside the library on a
-  wide window, the editor goes to two columns from 760 dp, and the player has layouts of its own.
-  They now change while a window is dragged, not only on a rotation.
+- **A wide window is laid out as a desktop tool.** From 600 dp wide: the library's panel with its
+  sidebar and its table of songs, the editor beside it as an inspector 380 dp wide, and the
+  player's bar docked under both ([architecture.md](architecture.md#navigation)). The table drops
+  columns as its panel narrows, an editor that fills a window goes to two columns from 760 dp, and
+  narrower than 600 dp each screen is a phone's. All of it changes while a window is dragged, not
+  only on a rotation.
 
 **Choosing another song changes the song in the editor.** On a wide window the library stays
 beside the editor, and a desktop is used by clicking one song after another. Each used to open an
@@ -102,7 +105,8 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | Library | Ctrl+F | Goes to the search field |
 | | Ctrl+A | Selects every song |
 | | Ctrl+E, Enter | Edits the selected songs together |
-| | Ctrl+1 … Ctrl+4 | Songs, albums, artists, folders |
+| | Esc | Ends the selection |
+| | Ctrl+1 … Ctrl+4 | Songs, albums, artists, folders: the sidebar's first places |
 | | Ctrl+O | Opens a file |
 | | Ctrl+R, F5 | Rescans the music folders |
 | | Ctrl+, | Settings |
@@ -137,6 +141,10 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 - **What scrolls says where it is** (`Modifier.scrollbar`, Material's own behind it): the songs,
   the albums, the editor's fields, the batch editor and the sheets that search show a scrollbar
   while they move, and the list of shortcuts shows one all the time. It is a sign, not a handle.
+- **The table of songs works as a desktop's.** A click on a row opens the song beside it, a click
+  on its box selects it, and a click on a column's head sorts by that column, the other way on a
+  second click; the head's box selects every song or none. The player's bar has a seek line that a
+  click or a drag moves, and the arrow keys once it has the focus.
 
 And two things that need no code of the app's: the wheel scrolls every list, and Material's
 components show where the pointer and the focus are.
@@ -147,7 +155,7 @@ that goes with the drag, which lasts as long as the activity.
 
 ## How far it has been tried
 
-On an Android 15 emulator made to look like a desktop (1920 x 1080 at the density of a monitor,
+On an Android 17 emulator made to look like a desktop (1920 x 1080 at the density of a monitor,
 a keyboard with real keys, a mouse made up with `uinput`), by the script that uses each APK
 ([testing.md](testing.md#on-an-emulator-by-a-script)): the shortcuts, the list of them, Esc, Tab
 and Enter, the window resized and moved to another density, night, a narrow window, the second

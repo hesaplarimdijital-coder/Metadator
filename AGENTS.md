@@ -17,8 +17,8 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:app` | Composition root: `App`, `MainActivity`, `ExternalEditorActivity`, the navigation shell, DI wiring, flavors. | The only module that names implementations. |
 | `:core:model` | `Track`, `ContentRef`, `UserSettings`… | Plain Kotlin. |
 | `:core:common` | Dispatchers, `StringProvider`, text helpers. | Plain Kotlin. |
-| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check (`quality`), the cover finder (`cover`). | Plain Kotlin. Tested on the JVM with fakes. |
-| `:core:data` | DataStore settings, Android strings, decoding pictures for the cover finder. | |
+| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check and the check of the whole library (`quality`), the cover finder (`cover`). | Plain Kotlin. Tested on the JVM with fakes. |
+| `:core:data` | DataStore settings, Android strings, decoding pictures for the cover finder, the lossless check's verdicts. | |
 | `:core:database` | Room: tag backups for undo. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
 | `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
@@ -79,6 +79,9 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   `showDetail`, which replaces the detail on top unless that one `hold`s unsaved changes.
 - On wide windows, list-detail puts the editor beside the library. A destination is told whether it
   shares the window (`LocalPaneContext`); it never measures the window itself.
+- From 600 dp wide the shell lays the screens out as panels on a ground (`LocalPanels`): it keeps
+  the gaps and the docked player's room, and each screen draws its own panel with
+  `Modifier.studioPanel`. The inspector's width is held by a pane expansion anchor, not measured.
 - The player is not a destination: the shell measures the window and passes it a `PlayerLayout`.
 - Transitions live in `core/navigation/.../motion/NavigationMotion.kt`.
 
@@ -96,15 +99,19 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
 
 ### Theme
 
-- `MetadatorTheme` is Material 3 Expressive with one `MotionScheme.expressive()` instance for the
-  app's lifetime. Color schemes are built off the main thread and cached.
-- A destination with its own color nests `MetadatorAccentTheme` (the editor, from the cover).
+- `MetadatorTheme` is the Studio look on Material 3 Expressive, with one `MotionScheme.expressive()`
+  instance for the app's lifetime. Colors come from `Studio.colors` (neutral panels on a darker
+  ground, one accent), which also fill Material's roles: no color literals in a screen.
+- A destination with its own color nests `MetadatorAccentTheme`, which changes only the accent (the
+  player, and the editor when the setting asks for it, from the cover).
 - Use Material components through the design system; don't restyle them per screen. Spacing comes
-  from `Spacing`, grouped-list shapes from `GroupShapes`. Menus are `ActionMenu`/`PopupMenu`,
-  exclusive options are `ConnectedChoices`, text fields are `TonalTextField` (no outlined fields),
-  chips are `ToggleChip`/`ActionChip`/`LabelChip`, a floating toolbar is `FloatingActionToolbar`,
-  a sheet that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`, and
-  what scrolls says where it is with `Modifier.scrollbar`.
+  from `Spacing` and `StudioDefaults`, grouped-list shapes from `GroupShapes`. Buttons are
+  `StudioButton`/`StudioIconButton`, menus are `ActionMenu`/`PopupMenu`, exclusive options are
+  `ConnectedChoices`, text fields are `TonalTextField` (no outlined fields; input a screen refuses
+  is refused with an `inputTransformation`), a toolbar's search is `StudioSearchField`, chips are
+  `ToggleChip`/`ActionChip`/`LabelChip`, a floating toolbar is `FloatingActionToolbar`, a sheet
+  that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`, and what scrolls
+  says where it is with `Modifier.scrollbar`.
 - Blur comes from `MetadatorBlurDefaults`, and stands in for shadows: `Modifier.frosted` (Haze)
   for a surface floating over content, `Modifier.blurHalo` to lift what floats (it keeps its shadow
   only where `isHaloSupported` is false), `Modifier.outOfFocus` for what something opens over,
@@ -129,7 +136,7 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   `spotless/copyright.txt`. Run it before every commit.
 - CI (`.github/workflows/ci.yml`) runs `spotlessCheck`, `test`, `lint` and the debug build of both
   flavors on every pull request and on every push to `master` and `v2`. `release.yml` is started by
-  hand and builds the signed release APKs. `metadator-dex-apk.yml` builds the APK of a branch kept
+  hand and builds the signed release APKs. `metadator-one-apk.yml` builds the APK of a branch kept
   in another repository, under an application id of its own. See [docs/ci.md](docs/ci.md).
 - The `playstore` flavor adds Firebase Crashlytics and Play in-app review. Firebase is only applied
   when `app/google-services.json` exists, so forks and the FOSS flavor build without it.
