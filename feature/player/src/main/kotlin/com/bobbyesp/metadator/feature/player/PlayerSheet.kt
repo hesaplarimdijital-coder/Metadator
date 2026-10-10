@@ -34,11 +34,14 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -69,6 +72,7 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorAccentTheme
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorBlurDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -82,6 +86,12 @@ import org.koin.compose.koinInject
 object PlayerSheetDefaults {
     /** The room the collapsed player takes at the bottom, for whatever must stay clear of it. */
     val CollapsedClearance: Dp = 112.dp
+
+    /**
+     * The room the docked bar takes under the panels of a wide window: the bar, and the gap between
+     * it and the panels.
+     */
+    val DockedClearance: Dp = DockedBarHeight + StudioDefaults.PanelGap
 }
 
 /**
@@ -117,6 +127,8 @@ object PlayerSheetDefaults {
  * @param visible whether the player belongs on the screen under it; the bar hides where it doesn't
  * @param onEdit asked to open the editor for the playing song, by its URI
  * @param layout how the full player is laid out, which the shell decides from the window
+ * @param docked whether the bar is a desktop's, docked under the panels of a wide window, rather
+ *   than a phone's, floating over the screen
  * @param expansion told how far open the sheet is, for the shell to step back what is behind it
  * @param backdrop what is recorded of the screens under the player, which the bar is lifted off
  *   with a blur halo; without it, or where the device cannot draw one, with a shadow
@@ -128,6 +140,7 @@ fun PlayerSheet(
     onEdit: (String) -> Unit,
     modifier: Modifier = Modifier,
     layout: PlayerLayout = PlayerLayout.Stacked,
+    docked: Boolean = false,
     expansion: PlayerSheetExpansion? = null,
     backdrop: HazeState? = null,
 ) {
@@ -157,7 +170,10 @@ fun PlayerSheet(
     val motion = MaterialTheme.motionScheme
     // The halo is the bar's alone: it goes as soon as the bar starts to open, since nothing blurs
     // while the shared elements travel, and comes back once the bar is at rest again.
-    val haloed = backdrop != null && MetadatorBlurDefaults.isHaloSupported
+    // A docked bar is a panel of the window, which nothing floats over.
+    val haloed = !docked && backdrop != null && MetadatorBlurDefaults.isHaloSupported
+    val barCorner = if (docked) DockedBarCorner else BarCorner
+    val barArtworkCorner = if (docked) DockedArtworkCorner else BarArtworkCorner
     val barAtRest by remember(sheet) { derivedStateOf { sheet.fraction == 0f } }
     val haloStrength by
         animateFloatAsState(
@@ -235,14 +251,14 @@ fun PlayerSheet(
                         },
                         label = "Corner",
                     ) {
-                        if ((it == EnterExitState.Visible) == isBar) BarCorner else 0.dp
+                        if ((it == EnterExitState.Visible) == isBar) barCorner else 0.dp
                     }
                 val artworkCorner by
                     scope.transition.animateDp(
                         transitionSpec = { traveller() },
                         label = "Artwork",
                     ) {
-                        if ((it == EnterExitState.Visible) == isBar) BarArtworkCorner
+                        if ((it == EnterExitState.Visible) == isBar) barArtworkCorner
                         else ScreenArtworkCorner
                     }
                 val shape = RoundedCornerShape(corner)
@@ -311,18 +327,29 @@ fun PlayerSheet(
                             // The bar's place, which the halo is drawn around: outside the bar's
                             // own way in and out, which would slide and fade the halo with it.
                             Box(
-                                Modifier.navigationBarsPadding()
-                                    .padding(bottom = Spacing.medium)
-                                    .widthIn(max = BarMaxWidth)
-                                    .fillMaxWidth()
-                                    .padding(horizontal = Spacing.medium)
+                                (if (docked) {
+                                        // Under the panels, in the same gap as they are.
+                                        Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                                            .padding(StudioDefaults.PanelGap)
+                                            .fillMaxWidth()
+                                    } else {
+                                        Modifier.navigationBarsPadding()
+                                            .padding(bottom = Spacing.medium)
+                                            .widthIn(max = BarMaxWidth)
+                                            .fillMaxWidth()
+                                            .padding(horizontal = Spacing.medium)
+                                    })
                                     .then(
                                         // Only while there is a halo to draw: the screens are
                                         // recorded for as long as something blurs them.
-                                        if (backdrop != null && (available || haloStrength > 0f)) {
+                                        if (
+                                            haloed &&
+                                                backdrop != null &&
+                                                (available || haloStrength > 0f)
+                                        ) {
                                             Modifier.blurHalo(
                                                 state = backdrop,
-                                                shape = RoundedCornerShape(BarCorner),
+                                                shape = RoundedCornerShape(barCorner),
                                                 strength = haloStrength,
                                             )
                                         } else Modifier
@@ -338,7 +365,23 @@ fun PlayerSheet(
                                         slideOutVertically(motion.fastSpatialSpec()) { it * 2 } +
                                             fadeOut(motion.fastEffectsSpec()),
                                 ) {
-                                    if (track != null) {
+                                    if (track != null && docked) {
+                                        DockedPlayerBar(
+                                            track = track,
+                                            playback = playback,
+                                            player = player,
+                                            onOpen = sheet::open,
+                                            shape = shape,
+                                            artworkShape = RoundedCornerShape(artworkCorner),
+                                            modifier = container,
+                                            contentModifier = Modifier.skipToLookaheadSize(),
+                                            artworkModifier = artwork,
+                                            titleModifier = title,
+                                            artistModifier = artist,
+                                            playButtonModifier = playButton,
+                                            ownContentPresence = barPresence,
+                                        )
+                                    } else if (track != null) {
                                         MiniPlayerBar(
                                             track = track,
                                             playback = playback,
@@ -552,6 +595,10 @@ private const val COLLAPSED_DIP = 0.12f
 
 private val BarCorner = 28.dp
 private val BarMaxWidth = 560.dp
+
+/** The docked bar's corners: a panel's, as the panels above it have. */
+private val DockedBarCorner = 14.dp
+private val DockedArtworkCorner = 8.dp
 
 /** The bar's shadow where no halo lifts it. */
 private val BarShadow = 6.dp

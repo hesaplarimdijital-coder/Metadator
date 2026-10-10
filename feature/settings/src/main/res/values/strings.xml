@@ -16,8 +16,8 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="colors">Colors</string>
-    <string name="dynamic_color">Colors from the wallpaper</string>
-    <string name="dynamic_color_description">Material You, from Android 12</string>
+    <string name="dynamic_color">The phone\'s palette</string>
+    <string name="dynamic_color_description">The accent from the phone\'s own colors, as One UI and the wallpaper set them. Android 12 and later</string>
     <string name="pure_black">Pure black</string>
     <string name="pure_black_description">Darker dark theme, easier on OLED screens</string>
     <string name="color_from_cover">Color the editor from the cover</string>
@@ -65,4 +65,11 @@
     <string name="credits">Built with</string>
     <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes and LRCLIB</string>
     <string name="made_by">Made by BobbyESP</string>
+    <string name="accent">Accent</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_violet">Violet</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_graphite">Graphite</string>
 </resources>

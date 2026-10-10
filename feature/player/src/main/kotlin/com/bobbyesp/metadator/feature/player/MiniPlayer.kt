@@ -20,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.player.api.PlaybackState
@@ -80,7 +80,7 @@ internal fun MiniPlayerBar(
     Surface(
         onClick = onOpen,
         shape = shape,
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = Studio.colors.raisedHigh,
         shadowElevation = shadowElevation,
         modifier =
             Modifier.fillMaxWidth().then(modifier).semantics {

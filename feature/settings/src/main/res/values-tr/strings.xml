@@ -16,8 +16,8 @@
     <string name="theme_light">Açık</string>
     <string name="theme_dark">Koyu</string>
     <string name="colors">Renkler</string>
-    <string name="dynamic_color">Duvar kâğıdından renkler</string>
-    <string name="dynamic_color_description">Material You, Android 12\'den itibaren</string>
+    <string name="dynamic_color">Telefonun renk paleti</string>
+    <string name="dynamic_color_description">Vurgu rengi telefonun kendi renklerinden, One UI ve duvar kâğıdının belirlediği gibi. Android 12 ve sonrası</string>
     <string name="pure_black">Saf siyah</string>
     <string name="pure_black_description">Daha koyu bir koyu tema, OLED ekranlarda daha rahat</string>
     <string name="color_from_cover">Düzenleyiciyi kapağa göre renklendir</string>
@@ -65,4 +65,11 @@
     <string name="credits">Şunlarla yapıldı</string>
     <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes ve LRCLIB</string>
     <string name="made_by">BobbyESP tarafından yapıldı</string>
+    <string name="accent">Vurgu rengi</string>
+    <string name="accent_blue">Mavi</string>
+    <string name="accent_violet">Mor</string>
+    <string name="accent_teal">Turkuaz</string>
+    <string name="accent_orange">Turuncu</string>
+    <string name="accent_pink">Pembe</string>
+    <string name="accent_graphite">Grafit</string>
 </resources>
