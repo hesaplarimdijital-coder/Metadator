@@ -10,7 +10,7 @@ import com.bobbyesp.metadator.core.model.TrackId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,6 +41,11 @@ class LibraryQualityScannerTest {
         }
     }
 
+    /**
+     * A scanner working in the test's background scope, as it works in the app's. advanceUntilIdle
+     * leaves the background alone once nothing else is left, so the tests run it with runCurrent:
+     * none of the work waits on time.
+     */
     private fun TestScope.scanner(
         store: QualityStore,
         opened: Map<ContentRef, ByteArray> = files,
@@ -61,7 +66,7 @@ class LibraryQualityScannerTest {
         val scanner = scanner(store)
 
         scanner.submit(listOf(flac, fake, mp3))
-        advanceUntilIdle()
+        runCurrent()
 
         val state = scanner.state.value
         assertTrue(state.of(flac) is TrackQuality.Checked)
@@ -85,7 +90,7 @@ class LibraryQualityScannerTest {
             )
 
         scanner.submit(listOf(flac))
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals(TrackQuality.Checked(LosslessVerdict.Lossless), scanner.state.value.of(flac))
     }
@@ -102,7 +107,7 @@ class LibraryQualityScannerTest {
         val scanner = scanner(MemoryStore(listOf(before)))
 
         scanner.submit(listOf(fake))
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals(TrackQuality.Checked(LosslessVerdict.Transcoded), scanner.state.value.of(fake))
     }
@@ -112,9 +117,9 @@ class LibraryQualityScannerTest {
         val scanner = scanner(MemoryStore())
 
         scanner.submit(listOf(flac))
-        advanceUntilIdle()
+        runCurrent()
         scanner.submit(listOf(flac, fake))
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals(TrackQuality.Checked(LosslessVerdict.Transcoded), scanner.state.value.of(fake))
         assertEquals(2, scanner.state.value.checked)
