@@ -50,7 +50,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -206,7 +205,6 @@ private fun BatchHead(state: BatchState, onClose: () -> Unit, modifier: Modifier
                 Box(
                     Modifier.offset(x = (index * 12).dp, y = ((2 - index) * 6).dp)
                         .size(48.dp)
-                        .shadow(2.dp, RoundedCornerShape(9.dp))
                         .background(Studio.colors.raisedHigh, RoundedCornerShape(9.dp))
                         .border(2.dp, Studio.colors.panel, RoundedCornerShape(9.dp)),
                     contentAlignment = Alignment.Center,

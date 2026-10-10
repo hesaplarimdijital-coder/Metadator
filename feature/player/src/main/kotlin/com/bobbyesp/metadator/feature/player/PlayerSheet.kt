@@ -342,11 +342,9 @@ fun PlayerSheet(
                                     .then(
                                         // Only while there is a halo to draw: the screens are
                                         // recorded for as long as something blurs them.
-                                        if (
-                                            haloed &&
-                                                backdrop != null &&
-                                                (available || haloStrength > 0f)
-                                        ) {
+                                        // A halo is drawn only with a backdrop to blur:
+                                        // haloed says there is one.
+                                        if (haloed && (available || haloStrength > 0f)) {
                                             Modifier.blurHalo(
                                                 state = backdrop,
                                                 shape = RoundedCornerShape(barCorner),
