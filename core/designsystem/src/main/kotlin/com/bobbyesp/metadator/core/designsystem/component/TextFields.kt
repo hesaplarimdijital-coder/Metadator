@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -434,7 +435,8 @@ fun StudioSearchField(
  *
  * What is typed comes back as [value] a frame or more later, and more may have been typed by then.
  * A value that is only that echo is not set again: it would take away the keys typed since, and
- * throw the cursor to the end.
+ * throw the cursor to the end. The value is weighed as each composition is applied, where neither a
+ * key nor the report of one can come in between.
  */
 @Composable
 private fun rememberMirroredTextFieldState(
@@ -453,8 +455,8 @@ private fun rememberMirroredTextFieldState(
                 }
             }
     }
-    LaunchedEffect(value) {
-        if (!mirror.isEcho(value) && value != state.text.toString()) {
+    SideEffect {
+        if (mirror.isNews(value)) {
             mirror.set(value)
             state.setTextAndPlaceCursorAtEnd(value)
         }
@@ -464,9 +466,12 @@ private fun rememberMirroredTextFieldState(
 
 /** What a field and its screen have said to each other, so that neither takes its echo for news. */
 private class TextMirror(initial: String) {
-    /** The text both sides last agreed on, or the field last said. */
+    /** What the field said last, or the screen set last. */
     var said: String = initial
         private set
+
+    /** The value the screen gave last time, to tell a value it changed from one it still holds. */
+    private var seen: String = initial
 
     /** What the field said and the screen has not said back yet, oldest first. */
     private val unheard = ArrayDeque<String>()
@@ -479,14 +484,24 @@ private class TextMirror(initial: String) {
     }
 
     /**
-     * Whether [value] is something the field said, come back. The screen says texts back in the
-     * order it was told them, skipping some, so those said before it are not coming any more.
+     * Whether the screen's [value] is one it set on its own, rather than something the field said
+     * coming back. The screen says texts back in the order it was told them, skipping some, so once
+     * one comes back, those said before it are not coming any more; and once it holds the last one,
+     * none is.
      */
-    fun isEcho(value: String): Boolean {
+    fun isNews(value: String): Boolean {
+        val changed = value != seen
+        seen = value
+        if (value == said) {
+            unheard.clear()
+            return false
+        }
+        // The screen has not caught up yet: what it still holds is older than the field's text.
+        if (!changed) return false
         val index = unheard.indexOf(value)
-        if (index < 0) return false
+        if (index < 0) return true
         repeat(index + 1) { unheard.removeFirst() }
-        return true
+        return false
     }
 
     fun set(value: String) {
