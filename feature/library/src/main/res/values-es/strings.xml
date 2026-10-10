@@ -62,4 +62,39 @@
     <string name="select_song">Seleccionar</string>
     <string name="deselect_song">Quitar de la selección</string>
     <string name="open_in_new_window">Abrir en una ventana nueva</string>
+    <string name="sidebar_library">Biblioteca</string>
+    <string name="sidebar_smart_lists">Listas inteligentes</string>
+    <string name="sidebar_storage">Almacenamiento</string>
+    <string name="needs_attention">Requieren atención</string>
+    <string name="fake_lossless">FLAC falsos</string>
+    <string name="fake_lossless_filter">FLAC falsos (%1$d)</string>
+    <string name="storage_device">Teléfono</string>
+    <string name="library_title">Biblioteca</string>
+    <string name="sort_by">Ordenar: %1$s</string>
+    <string name="songs_on_storage">%1$s en %2$s</string>
+    <string name="quality_progress">Comprobando archivos sin pérdidas: %1$s de %2$s</string>
+    <string name="no_fake_title">Ningún FLAC falso</string>
+    <string name="no_fake_description">Todos los archivos sin pérdidas de tu biblioteca parecen ser lo que dicen.</string>
+    <string name="no_fake_yet_description">Ninguno por ahora: %1$d de %2$d archivos sin pérdidas comprobados. El resto se comprueba en segundo plano.</string>
+    <string name="find_cover">Buscar portada</string>
+    <plurals name="selected_songs">
+        <item quantity="one">%1$d canción seleccionada</item>
+        <item quantity="other">%1$d canciones seleccionadas</item>
+    </plurals>
+    <plurals name="song_count_formatted">
+        <item quantity="one">%1$s canción</item>
+        <item quantity="other">%1$s canciones</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%1$s álbum</item>
+        <item quantity="other">%1$s álbumes</item>
+    </plurals>
+    <plurals name="artist_count">
+        <item quantity="one">%1$s artista</item>
+        <item quantity="other">%1$s artistas</item>
+    </plurals>
+    <plurals name="folder_count">
+        <item quantity="one">%1$s carpeta</item>
+        <item quantity="other">%1$s carpetas</item>
+    </plurals>
 </resources>

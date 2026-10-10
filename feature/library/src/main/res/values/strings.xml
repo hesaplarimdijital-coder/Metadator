@@ -62,4 +62,39 @@
     <string name="select_song">Select</string>
     <string name="deselect_song">Remove from the selection</string>
     <string name="open_in_new_window">Open in a new window</string>
+    <string name="sidebar_library">Library</string>
+    <string name="sidebar_smart_lists">Smart lists</string>
+    <string name="sidebar_storage">Storage</string>
+    <string name="needs_attention">Needs attention</string>
+    <string name="fake_lossless">Fake FLAC</string>
+    <string name="fake_lossless_filter">Fake FLAC (%1$d)</string>
+    <string name="storage_device">Phone</string>
+    <string name="library_title">Library</string>
+    <string name="sort_by">Sort: %1$s</string>
+    <string name="songs_on_storage">%1$s on %2$s</string>
+    <string name="quality_progress">Checking lossless files: %1$s of %2$s</string>
+    <string name="no_fake_title">No fake FLAC found</string>
+    <string name="no_fake_description">Every lossless file in your library looks like what it says it is.</string>
+    <string name="no_fake_yet_description">None so far: %1$d of %2$d lossless files checked. The rest are being checked in the background.</string>
+    <string name="find_cover">Find cover</string>
+    <plurals name="selected_songs">
+        <item quantity="one">%1$d song selected</item>
+        <item quantity="other">%1$d songs selected</item>
+    </plurals>
+    <plurals name="song_count_formatted">
+        <item quantity="one">%1$s song</item>
+        <item quantity="other">%1$s songs</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%1$s album</item>
+        <item quantity="other">%1$s albums</item>
+    </plurals>
+    <plurals name="artist_count">
+        <item quantity="one">%1$s artist</item>
+        <item quantity="other">%1$s artists</item>
+    </plurals>
+    <plurals name="folder_count">
+        <item quantity="one">%1$s folder</item>
+        <item quantity="other">%1$s folders</item>
+    </plurals>
 </resources>

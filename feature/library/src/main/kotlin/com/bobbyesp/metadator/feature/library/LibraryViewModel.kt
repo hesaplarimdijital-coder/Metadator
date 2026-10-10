@@ -8,11 +8,15 @@ import androidx.lifecycle.viewModelScope
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.common.StringProvider
 import com.bobbyesp.metadator.core.domain.library.LibraryFilter
+import com.bobbyesp.metadator.core.domain.library.Storage
 import com.bobbyesp.metadator.core.domain.library.albums
 import com.bobbyesp.metadator.core.domain.library.artists
+import com.bobbyesp.metadator.core.domain.library.countByStorage
 import com.bobbyesp.metadator.core.domain.library.filtered
 import com.bobbyesp.metadator.core.domain.library.folders
 import com.bobbyesp.metadator.core.domain.library.sorted
+import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
+import com.bobbyesp.metadator.core.domain.quality.LibraryQualityState
 import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
@@ -26,8 +30,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
@@ -36,6 +42,20 @@ enum class LibraryTab {
     Albums,
     Artists,
     Folders,
+}
+
+/** A place the library's sidebar goes to: a way of browsing it, or a list of songs it keeps. */
+sealed interface LibrarySection {
+    data class Browse(val tab: LibraryTab) : LibrarySection
+
+    /** The songs missing essential tags. */
+    data object NeedsAttention : LibrarySection
+
+    /** The lossless files found to have come from lossy ones. */
+    data object FakeLossless : LibrarySection
+
+    /** The songs on one volume: the device's own storage, an SD card. */
+    data class OnStorage(val storage: Storage) : LibrarySection
 }
 
 data class LibraryState(
@@ -55,12 +75,30 @@ data class LibraryState(
     val playingId: TrackId? = null,
     val playerActive: Boolean = false,
     val playbackRunning: Boolean = false,
+    /** What the lossless check found, for every song of the library. */
+    val quality: LibraryQualityState = LibraryQualityState(),
+    /** How many of the library's songs were found to be fake lossless files. */
+    val fakeCount: Int = 0,
+    /** How many songs each volume holds. */
+    val storages: List<Pair<Storage, Int>> = emptyList(),
 ) {
     val selecting: Boolean
         get() = selection.isNotEmpty()
 
     val selectedTracks: List<Track>
         get() = tracks.filter { it.id in selection }
+
+    /** Where the sidebar is: the smart list or volume the songs are narrowed to, else the tab. */
+    val section: LibrarySection
+        get() {
+            val storage = filter.storage
+            return when {
+                filter.fakeLossless -> LibrarySection.FakeLossless
+                filter.needsAttention && tab == LibraryTab.Songs -> LibrarySection.NeedsAttention
+                storage != null && tab == LibraryTab.Songs -> LibrarySection.OnStorage(storage)
+                else -> LibrarySection.Browse(tab)
+            }
+        }
 }
 
 sealed interface LibraryIntent {
@@ -71,6 +109,11 @@ sealed interface LibraryIntent {
     data class SelectTab(val tab: LibraryTab) : LibraryIntent
 
     data object ToggleNeedsAttention : LibraryIntent
+
+    data object ToggleFakeLossless : LibraryIntent
+
+    /** Goes to a place of the sidebar: its tab, with the songs narrowed as it narrows them. */
+    data class ShowSection(val section: LibrarySection) : LibraryIntent
 
     data class ToggleFormat(val format: String) : LibraryIntent
 
@@ -101,6 +144,7 @@ sealed interface LibraryIntent {
 class LibraryViewModel(
     private val library: AudioLibrary,
     private val player: PlayerController,
+    private val quality: LibraryQualityScanner,
     private val strings: StringProvider,
     private val dispatchers: AppDispatchers,
     private val savedState: SavedStateHandle,
@@ -123,6 +167,16 @@ class LibraryViewModel(
     private data class Query(val filter: LibraryFilter, val sort: SortOrder)
 
     init {
+        quality.state
+            .onEach { checked ->
+                setState {
+                    copy(
+                        quality = checked,
+                        fakeCount = checked.qualities.values.count { it.isFake },
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
         player.state
             .onEach { playback ->
                 setState {
@@ -149,6 +203,9 @@ class LibraryViewModel(
             }
             LibraryIntent.ToggleNeedsAttention ->
                 updateQuery { copy(filter = filter.copy(needsAttention = !filter.needsAttention)) }
+            LibraryIntent.ToggleFakeLossless ->
+                updateQuery { copy(filter = filter.copy(fakeLossless = !filter.fakeLossless)) }
+            is LibraryIntent.ShowSection -> showSection(intent.section)
             is LibraryIntent.ToggleFormat ->
                 updateQuery {
                     val formats = filter.formats
@@ -217,6 +274,22 @@ class LibraryViewModel(
         }
     }
 
+    private fun showSection(section: LibrarySection) {
+        val tab = (section as? LibrarySection.Browse)?.tab ?: LibraryTab.Songs
+        savedState[KEY_TAB] = tab.name
+        setState { copy(tab = tab, selection = emptySet()) }
+        updateQuery {
+            copy(
+                filter =
+                    filter.copy(
+                        needsAttention = section == LibrarySection.NeedsAttention,
+                        fakeLossless = section == LibrarySection.FakeLossless,
+                        storage = (section as? LibrarySection.OnStorage)?.storage,
+                    )
+            )
+        }
+    }
+
     private fun updateQuery(transform: Query.() -> Query) {
         query.update(transform)
         setState { copy(filter = query.value.filter, sort = query.value.sort) }
@@ -224,8 +297,18 @@ class LibraryViewModel(
 
     private fun startObserving() {
         if (observing?.isActive == true) return
+        // Only which songs are fake bears on what is listed; the rest of what the check finds is
+        // shown, not filtered by, and comes on its own above.
+        val fakes =
+            quality.state
+                .map { checked -> checked.qualities.filterValues { it.isFake }.keys }
+                .distinctUntilChanged()
         observing =
-            combine(library.observeTracks(), query) { tracks, query -> present(tracks, query) }
+            combine(library.observeTracks(), query, fakes) { tracks, query, fake ->
+                    // The whole library, not what is listed: the check goes through all of it.
+                    quality.submit(tracks)
+                    present(tracks, query, fake)
+                }
                 .flowOn(dispatchers.default)
                 .catch {
                     setState { copy(loading = false) }
@@ -236,13 +319,18 @@ class LibraryViewModel(
     }
 
     /** Everything derived from the library and the query, computed off the main thread. */
-    private fun present(all: List<Track>, query: Query): LibraryState.() -> LibraryState {
-        val visible = all.filtered(query.filter).sorted(query.sort)
+    private fun present(
+        all: List<Track>,
+        query: Query,
+        fakes: Set<String>,
+    ): LibraryState.() -> LibraryState {
+        val visible = all.filtered(query.filter) { it.ref.uri in fakes }.sorted(query.sort)
         val albums = visible.albums()
         val artists = visible.artists()
         val folders = visible.folders()
         val formats = all.map { it.fileExtension }.filter { it.isNotEmpty() }.distinct().sorted()
         val needsAttention = all.count { it.needsAttention }
+        val storages = all.countByStorage()
         val visibleIds = visible.mapTo(mutableSetOf()) { it.id }
         return {
             copy(
@@ -254,6 +342,7 @@ class LibraryViewModel(
                 folders = folders,
                 formats = formats,
                 needsAttentionCount = needsAttention,
+                storages = storages,
                 selection = selection.filterTo(mutableSetOf()) { it in visibleIds },
             )
         }

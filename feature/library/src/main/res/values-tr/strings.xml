@@ -62,4 +62,39 @@
     <string name="select_song">Seç</string>
     <string name="deselect_song">Seçimden çıkar</string>
     <string name="open_in_new_window">Yeni pencerede aç</string>
+    <string name="sidebar_library">Kitaplık</string>
+    <string name="sidebar_smart_lists">Akıllı listeler</string>
+    <string name="sidebar_storage">Depolama</string>
+    <string name="needs_attention">İlgi bekleyenler</string>
+    <string name="fake_lossless">Sahte FLAC</string>
+    <string name="fake_lossless_filter">Sahte FLAC (%1$d)</string>
+    <string name="storage_device">Telefon</string>
+    <string name="library_title">Kitaplık</string>
+    <string name="sort_by">Sırala: %1$s</string>
+    <string name="songs_on_storage">%2$s: %1$s</string>
+    <string name="quality_progress">Kayıpsız dosyalar denetleniyor: %1$s / %2$s</string>
+    <string name="no_fake_title">Sahte FLAC bulunmadı</string>
+    <string name="no_fake_description">Kitaplığınızdaki her kayıpsız dosya göründüğü gibi.</string>
+    <string name="no_fake_yet_description">Şimdilik yok: %2$d kayıpsız dosyadan %1$d tanesi denetlendi. Gerisi arka planda denetleniyor.</string>
+    <string name="find_cover">Kapak bul</string>
+    <plurals name="selected_songs">
+        <item quantity="one">%1$d şarkı seçili</item>
+        <item quantity="other">%1$d şarkı seçili</item>
+    </plurals>
+    <plurals name="song_count_formatted">
+        <item quantity="one">%1$s şarkı</item>
+        <item quantity="other">%1$s şarkı</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%1$s albüm</item>
+        <item quantity="other">%1$s albüm</item>
+    </plurals>
+    <plurals name="artist_count">
+        <item quantity="one">%1$s sanatçı</item>
+        <item quantity="other">%1$s sanatçı</item>
+    </plurals>
+    <plurals name="folder_count">
+        <item quantity="one">%1$s klasör</item>
+        <item quantity="other">%1$s klasör</item>
+    </plurals>
 </resources>
