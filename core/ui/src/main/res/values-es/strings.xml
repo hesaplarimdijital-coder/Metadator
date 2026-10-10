@@ -105,4 +105,20 @@
     <string name="cover_reason_various">Un recopilatorio de varios artistas</string>
     <string name="cover_reason_low_resolution">Pequeña: puede verse borrosa en una pantalla grande</string>
     <string name="cover_reason_not_square">No es cuadrada: puede ser un escaneo de la carátula</string>
+    <string name="quality_lossless">Sin pérdidas real</string>
+    <string name="quality_upscaled">Ampliado</string>
+    <string name="quality_unclear">Dudoso</string>
+    <string name="quality_probably_fake">Probablemente falso</string>
+    <string name="quality_fake">%1$s falso</string>
+    <string name="quality_unchecked">Sin comprobar</string>
+    <string name="quality_checking">Comprobando…</string>
+    <string name="quality_unreadable">Ilegible</string>
+    <string name="quality_lossy">Formato con pérdidas: nada que comprobar</string>
+    <string name="column_title">Título</string>
+    <string name="column_artist">Artista</string>
+    <string name="column_album">Álbum</string>
+    <string name="column_year">Año</string>
+    <string name="column_format">Formato</string>
+    <string name="column_quality">Calidad</string>
+    <string name="column_duration">Duración</string>
 </resources>

@@ -5,6 +5,7 @@ package com.bobbyesp.metadator.core.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -39,6 +40,13 @@ interface Navigator {
     /** Takes [key] off the stack wherever it sits, for a destination whose subject is gone. */
     fun removeDestination(key: NavKey)
 }
+
+/**
+ * The destination the detail pane shows beside a list, as a list needs to know to mark what it was
+ * opened on: the song in the editor. Null when nothing is shown beside the list. The shell, which
+ * owns the stack, says it; a feature only reads it.
+ */
+val LocalShownDetail = compositionLocalOf<NavKey?> { null }
 
 @Composable
 fun rememberNavigator(backStack: NavBackStack<NavKey>, onExit: () -> Unit = {}): Navigator =

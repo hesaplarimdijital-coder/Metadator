@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.ClosesOnEscape
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
+import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
@@ -88,6 +89,11 @@ fun CoverFinderSheet(
             initialValue = SheetValue.Hidden,
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         )
+    // On a wide window, a desktop's dialog: the best cover beside the others.
+    if (LocalPanels.current) {
+        CoverFinderDialog(state, onQueryChange, onSearch, onUse, onDismiss, useLabel)
+        return
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         ClosesOnEscape(sheetState, onDismiss) {
             CoverFinderContent(state, onQueryChange, onSearch, onUse, useLabel)
@@ -279,7 +285,7 @@ private fun BestCover(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.largeIncreased,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(
             modifier = Modifier.padding(Spacing.large),
@@ -366,7 +372,7 @@ private fun ReasonLine(reason: CoverReason, suggestion: CoverSuggestion) {
 }
 
 @Composable
-private fun reasonText(reason: CoverReason, suggestion: CoverSuggestion): String =
+internal fun reasonText(reason: CoverReason, suggestion: CoverSuggestion): String =
     when (reason) {
         CoverReason.SameRelease -> stringResource(R.string.cover_reason_same_release)
         CoverReason.SameRecording -> stringResource(R.string.cover_reason_same_recording)
@@ -435,7 +441,7 @@ private fun OtherCover(
     }
 }
 
-private fun CoverSuggestion.summary(): String =
+internal fun CoverSuggestion.summary(): String =
     listOfNotNull(artists.joinToString(", ").ifEmpty { null }, year).joinToString(" · ")
 
 /** What the picture is, said and not pressed: how good a match, how large, and whose it is. */

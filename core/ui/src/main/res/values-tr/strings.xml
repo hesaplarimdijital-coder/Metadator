@@ -105,4 +105,20 @@
     <string name="cover_reason_various">Çeşitli sanatçıların derlemesi</string>
     <string name="cover_reason_low_resolution">Küçük: büyük ekranda bulanık görünebilir</string>
     <string name="cover_reason_not_square">Kare değil: albüm kılıfının taraması olabilir</string>
+    <string name="quality_lossless">Gerçek kayıpsız</string>
+    <string name="quality_upscaled">Büyütülmüş</string>
+    <string name="quality_unclear">Belirsiz</string>
+    <string name="quality_probably_fake">Büyük olasılıkla sahte</string>
+    <string name="quality_fake">Sahte %1$s</string>
+    <string name="quality_unchecked">Denetlenmedi</string>
+    <string name="quality_checking">Denetleniyor…</string>
+    <string name="quality_unreadable">Okunamadı</string>
+    <string name="quality_lossy">Kayıplı biçim: denetim gerekmez</string>
+    <string name="column_title">Başlık</string>
+    <string name="column_artist">Sanatçı</string>
+    <string name="column_album">Albüm</string>
+    <string name="column_year">Yıl</string>
+    <string name="column_format">Biçim</string>
+    <string name="column_quality">Kalite</string>
+    <string name="column_duration">Süre</string>
 </resources>

@@ -105,4 +105,20 @@
     <string name="cover_reason_various">A compilation of several artists</string>
     <string name="cover_reason_low_resolution">Small: it may look blurry on a large screen</string>
     <string name="cover_reason_not_square">Not square: it may be a scan of the sleeve</string>
+    <string name="quality_lossless">Real lossless</string>
+    <string name="quality_upscaled">Upscaled</string>
+    <string name="quality_unclear">Unclear</string>
+    <string name="quality_probably_fake">Probably fake</string>
+    <string name="quality_fake">Fake %1$s</string>
+    <string name="quality_unchecked">Not checked</string>
+    <string name="quality_checking">Checking…</string>
+    <string name="quality_unreadable">Unreadable</string>
+    <string name="quality_lossy">Lossy format: nothing to check</string>
+    <string name="column_title">Title</string>
+    <string name="column_artist">Artist</string>
+    <string name="column_album">Album</string>
+    <string name="column_year">Year</string>
+    <string name="column_format">Format</string>
+    <string name="column_quality">Quality</string>
+    <string name="column_duration">Length</string>
 </resources>
