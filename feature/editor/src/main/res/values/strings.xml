@@ -141,4 +141,15 @@
     <string name="lookup_back">Back to results</string>
     <string name="lookup_applied">Applied. Review and save when ready</string>
     <string name="shortcuts_editor">Editor</string>
+    <string name="track_position">Track %1$s</string>
+    <string name="fact_bits">%1$d bit</string>
+    <string name="no_changes">No changes</string>
+    <string name="discard_changes">Revert</string>
+    <string name="action_find_cover">Find cover</string>
+    <string name="action_metadata">Metadata</string>
+    <string name="action_lyrics">Lyrics</string>
+    <plurals name="changes_count">
+        <item quantity="one">%1$d change</item>
+        <item quantity="other">%1$d changes</item>
+    </plurals>
 </resources>

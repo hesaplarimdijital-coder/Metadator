@@ -3,51 +3,38 @@
  */
 package com.bobbyesp.metadator.feature.editor.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
-import androidx.compose.material.icons.rounded.ContentCut
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Verified
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.ZoomOutMap
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -55,10 +42,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bobbyesp.metadator.core.designsystem.component.LabelChip
-import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.component.FactChip
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
+import com.bobbyesp.metadator.core.designsystem.component.StudioTone
+import com.bobbyesp.metadator.core.designsystem.component.colors
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.quality.LosslessFormat
 import com.bobbyesp.metadator.core.domain.quality.LosslessReport
 import com.bobbyesp.metadator.core.domain.quality.LosslessVerdict
@@ -70,141 +60,123 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Whether a lossless file is what it says: the verdict on its audio in a line, and under it what
- * the verdict rests on, for whoever wants to see for themselves.
+ * Whether a lossless file is what it says: the verdict on its audio in a line, why in a sentence,
+ * and the spectrum it was read from, for whoever wants to see for themselves. Its edge is the
+ * verdict's color.
  *
  * Nothing at all for a file that is not lossless: there is no question to answer.
- *
- * @param initiallyExpanded whether what the verdict rests on starts in sight, where there is room
  */
 @Composable
-fun LosslessCheckCard(
-    state: LosslessCheckState,
-    modifier: Modifier = Modifier,
-    initiallyExpanded: Boolean = false,
-) {
+fun LosslessCheckCard(state: LosslessCheckState, modifier: Modifier = Modifier) {
     when (state) {
         LosslessCheckState.None -> Unit
-        LosslessCheckState.Checking -> CheckInProgress(modifier)
-        LosslessCheckState.Failed ->
-            CheckNotice(
-                icon = Icons.Rounded.ErrorOutline,
-                text = stringResource(R.string.lossless_failed),
-                modifier = modifier,
-            )
-        is LosslessCheckState.Done -> ReportCard(state.report, initiallyExpanded, modifier)
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun CheckInProgress(modifier: Modifier = Modifier) {
-    CheckSurface(modifier) {
-        Row(
-            modifier = Modifier.padding(Spacing.large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.large),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LoadingIndicator(Modifier.size(BadgeSize))
-            Text(
-                stringResource(R.string.lossless_checking),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CheckNotice(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
-    CheckSurface(modifier) {
-        Row(
-            modifier = Modifier.padding(Spacing.large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.large),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            VerdictBadge(
-                icon = icon,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ReportCard(
-    report: LosslessReport,
-    initiallyExpanded: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
-    val look = verdictLook(report.verdict)
-    val motion = MaterialTheme.motionScheme
-    val expandedLabel =
-        stringResource(if (expanded) R.string.lossless_expanded else R.string.lossless_collapsed)
-    Surface(
-        onClick = { expanded = !expanded },
-        modifier = modifier.fillMaxWidth().semantics { stateDescription = expandedLabel },
-        shape = MaterialTheme.shapes.largeIncreased,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(Modifier.padding(Spacing.large)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.large),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                VerdictBadge(look.icon, look.containerColor, look.contentColor)
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        LosslessCheckState.Checking ->
+            CheckCard(StudioTone.Neutral, modifier) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Studio.colors.accent,
+                            strokeWidth = 2.dp,
+                        )
+                    }
                     Text(
-                        stringResource(look.title),
-                        style = MaterialTheme.typography.titleMediumEmphasized,
-                    )
-                    Text(
-                        verdictSummary(report),
+                        stringResource(R.string.lossless_checking),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Studio.colors.textSecondary,
                     )
                 }
-                Icon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+        LosslessCheckState.Failed ->
+            CheckCard(StudioTone.Neutral, modifier) {
+                VerdictLine(
+                    icon = Icons.Rounded.ErrorOutline,
+                    tone = StudioTone.Neutral,
+                    title = stringResource(R.string.lossless_failed),
+                    summary = null,
                 )
             }
-            AnimatedVisibility(
-                visible = expanded,
-                enter =
-                    expandVertically(motion.defaultSpatialSpec()) +
-                        fadeIn(motion.defaultEffectsSpec()),
-                exit =
-                    shrinkVertically(motion.defaultSpatialSpec()) +
-                        fadeOut(motion.fastEffectsSpec()),
-            ) {
-                ReportDetails(report, Modifier.padding(top = Spacing.large))
+        is LosslessCheckState.Done -> ReportCard(state.report, modifier)
+    }
+}
+
+/** The card a verdict is said on: a raised surface, edged with the verdict's color. */
+@Composable
+private fun CheckCard(
+    tone: StudioTone,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val colors = Studio.colors
+    val shape = RoundedCornerShape(12.dp)
+    val edge =
+        if (tone == StudioTone.Neutral) colors.line else tone.colors().content.copy(alpha = 0.24f)
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(if (colors.isDark) colors.raised else colors.field, shape)
+                .border(1.dp, edge, shape)
+                .padding(start = 13.dp, end = 13.dp, top = 13.dp, bottom = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        content()
+    }
+}
+
+/** The verdict, in its tone's circle, with why under it. */
+@Composable
+private fun VerdictLine(icon: ImageVector, tone: StudioTone, title: String, summary: String?) {
+    val toneColors = tone.colors()
+    Row(
+        // Read as one thing: "Lossless. Content fills the band…".
+        modifier = Modifier.semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            Modifier.size(30.dp).background(toneColors.container, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = toneColors.content,
+                modifier = Modifier.size(17.dp),
+            )
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = Studio.colors.text,
+            )
+            if (summary != null) {
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                )
             }
         }
     }
 }
 
-/** What the verdict rests on: the figures, the spectrum they were read from, and their limits. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReportDetails(report: LosslessReport, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+private fun ReportCard(report: LosslessReport, modifier: Modifier = Modifier) {
+    val look = verdictLook(report.verdict)
+    CheckCard(look.tone, modifier) {
+        VerdictLine(look.icon, look.tone, stringResource(look.title), verdictSummary(report))
+        SpectrumChart(report.spectrum, report.cutoffHz, look.tone)
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-            verticalArrangement = Arrangement.spacedBy(Spacing.small),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            LabelChip(
+            FactChip(
                 stringResource(
                     R.string.lossless_format,
                     when (report.format) {
@@ -213,66 +185,62 @@ private fun ReportDetails(report: LosslessReport, modifier: Modifier = Modifier)
                     },
                     report.bitsPerSample,
                     kiloHertz(report.sampleRateHz),
-                ),
-                Icons.Rounded.GraphicEq,
-            )
-            report.cutoffHz?.let {
-                LabelChip(
-                    stringResource(R.string.lossless_cutoff, kiloHertz(it)),
-                    Icons.Rounded.ContentCut,
                 )
-            }
+            )
             report.estimatedSourceKbps?.let {
-                LabelChip(stringResource(R.string.lossless_source_bitrate, it), Icons.Rounded.Speed)
+                FactChip(stringResource(R.string.lossless_source_bitrate, it), tone = look.tone)
             }
             report.effectiveBitsPerSample?.let {
-                LabelChip(
+                FactChip(
                     stringResource(R.string.lossless_bits_used, it, report.bitsPerSample),
-                    Icons.Rounded.Memory,
+                    tone = StudioTone.Warning,
                 )
             }
         }
-        SpectrumChart(report.spectrum, report.cutoffHz)
         Text(
             stringResource(R.string.lossless_footnote, report.analyzedSeconds.roundToInt()),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            color = Studio.colors.textTertiary,
         )
     }
 }
 
 /**
  * How loud each frequency is, from none at the left to the highest the file can hold at the right:
- * the average as an area, the loudest moments as a line over it. A lossy source shows as an area
+ * the average as an area in the verdict's color, fading downwards. A lossy source shows as an area
  * that ends in a wall; where it does is marked.
  */
 @Composable
-private fun SpectrumChart(curve: SpectrumCurve, cutoffHz: Int?, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val average = colors.primary
-    val peaks = colors.onSurfaceVariant
-    val marker = colors.error
+private fun SpectrumChart(
+    curve: SpectrumCurve,
+    cutoffHz: Int?,
+    tone: StudioTone,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Studio.colors
+    val fill = if (tone == StudioTone.Neutral) colors.accent else tone.colors().content
+    val marker = colors.text.copy(alpha = 0.6f)
     val description = stringResource(R.string.lossless_chart_description)
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Canvas(
             Modifier.fillMaxWidth()
                 .height(ChartHeight)
-                .clip(MaterialTheme.shapes.medium)
-                .background(colors.surfaceContainerHighest)
+                .clip(RoundedCornerShape(8.dp))
+                .background(colors.sidebar)
                 .semantics { contentDescription = description }
         ) {
             val count = curve.size
             if (count < 2) return@Canvas
-            // A little air over the loudest peak; under the quietest average, down to where
-            // nothing is told apart any more.
-            val top = (curve.peakDb.max() + CHART_MARGIN_DB).coerceAtMost(0f)
+            // A little air over the loudest average; under the quietest, down to where nothing is
+            // told apart any more.
+            val top = (curve.averageDb.max() + CHART_MARGIN_DB).coerceAtMost(0f)
             val bottom = (curve.averageDb.min() - CHART_MARGIN_DB).coerceAtLeast(CHART_FLOOR_DB)
             val range = (top - bottom).coerceAtLeast(1f)
             fun x(index: Int) = size.width * (index + 0.5f) / count
             fun y(level: Float) = size.height * ((top - level) / range).coerceIn(0f, 1f)
 
-            val outline = Path()
             val area = Path()
+            val outline = Path()
             area.moveTo(0f, size.height)
             area.lineTo(0f, y(curve.averageDb[0]))
             outline.moveTo(0f, y(curve.averageDb[0]))
@@ -283,109 +251,77 @@ private fun SpectrumChart(curve: SpectrumCurve, cutoffHz: Int?, modifier: Modifi
             area.lineTo(size.width, y(curve.averageDb[count - 1]))
             area.lineTo(size.width, size.height)
             area.close()
-            drawPath(area, average.copy(alpha = AREA_ALPHA))
-            drawPath(outline, average, style = Stroke(width = 1.5.dp.toPx()))
-
-            val loudest = Path()
-            loudest.moveTo(0f, y(curve.peakDb[0]))
-            for (index in 0 until count) loudest.lineTo(x(index), y(curve.peakDb[index]))
-            drawPath(loudest, peaks.copy(alpha = PEAKS_ALPHA), style = Stroke(width = 1.dp.toPx()))
+            drawPath(
+                area,
+                Brush.verticalGradient(listOf(fill.copy(alpha = 0.6f), fill.copy(alpha = 0.06f))),
+            )
+            drawPath(outline, fill, style = Stroke(width = 1.2.dp.toPx()))
 
             if (cutoffHz != null && curve.nyquistHz > 0f) {
                 val at = size.width * (cutoffHz / curve.nyquistHz).coerceIn(0f, 1f)
                 drawLine(
                     color = marker,
-                    start = Offset(at, 0f),
-                    end = Offset(at, size.height),
+                    start = Offset(at, 6.dp.toPx()),
+                    end = Offset(at, size.height - 6.dp.toPx()),
                     strokeWidth = 1.5.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
                 )
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf(0f, curve.nyquistHz / 2, curve.nyquistHz).forEach { frequency ->
+            val marks =
+                listOf(0f, curve.nyquistHz / 2, curve.nyquistHz).map {
+                    stringResource(R.string.lossless_frequency, kiloHertz(it.roundToInt()))
+                }
+            marks.forEach { mark ->
                 Text(
-                    stringResource(R.string.lossless_frequency, kiloHertz(frequency.roundToInt())),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant,
+                    mark,
+                    style = StudioDefaults.MonoStyle,
+                    color = colors.textTertiary,
                 )
             }
+        }
+        if (cutoffHz != null) {
+            Text(
+                stringResource(R.string.lossless_cutoff, kiloHertz(cutoffHz)),
+                style = StudioDefaults.MonoStyle,
+                color = colors.textSoft,
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun CheckSurface(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        content = content,
-    )
-}
+private class VerdictLook(val title: Int, val icon: ImageVector, val tone: StudioTone)
 
-/** The verdict at a glance: still, where the app's turning shapes say that nothing is there. */
-@Composable
-private fun VerdictBadge(icon: ImageVector, containerColor: Color, contentColor: Color) {
-    Surface(
-        modifier = Modifier.size(BadgeSize),
-        shape = MaterialTheme.shapes.medium,
-        color = containerColor,
-        contentColor = contentColor,
-    ) {
-        Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null) }
-    }
-}
-
-private class VerdictLook(
-    val title: Int,
-    val icon: ImageVector,
-    val containerColor: Color,
-    val contentColor: Color,
-)
-
-@Composable
-private fun verdictLook(verdict: LosslessVerdict): VerdictLook {
-    val colors = MaterialTheme.colorScheme
-    return when (verdict) {
+private fun verdictLook(verdict: LosslessVerdict): VerdictLook =
+    when (verdict) {
         LosslessVerdict.Lossless ->
-            VerdictLook(
-                R.string.lossless_verdict_lossless,
-                Icons.Rounded.Verified,
-                colors.primaryContainer,
-                colors.onPrimaryContainer,
-            )
+            VerdictLook(R.string.lossless_verdict_lossless, Icons.Rounded.Check, StudioTone.Success)
         LosslessVerdict.Upscaled ->
             VerdictLook(
                 R.string.lossless_verdict_upscaled,
                 Icons.Rounded.ZoomOutMap,
-                colors.tertiaryContainer,
-                colors.onTertiaryContainer,
+                StudioTone.Warning,
             )
         LosslessVerdict.Unclear ->
             VerdictLook(
                 R.string.lossless_verdict_unclear,
                 Icons.AutoMirrored.Rounded.HelpOutline,
-                colors.surfaceContainerHighest,
-                colors.onSurfaceVariant,
+                StudioTone.Neutral,
             )
         LosslessVerdict.ProbablyTranscoded ->
             VerdictLook(
                 R.string.lossless_verdict_probably_transcoded,
                 Icons.Rounded.WarningAmber,
-                colors.tertiaryContainer,
-                colors.onTertiaryContainer,
+                StudioTone.Danger,
             )
         LosslessVerdict.Transcoded ->
             VerdictLook(
                 R.string.lossless_verdict_transcoded,
-                Icons.Rounded.Warning,
-                colors.errorContainer,
-                colors.onErrorContainer,
+                Icons.Rounded.GraphicEq,
+                StudioTone.Danger,
             )
     }
-}
 
 /** Why the verdict is what it is, in a sentence. */
 @Composable
@@ -446,11 +382,8 @@ private fun kiloHertz(hertz: Int): String {
     else String.format(Locale.getDefault(), "%.1f", tenths / 10.0)
 }
 
-private val BadgeSize = 48.dp
-private val ChartHeight = 132.dp
+private val ChartHeight = 58.dp
 private const val CHART_MARGIN_DB = 6f
 
 /** Under this there is only the rounding of 24-bit samples. */
 private const val CHART_FLOOR_DB = -150f
-private const val AREA_ALPHA = 0.28f
-private const val PEAKS_ALPHA = 0.7f

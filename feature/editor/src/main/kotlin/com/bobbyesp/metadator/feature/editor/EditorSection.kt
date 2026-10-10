@@ -22,6 +22,7 @@ import com.bobbyesp.metadator.core.domain.cover.CoverRequest
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.navigation.Editor
+import com.bobbyesp.metadator.core.navigation.EditorAction
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.pane.LocalPaneContext
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
@@ -40,6 +41,7 @@ fun EntryProviderScope<NavKey>.editorSection(navigator: Navigator) {
     entry<Editor>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
         EditorDestination(
             uri = key.uri,
+            then = key.then,
             onClose = { navigator.removeDestination(key) },
             // Another song chosen in the library beside it must not take the place of this one
             // while it has changes nobody saved.
@@ -51,12 +53,14 @@ fun EntryProviderScope<NavKey>.editorSection(navigator: Navigator) {
 /**
  * The editor for [uri], for any host: the main activity's stack or the external editor's.
  *
+ * @param then what to do once the song is read, when the editor was opened for that
  * @param onUnsavedChanges told whether there are changes not yet saved, each time that changes
  */
 @Composable
 fun EditorDestination(
     uri: String,
     onClose: () -> Unit,
+    then: EditorAction? = null,
     onUnsavedChanges: (Boolean) -> Unit = {},
 ) {
     val viewModel: EditorViewModel = koinViewModel(key = uri) { parametersOf(ContentRef(uri)) }
@@ -109,6 +113,14 @@ fun EditorDestination(
             if (draft != null) {
                 showCovers = true
                 covers.start(coverRequest(state, draft))
+            }
+        }
+        // What the editor was opened for, done once, as soon as there is a song to do it on.
+        var pending by rememberSaveable(uri) { mutableStateOf(then) }
+        LaunchedEffect(state.status, pending) {
+            if (state.status == EditorStatus.Ready && pending == EditorAction.FindCover) {
+                pending = null
+                findCover()
             }
         }
         EditorScreen(

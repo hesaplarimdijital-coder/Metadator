@@ -3,6 +3,8 @@
  */
 package com.bobbyesp.metadator.feature.batch
 
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,8 +22,13 @@ import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
+/**
+ * The batch editor's destination: beside the library on a wide window, where the songs it edits
+ * stay selected in sight; on its own otherwise.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
-    entry<BatchEditor> { key ->
+    entry<BatchEditor>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
         val id = key.uris.hashCode().toString()
         val viewModel: BatchViewModel = koinViewModel(key = id) { parametersOf(key.uris) }
         val covers: CoverFinderViewModel = koinViewModel(key = "covers:$id")

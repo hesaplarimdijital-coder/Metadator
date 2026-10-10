@@ -59,4 +59,11 @@
     <string name="batch_reason_unsupported">biçim desteklenmiyor</string>
     <string name="batch_reason_failed">yazma başarısız</string>
     <string name="shortcuts_batch">Birden çok şarkıyı düzenleme</string>
+    <string name="batch_changed">Değişti</string>
+    <string name="batch_cover_unchanged">Her şarkı kendi kapağını korur</string>
+    <string name="batch_nothing_yet">Hepsine uygulamak için bir alanı, kapağı veya bir aracı değiştirin</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">%1$d şarkıya yazılacak</item>
+        <item quantity="other">%1$d şarkıya yazılacak</item>
+    </plurals>
 </resources>

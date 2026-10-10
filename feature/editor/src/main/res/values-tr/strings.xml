@@ -141,4 +141,15 @@
     <string name="lookup_back">Sonuçlara dön</string>
     <string name="lookup_applied">Uygulandı. Gözden geçirip hazır olunca kaydedin</string>
     <string name="shortcuts_editor">Düzenleyici</string>
+    <string name="track_position">%1$s. parça</string>
+    <string name="fact_bits">%1$d bit</string>
+    <string name="no_changes">Değişiklik yok</string>
+    <string name="discard_changes">Geri al</string>
+    <string name="action_find_cover">Kapak bul</string>
+    <string name="action_metadata">Meta veri</string>
+    <string name="action_lyrics">Sözler</string>
+    <plurals name="changes_count">
+        <item quantity="one">%1$d değişiklik</item>
+        <item quantity="other">%1$d değişiklik</item>
+    </plurals>
 </resources>

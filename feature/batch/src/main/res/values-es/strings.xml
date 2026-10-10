@@ -59,4 +59,11 @@
     <string name="batch_reason_unsupported">formato no compatible</string>
     <string name="batch_reason_failed">error al escribir</string>
     <string name="shortcuts_batch">Edición de varias canciones</string>
+    <string name="batch_changed">Cambiado</string>
+    <string name="batch_cover_unchanged">Cada canción conserva su portada</string>
+    <string name="batch_nothing_yet">Cambia un campo, la portada o una herramienta para aplicarlo a todas</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">Se escribirá en %1$d canción</item>
+        <item quantity="other">Se escribirá en %1$d canciones</item>
+    </plurals>
 </resources>

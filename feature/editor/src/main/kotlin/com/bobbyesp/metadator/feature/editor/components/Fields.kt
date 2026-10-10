@@ -3,11 +3,8 @@
  */
 package com.bobbyesp.metadator.feature.editor.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,18 +26,9 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -52,45 +40,44 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
-import com.bobbyesp.metadator.core.designsystem.component.TonalFieldDefaults
+import com.bobbyesp.metadator.core.designsystem.component.FieldLabel
+import com.bobbyesp.metadator.core.designsystem.component.FieldWell
+import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
-import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
-import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.feature.editor.R
 
 /** The trailing "undo this change" button every changed field gets. */
 @Composable
 private fun RevertButton(label: String, onRevert: () -> Unit) {
-    IconButton(onClick = onRevert, shapes = IconButtonDefaults.shapes()) {
-        Icon(
-            Icons.AutoMirrored.Rounded.Undo,
-            contentDescription = stringResource(R.string.revert_field, label),
-        )
-    }
+    StudioIconButton(
+        icon = Icons.AutoMirrored.Rounded.Undo,
+        contentDescription = stringResource(R.string.revert_field, label),
+        onClick = onRevert,
+        size = 30.dp,
+        iconSize = 16.dp,
+    )
 }
 
 /**
- * A field with one value. A changed field takes the primary tint and an undo button, so what will
- * be written is visible at a glance before saving.
+ * A field with one value. A changed field takes the accent on its edge, says so after its label,
+ * and gets an undo button: what will be written is visible at a glance before saving.
  */
 @Composable
 fun TagTextField(
@@ -106,26 +93,19 @@ fun TagTextField(
     placeholder: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
-    shape: RoundedCornerShape = GroupShapes.itemShape(0, 1),
 ) {
-    val interactions = remember { MutableInteractionSource() }
-    val focused by interactions.collectIsFocusedAsState()
     TonalTextField(
         value = value,
         onValueChange = onValueChange,
         label = label,
+        labelNote = if (changed) stringResource(R.string.changed) else null,
         modifier = modifier.fillMaxWidth().changedState(changed),
-        shape = GroupShapes.focusedShape(shape, focused),
-        interactionSource = interactions,
         placeholder = placeholder,
         emphasized = changed,
         singleLine = singleLine,
         minLines = minLines,
         maxLines = maxLines,
-        trailingIcon =
-            if (changed) {
-                { RevertButton(label, onRevert) }
-            } else null,
+        trailingIcon = if (changed) ({ RevertButton(label, onRevert) }) else null,
         keyboardOptions =
             KeyboardOptions(
                 capitalization = capitalization,
@@ -136,7 +116,7 @@ fun TagTextField(
 }
 
 /**
- * Says that a field is changed to who cannot see its tint. Not a line of text under the field: that
+ * Says that a field is changed to who cannot see its edge. Not a line of text under the field: that
  * moved everything below it down on the first key typed.
  */
 @Composable
@@ -160,11 +140,9 @@ fun TagChipsField(
     onRevert: () -> Unit,
     separator: String,
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = GroupShapes.itemShape(0, 1),
 ) {
     val input = rememberTextFieldState()
     var focused by rememberSaveable(label) { mutableStateOf(false) }
-
     val commit = {
         val added = splitTyped(input.text.toString(), separator)
         if (added.isNotEmpty()) onValuesChange(values + added)
@@ -180,158 +158,120 @@ fun TagChipsField(
                 if (typed.endsWith(end)) latestCommit()
             }
     }
-
     val inputEmpty by remember(input) { derivedStateOf { input.text.isEmpty() } }
-    val resting = !focused && values.isEmpty() && inputEmpty
-    val lift by
-        animateFloatAsState(
-            targetValue = if (resting) 0f else 1f,
-            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-            label = "ChipsFieldLabel",
-        )
-    val typography = MaterialTheme.typography
-    val restingScale = typography.bodyLarge.fontSize.value / typography.bodySmall.fontSize.value
-    val restingDrop = with(LocalDensity.current) { typography.bodyLarge.lineHeight.toPx() / 2 }
     val focusRequester = remember { FocusRequester() }
+    val colors = Studio.colors
 
-    val container by
-        animateColorAsState(
-            targetValue = TonalFieldDefaults.colors().container(focused, emphasized = changed),
-            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
-            label = "ChipsFieldContainer",
-        )
-    Surface(
-        modifier =
-            modifier.fillMaxWidth().changedState(changed).pointerInput(focusRequester) {
-                detectTapGestures { focusRequester.requestFocus() }
-            },
-        shape = GroupShapes.focusedShape(shape, focused),
-        color = container,
+    Column(
+        modifier = modifier.fillMaxWidth().changedState(changed),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Box {
-            Column(
-                Modifier.padding(
-                    start = Spacing.large,
-                    end = if (changed) RevertClearance else Spacing.medium,
-                    top = Spacing.small,
-                    bottom = if (values.isEmpty()) Spacing.small else Spacing.extraSmall,
-                )
+        FieldLabel(
+            label,
+            if (changed) stringResource(R.string.changed) else null,
+            focused || changed,
+        )
+        FieldWell(
+            focused = focused,
+            emphasized = changed,
+            singleLine = false,
+            modifier =
+                Modifier.pointerInput(focusRequester) {
+                    detectTapGestures { focusRequester.requestFocus() }
+                },
+            trailing = if (changed) ({ RevertButton(label, onRevert) }) else null,
+        ) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color =
-                        if (focused || changed) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier =
-                        Modifier.graphicsLayer {
-                            val rest = 1f - lift
-                            val scale = lerp(1f, restingScale, rest)
-                            transformOrigin = TransformOrigin(0f, 0.5f)
-                            scaleX = scale
-                            scaleY = scale
-                            translationY = restingDrop * rest
+                values.forEachIndexed { index, value ->
+                    ValueChip(
+                        value = value,
+                        onEdit = {
+                            // Editing a chip moves it back into the input.
+                            commit()
+                            input.setTextAndPlaceCursorAtEnd(value)
+                            onValuesChange(values.filterIndexed { i, _ -> i != index })
                         },
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides Dp.Unspecified
-                    ) {
-                        values.forEachIndexed { index, value ->
-                            InputChip(
-                                selected = false,
-                                onClick = {
-                                    // Editing a chip moves it back into the input.
-                                    commit()
-                                    input.setTextAndPlaceCursorAtEnd(value)
-                                    onValuesChange(values.filterIndexed { i, _ -> i != index })
-                                },
-                                label = { Text(value) },
-                                modifier = Modifier.height(ChipHeight),
-                                shapes = InputChipDefaults.shapes(),
-                                trailingIcon = {
-                                    IconButton(
-                                        onClick = {
-                                            onValuesChange(
-                                                values.filterIndexed { i, _ -> i != index }
-                                            )
-                                        },
-                                        modifier = Modifier.size(InputChipDefaults.AvatarSize),
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.Close,
-                                            contentDescription =
-                                                stringResource(R.string.remove_value, value),
-                                            modifier = Modifier.size(InputChipDefaults.IconSize),
-                                        )
-                                    }
-                                },
-                            )
-                        }
-                    }
-                    BasicTextField(
-                        state = input,
-                        modifier =
-                            Modifier.focusRequester(focusRequester).onFocusChanged {
+                        onRemove = { onValuesChange(values.filterIndexed { i, _ -> i != index }) },
+                    )
+                }
+                BasicTextField(
+                    state = input,
+                    modifier =
+                        Modifier.widthIn(min = 90.dp)
+                            .focusRequester(focusRequester)
+                            .onFocusChanged {
                                 if (focused && !it.isFocused) commit()
                                 focused = it.isFocused
                             },
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        textStyle =
-                            MaterialTheme.typography.bodyLarge.copy(
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                capitalization = KeyboardCapitalization.Words,
-                                imeAction = ImeAction.Done,
-                            ),
-                        onKeyboardAction = { commit() },
-                        decorator = { inner ->
-                            Box(
-                                Modifier.heightIn(
-                                    min = if (values.isEmpty()) Dp.Unspecified else ChipHeight
-                                ),
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                if (inputEmpty && (focused || values.isNotEmpty())) {
-                                    Text(
-                                        stringResource(
-                                            if (values.isEmpty()) R.string.add_value_hint
-                                            else R.string.add_value
-                                        ),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color =
-                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                alpha = 0.7f
-                                            ),
-                                    )
-                                }
-                                inner()
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.text),
+                    cursorBrush = SolidColor(colors.accent),
+                    keyboardOptions =
+                        KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Done,
+                        ),
+                    onKeyboardAction = { commit() },
+                    decorator = { inner ->
+                        Box(
+                            Modifier.heightIn(min = 22.dp),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            if (inputEmpty) {
+                                Text(
+                                    stringResource(
+                                        if (values.isEmpty()) R.string.add_value_hint
+                                        else R.string.add_value
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.textTertiary,
+                                    maxLines = 1,
+                                )
                             }
-                        },
-                    )
-                }
-            }
-            if (changed) {
-                Box(Modifier.align(Alignment.CenterEnd).padding(end = Spacing.extraSmall)) {
-                    RevertButton(label, onRevert)
-                }
+                            inner()
+                        }
+                    },
+                )
             }
         }
     }
 }
 
-private val ChipHeight = 28.dp
-
-/** The room the undo button takes at the end of a changed field. */
-private val RevertClearance = 52.dp
+/** One of the values of a field of several: pressed to edit it, with a cross to take it away. */
+@Composable
+private fun ValueChip(value: String, onEdit: () -> Unit, onRemove: () -> Unit) {
+    val colors = Studio.colors
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        modifier =
+            Modifier.height(26.dp)
+                .clip(shape)
+                .background(colors.segment, shape)
+                .pointerInput(onEdit) { detectTapGestures { onEdit() } }
+                .padding(start = 8.dp, end = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        StudioIconButton(
+            icon = Icons.Rounded.Close,
+            contentDescription = stringResource(R.string.remove_value, value),
+            onClick = onRemove,
+            size = 22.dp,
+            iconSize = 13.dp,
+        )
+    }
+}
 
 private fun splitTyped(text: String, separator: String): List<String> {
     val trimmed = separator.trim()
@@ -339,10 +279,7 @@ private fun splitTyped(text: String, separator: String): List<String> {
     return parts.map { it.trim() }.filter { it.isNotEmpty() }
 }
 
-/**
- * A position and its total, side by side: "Track 3 of 12". Two cells of a group: [first] and [last]
- * say whether theirs is the group's first row and its last one.
- */
+/** A position and its total, side by side under one label: "Track 3 / 12". */
 @Composable
 fun PositionField(
     label: String,
@@ -352,34 +289,37 @@ fun PositionField(
     changed: Boolean,
     onRevert: () -> Unit,
     modifier: Modifier = Modifier,
-    first: Boolean = true,
-    last: Boolean = true,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-        verticalAlignment = Alignment.Top,
+    Column(
+        modifier = modifier.fillMaxWidth().changedState(changed),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        PositionCell(
-            value = number,
-            onValueChange = { onChange(it, total) },
-            label = label,
-            changed = changed,
-            shape = GroupShapes.cellShape(first, last, end = false),
-            modifier = Modifier.weight(1f),
-        )
-        PositionCell(
-            value = total,
-            onValueChange = { onChange(number, it) },
-            label = stringResource(CoreUiR.string.field_of),
-            changed = changed,
-            shape = GroupShapes.cellShape(first, last, start = false),
-            modifier = Modifier.weight(1f),
-            trailingIcon =
-                if (changed) {
-                    { RevertButton(label, onRevert) }
-                } else null,
-        )
+        FieldLabel(label, if (changed) stringResource(R.string.changed) else null, changed)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PositionCell(
+                value = number,
+                onValueChange = { onChange(it, total) },
+                description = label,
+                changed = changed,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "/",
+                color = Studio.colors.textTertiary,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            PositionCell(
+                value = total,
+                onValueChange = { onChange(number, it) },
+                description = stringResource(CoreUiR.string.field_of),
+                changed = changed,
+                modifier = Modifier.weight(1f),
+                trailing = if (changed) ({ RevertButton(label, onRevert) }) else null,
+            )
+        }
     }
 }
 
@@ -387,24 +327,20 @@ fun PositionField(
 private fun PositionCell(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    description: String,
     changed: Boolean,
-    shape: RoundedCornerShape,
     modifier: Modifier = Modifier,
-    trailingIcon: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
-    val interactions = remember { MutableInteractionSource() }
-    val focused by interactions.collectIsFocusedAsState()
     TonalTextField(
         value = value,
         onValueChange = onValueChange,
-        label = label,
-        modifier = modifier.changedState(changed),
+        label = null,
+        placeholder = description,
+        modifier = modifier.semantics { contentDescription = description },
         emphasized = changed,
         keyboardOptions =
             KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-        trailingIcon = trailingIcon,
-        shape = GroupShapes.focusedShape(shape, focused),
-        interactionSource = interactions,
+        trailingIcon = trailing,
     )
 }

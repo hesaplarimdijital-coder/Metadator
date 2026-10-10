@@ -59,4 +59,11 @@
     <string name="batch_reason_unsupported">format not supported</string>
     <string name="batch_reason_failed">write failed</string>
     <string name="shortcuts_batch">Editing several songs</string>
+    <string name="batch_changed">Changed</string>
+    <string name="batch_cover_unchanged">Each song keeps its own cover</string>
+    <string name="batch_nothing_yet">Change a field, the cover or a tool to apply it to every song</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">Will be written to %1$d song</item>
+        <item quantity="other">Will be written to %1$d songs</item>
+    </plurals>
 </resources>

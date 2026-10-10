@@ -8,75 +8,49 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.outlined.Lyrics
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Numbers
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PriorityHigh
-import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SearchOff
-import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,46 +64,49 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.mimeTypes
 import androidx.compose.ui.draganddrop.toAndroidDragEvent
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.ActionMenu
-import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbar
-import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbarDefaults
 import com.bobbyesp.metadator.core.designsystem.component.LabelChip
 import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
+import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
 import com.bobbyesp.metadator.core.designsystem.component.PlaceholderCard
-import com.bobbyesp.metadator.core.designsystem.component.RolledIn
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
-import com.bobbyesp.metadator.core.designsystem.component.ShapedIcon
+import com.bobbyesp.metadator.core.designsystem.component.StudioButton
+import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
+import com.bobbyesp.metadator.core.designsystem.component.StudioDivider
+import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.TonalFieldDefaults
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
-import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
-import com.bobbyesp.metadator.core.designsystem.component.sidesOf
-import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
+import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
-import com.bobbyesp.metadator.core.designsystem.theme.blurHalo
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
+import com.bobbyesp.metadator.core.domain.editor.LoadedTrack
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.Shortcut
-import com.bobbyesp.metadator.feature.editor.components.CoverCard
+import com.bobbyesp.metadator.core.ui.input.shortcutHint
+import com.bobbyesp.metadator.feature.editor.components.AttentionNotice
+import com.bobbyesp.metadator.feature.editor.components.CoverActions
+import com.bobbyesp.metadator.feature.editor.components.CoverModel
+import com.bobbyesp.metadator.feature.editor.components.EditorActions
+import com.bobbyesp.metadator.feature.editor.components.EditorHeader
 import com.bobbyesp.metadator.feature.editor.components.FileInfoCard
 import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
@@ -138,20 +115,11 @@ import com.bobbyesp.metadator.feature.editor.components.TagTextField
 import com.bobbyesp.metadator.lyrics.api.Lrc
 import com.bobbyesp.metadator.tags.api.FieldKind
 import com.bobbyesp.metadator.tags.api.TagField
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /** The fields of each section, in order. */
-private val MainFields =
-    listOf(
-        TagField.Title,
-        TagField.Artist,
-        TagField.Album,
-        TagField.AlbumArtist,
-        TagField.Date,
-        TagField.Genre,
-    )
 private val CreditFields =
     listOf(
         TagField.Composer,
@@ -160,21 +128,29 @@ private val CreditFields =
         TagField.Remixer,
         TagField.Performer,
     )
-private val MoreFields =
-    listOf(
-        TagField.Comment,
-        TagField.Bpm,
-        TagField.Isrc,
-        TagField.Copyright,
-        TagField.Label,
-        TagField.Grouping,
-    )
 
 /** Keys with a place of their own; everything else is under "All tags". */
 private val KnownKeys: Set<String> =
     TagField.entries.map { it.key }.toSet() + TagField.TrackTotalKeys + TagField.DiscTotalKeys
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+/** The essential tags a song needs, in the order the editor has them. */
+private val EssentialFields =
+    listOf(
+        TagField.Artist,
+        TagField.Album,
+        TagField.AlbumArtist,
+        TagField.Date,
+        TagField.TrackNumber,
+    )
+
+/**
+ * The tag editor. Beside the library it is an inspector, as a desktop tool has one: the cover and
+ * what the song is at its head, what can be found online, the lossless check, the fields, the file,
+ * and at its foot the changes and the way to save them. Filling a window, it is the same, in two
+ * columns when there is room; on a phone, one screen with its head centered.
+ *
+ * @param showClose whether it shares the window with the library, as an inspector
+ */
 @Composable
 internal fun EditorScreen(
     state: EditorState,
@@ -208,159 +184,55 @@ internal fun EditorScreen(
     val changeCover = {
         pickCover.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val haze = rememberHazeState()
-    val focusManager = LocalFocusManager.current
-    val fieldsState = rememberLazyListState()
+    val scroll = rememberScrollState()
     EditorShortcuts(
         state = state,
-        fieldsState = fieldsState,
+        scroll = scroll,
         onIntent = onIntent,
         onFindMetadata = onFindMetadata,
         onFindCover = onFindCover,
         onChangeCover = changeCover,
         onClose = leave,
     )
+    val panels = LocalPanels.current
+    val parts =
+        EditorParts(
+            state = state,
+            onIntent = onIntent,
+            onFindMetadata = onFindMetadata,
+            onFindCover = onFindCover,
+            onChangeCover = changeCover,
+            onClose = leave,
+        )
 
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            EditorTopBar(
-                title =
-                    if (state.status == EditorStatus.Ready) state.title
-                    else stringResource(R.string.edit_tags),
-                showClose = showClose,
-                canRevert = state.isDirty,
-                onClose = leave,
-                onRevertAll = { onIntent(EditorIntent.RevertAll) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
+    Column(
+        modifier
+            .fillMaxSize()
+            .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
+    ) {
+        if (!panels) PhoneTopBar(parts, title = stringResource(R.string.edit_tags))
         val draft = state.draft
         val loaded = state.loaded
         when {
-            state.status == EditorStatus.Loading -> LoadingScreen(Modifier.padding(padding))
+            state.status == EditorStatus.Loading -> LoadingScreen(Modifier.weight(1f))
             state.status != EditorStatus.Ready || draft == null || loaded == null ->
                 EditorProblem(
                     state.status,
                     onRetry = { onIntent(EditorIntent.Reload) },
                     onClose = onClose,
-                    modifier = Modifier.padding(padding),
+                    modifier = Modifier.weight(1f),
                 )
-            else ->
-                Box(
-                    Modifier.fillMaxSize()
-                        .padding(top = padding.calculateTopPadding())
-                        .sidesOf(padding)
-                        .pointerInput(focusManager) {
-                            detectTapGestures { focusManager.clearFocus() }
-                        }
-                ) {
-                    val cover =
-                        @Composable { m: Modifier ->
-                            CoverCard(
-                                title = state.title,
-                                artist = state.artist,
-                                cover = draft.cover?.data,
-                                coverInfo = state.coverInfo,
-                                coverChanged = draft.isCoverChanged,
-                                hasOriginalCover = draft.original.frontCover != null,
-                                loadingCover = state.loadingCover,
-                                warnSmall = state.settings.warnSmallArtwork,
-                                isPlaying = state.isPlayingThis,
-                                onChangeCover = changeCover,
-                                onFindCover = onFindCover,
-                                onRemoveCover = { onIntent(EditorIntent.RemoveCover) },
-                                onRevertCover = { onIntent(EditorIntent.RevertCover) },
-                                onPlay = { onIntent(EditorIntent.Play) },
-                                // On a desktop a picture is dragged in from the file manager.
-                                modifier =
-                                    m.imageDropTarget { uri ->
-                                        onIntent(EditorIntent.SetCoverFromUri(uri))
-                                    },
-                            )
-                        }
-
-                    BoxWithConstraints(Modifier.fillMaxSize().imePadding().hazeSource(haze)) {
-                        if (maxWidth >= TwoColumnWidth) {
-                            // Wide: the cover and the file stay in view while the fields scroll.
-                            // The fields reach the edge, where their scrollbar is, and keep
-                            // their own margin from it.
-                            Row(Modifier.fillMaxSize().padding(start = Spacing.extraLarge)) {
-                                Column(
-                                    Modifier.width(320.dp)
-                                        .verticalScroll(rememberScrollState())
-                                        .padding(vertical = Spacing.large),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.extraLarge),
-                                ) {
-                                    cover(Modifier)
-                                    LosslessCheckCard(state.lossless, initiallyExpanded = true)
-                                    FileInfoCard(loaded)
-                                }
-                                LazyColumn(
-                                    modifier =
-                                        Modifier.weight(1f)
-                                            .padding(start = Spacing.extraLarge)
-                                            .scrollbar(fieldsState),
-                                    state = fieldsState,
-                                    contentPadding =
-                                        PaddingValues(
-                                            end = Spacing.extraLarge,
-                                            bottom = Spacing.floatingClearance,
-                                        ),
-                                ) {
-                                    fields(state, draft, onIntent)
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().scrollbar(fieldsState),
-                                state = fieldsState,
-                                contentPadding =
-                                    PaddingValues(
-                                        start = Spacing.screen,
-                                        end = Spacing.screen,
-                                        bottom = Spacing.floatingClearance,
-                                    ),
-                            ) {
-                                item(key = "cover") {
-                                    cover(Modifier.padding(vertical = Spacing.large))
-                                }
-                                // Before the tags: what the file is worth says whether they are
-                                // worth filling in.
-                                if (state.lossless != LosslessCheckState.None) {
-                                    item(key = "lossless") {
-                                        LosslessCheckCard(
-                                            state.lossless,
-                                            Modifier.padding(bottom = Spacing.large).animateItem(),
-                                        )
-                                    }
-                                }
-                                fields(state, draft, onIntent)
-                                item(key = "file-header") {
-                                    SectionHeader(stringResource(R.string.section_file))
-                                }
-                                item(key = "file") { FileInfoCard(loaded) }
-                            }
-                        }
+            else -> {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+                    val columns = panels && !showClose && maxWidth >= TwoColumnWidth
+                    when {
+                        columns -> TwoColumnEditor(parts, draft, loaded, scroll)
+                        panels -> InspectorEditor(parts, draft, loaded, scroll, showClose)
+                        else -> PhoneEditor(parts, draft, loaded, scroll)
                     }
-
-                    EditorToolbar(
-                        dirty = state.isDirty,
-                        saving = state.saving,
-                        findingLyrics = state.findingLyrics,
-                        onSave = { onIntent(EditorIntent.Save) },
-                        onFindMetadata = onFindMetadata,
-                        onFindLyrics = { onIntent(EditorIntent.FindLyrics) },
-                        onRevertAll = { onIntent(EditorIntent.RevertAll) },
-                        modifier =
-                            Modifier.align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
-                                .padding(bottom = Spacing.large)
-                                .blurHalo(haze, FloatingActionToolbarDefaults.HaloShape),
-                    )
                 }
+                EditorFooter(state, onIntent, phone = !panels)
+            }
         }
     }
 
@@ -390,111 +262,331 @@ internal fun EditorScreen(
     }
 }
 
+/** What the pieces of the editor are asked to do, handed down to them. */
+private class EditorParts(
+    val state: EditorState,
+    val onIntent: (EditorIntent) -> Unit,
+    val onFindMetadata: () -> Unit,
+    val onFindCover: () -> Unit,
+    val onChangeCover: () -> Unit,
+    val onClose: () -> Unit,
+)
+
+/** Wide enough, filling a window, for the cover and the file beside the fields. */
 private val TwoColumnWidth = 760.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The editor beside the library: one column, its head the cover beside the song's name. */
 @Composable
-private fun EditorTopBar(
-    title: String,
-    showClose: Boolean,
-    canRevert: Boolean,
-    onClose: () -> Unit,
-    onRevertAll: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior,
+private fun InspectorEditor(
+    parts: EditorParts,
+    draft: TagDraft,
+    loaded: LoadedTrack,
+    scroll: ScrollState,
+    close: Boolean,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-    TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        navigationIcon = {
-            Tooltip(stringResource(R.string.close)) {
-                IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
-                    Icon(
-                        if (showClose) Icons.Rounded.Close
-                        else Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.close),
-                    )
-                }
-            }
-        },
-        actions = {
-            Box {
-                Tooltip(stringResource(R.string.more_options)) {
-                    IconButton(
-                        onClick = { menuOpen = true },
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options))
-                    }
-                }
-                ActionMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    actions =
-                        listOf(
-                            MenuAction(
-                                stringResource(R.string.revert_all),
-                                Icons.AutoMirrored.Rounded.Undo,
-                                enabled = canRevert,
-                                onClick = onRevertAll,
-                            )
-                        ),
-                )
-            }
-        },
-        scrollBehavior = scrollBehavior,
+    EditorColumn(scroll, Modifier.fillMaxSize(), padding = 16.dp) {
+        Head(parts, centered = false, closeable = close)
+        EditorActions(
+            onFindCover = parts.onFindCover,
+            onFindMetadata = parts.onFindMetadata,
+            onFindLyrics = { parts.onIntent(EditorIntent.FindLyrics) },
+            findingLyrics = parts.state.findingLyrics,
+        )
+        LosslessCheckCard(parts.state.lossless)
+        Fields(parts, draft)
+        FileInfoCard(loaded)
+    }
+}
+
+/** The editor filling a wide window: the cover, the check and the file beside the fields. */
+@Composable
+private fun TwoColumnEditor(
+    parts: EditorParts,
+    draft: TagDraft,
+    loaded: LoadedTrack,
+    scroll: ScrollState,
+) {
+    Row(
+        Modifier.fillMaxSize().padding(start = 20.dp, top = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Column(
+            Modifier.width(320.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Head(parts, centered = true, closeable = false)
+            EditorActions(
+                onFindCover = parts.onFindCover,
+                onFindMetadata = parts.onFindMetadata,
+                onFindLyrics = { parts.onIntent(EditorIntent.FindLyrics) },
+                findingLyrics = parts.state.findingLyrics,
+            )
+            LosslessCheckCard(parts.state.lossless)
+            FileInfoCard(loaded)
+        }
+        EditorColumn(
+            scroll,
+            Modifier.weight(1f).fillMaxHeight().widthIn(max = 720.dp),
+            padding = 0.dp,
+            end = 20.dp,
+        ) {
+            Fields(parts, draft)
+        }
+    }
+}
+
+/** The editor on a phone: its head centered over the buttons, the check and the fields. */
+@Composable
+private fun PhoneEditor(
+    parts: EditorParts,
+    draft: TagDraft,
+    loaded: LoadedTrack,
+    scroll: ScrollState,
+) {
+    EditorColumn(scroll, Modifier.fillMaxSize(), padding = Spacing.screen) {
+        Head(parts, centered = true, closeable = false)
+        EditorActions(
+            onFindCover = parts.onFindCover,
+            onFindMetadata = parts.onFindMetadata,
+            onFindLyrics = { parts.onIntent(EditorIntent.FindLyrics) },
+            findingLyrics = parts.state.findingLyrics,
+            height = 44.dp,
+        )
+        LosslessCheckCard(parts.state.lossless)
+        Fields(parts, draft)
+        FileInfoCard(loaded)
+    }
+}
+
+/** A column that scrolls, and lets go of the focus when what is not a field is pressed. */
+@Composable
+private fun EditorColumn(
+    scroll: ScrollState,
+    modifier: Modifier,
+    padding: Dp,
+    end: Dp = padding,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    Column(
+        modifier =
+            modifier
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                .scrollbar(scroll)
+                .verticalScroll(scroll)
+                .padding(start = padding, end = end, top = padding, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        content = content,
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** The editor's head: the cover and what the song is, with the inspector's menu and close. */
 @Composable
-private fun EditorToolbar(
-    dirty: Boolean,
-    saving: Boolean,
-    findingLyrics: Boolean,
-    onSave: () -> Unit,
-    onFindMetadata: () -> Unit,
-    onFindLyrics: () -> Unit,
-    onRevertAll: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val savingLabel = stringResource(R.string.saving)
-    FloatingActionToolbar(
-        onPrimaryAction = { if (dirty && !saving) onSave() },
-        primaryAction = {
-            if (saving) {
-                LoadingIndicator(
-                    modifier = Modifier.semantics { contentDescription = savingLabel },
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-            } else {
-                Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.save))
-            }
-        },
-        modifier = modifier,
+private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
+    val state = parts.state
+    val draft = state.draft ?: return
+    val onIntent = parts.onIntent
+    val track = state.position(TagField.TrackNumber).number.ifBlank { null }
+    val details =
+        listOfNotNull(
+                draft.tags.first(TagField.Album.key)?.ifBlank { null },
+                draft.tags.first(TagField.Date.key)?.ifBlank { null }?.take(4),
+                track?.let { stringResource(R.string.track_position, it) },
+            )
+            .joinToString(" · ")
+            .ifEmpty { null }
+    EditorHeader(
+        title = state.title,
+        artist = state.artist,
+        details = details,
+        facts = fileFacts(state),
+        cover =
+            CoverModel(
+                cover = draft.cover?.data,
+                info = state.coverInfo,
+                changed = draft.isCoverChanged,
+                hasOriginal = draft.original.frontCover != null,
+                loading = state.loadingCover,
+                warnSmall = state.settings.warnSmallArtwork,
+            ),
+        actions =
+            CoverActions(
+                onChange = parts.onChangeCover,
+                onFind = parts.onFindCover,
+                onRemove = { onIntent(EditorIntent.RemoveCover) },
+                onRevert = { onIntent(EditorIntent.RevertCover) },
+                onPlay = { onIntent(EditorIntent.Play) },
+            ),
+        isPlaying = state.isPlayingThis,
+        centered = centered,
+        // On a desktop a picture is dragged in from the file manager.
+        coverModifier =
+            Modifier.imageDropTarget { uri -> onIntent(EditorIntent.SetCoverFromUri(uri)) },
+        trailing =
+            if (closeable) {
+                {
+                    MoreMenu(parts)
+                    StudioIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.close),
+                        onClick = parts.onClose,
+                        size = 30.dp,
+                    )
+                }
+            } else null,
+    )
+}
+
+/** What the file is, as the head's chips: its format and audio, and the cover's size. */
+@Composable
+private fun fileFacts(state: EditorState): List<String> {
+    val loaded = state.loaded ?: return emptyList()
+    val bits = (state.lossless as? LosslessCheckState.Done)?.report?.bitsPerSample
+    val audio = loaded.audio
+    val format =
+        listOfNotNull(
+                loaded.fileExtension?.uppercase(Locale.ROOT),
+                bits?.let { stringResource(R.string.fact_bits, it) },
+                audio?.sampleRateHz?.takeIf { it > 0 }?.let { kiloHertz(it) },
+                audio
+                    ?.bitrateKbps
+                    ?.takeIf { it > 0 && bits == null }
+                    ?.let {
+                        stringResource(R.string.file_bitrate_value, it)
+                    },
+            )
+            .joinToString(" · ")
+    return listOfNotNull(
+        format.ifEmpty { null },
+        state.coverInfo?.let { "${it.width} × ${it.height}" },
+    )
+}
+
+/** [hertz] in kHz, as a file's facts say it: "44,1 kHz". */
+@Composable
+private fun kiloHertz(hertz: Int): String {
+    val tenths = (hertz / 100.0).roundToInt()
+    val value =
+        if (tenths % 10 == 0) (tenths / 10).toString()
+        else String.format(Locale.getDefault(), "%.1f", tenths / 10.0)
+    return stringResource(R.string.file_sample_rate_value, value)
+}
+
+/** The inspector's menu: what the head has no button for. */
+@Composable
+private fun MoreMenu(parts: EditorParts) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        StudioIconButton(
+            icon = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(R.string.more_options),
+            onClick = { open = true },
+            size = 30.dp,
+        )
+        ActionMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            actions =
+                listOf(
+                    MenuAction(
+                        stringResource(R.string.revert_all),
+                        Icons.AutoMirrored.Rounded.Undo,
+                        enabled = parts.state.isDirty,
+                        onClick = { parts.onIntent(EditorIntent.RevertAll) },
+                    ),
+                    MenuAction(
+                        stringResource(R.string.lyrics_find),
+                        Icons.Outlined.Lyrics,
+                        enabled = !parts.state.findingLyrics,
+                        shortcut = shortcutHint(KeyEvent.KEYCODE_L, ctrl = true, shift = true),
+                        onClick = { parts.onIntent(EditorIntent.FindLyrics) },
+                    ),
+                ),
+        )
+    }
+}
+
+/** The phone's bar: back, what the screen is, and its menu. */
+@Composable
+private fun PhoneTopBar(parts: EditorParts, title: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Tooltip(stringResource(R.string.lookup_find)) {
-            IconButton(onClick = onFindMetadata, shapes = IconButtonDefaults.shapes()) {
-                Icon(Icons.Rounded.TravelExplore, stringResource(R.string.lookup_find))
-            }
-        }
-        Tooltip(stringResource(R.string.lyrics_find)) {
-            IconButton(
-                onClick = onFindLyrics,
-                enabled = !findingLyrics,
-                shapes = IconButtonDefaults.shapes(),
+        StudioIconButton(
+            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = stringResource(R.string.close),
+            onClick = parts.onClose,
+            size = 44.dp,
+            iconSize = 22.dp,
+        )
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            color = Studio.colors.text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (parts.state.status == EditorStatus.Ready) MoreMenu(parts)
+    }
+}
+
+/**
+ * The editor's foot: how many changes there are, and the two things to do with them. Always in
+ * sight, however far the fields are scrolled.
+ */
+@Composable
+private fun EditorFooter(state: EditorState, onIntent: (EditorIntent) -> Unit, phone: Boolean) {
+    val colors = Studio.colors
+    val draft = state.draft
+    val count = (draft?.changedKeys?.size ?: 0) + if (draft?.isCoverChanged == true) 1 else 0
+    Column(
+        Modifier.fillMaxWidth()
+            .background(if (phone) colors.ground else colors.panel)
+            .then(if (phone) Modifier.navigationBarsPadding() else Modifier)
+    ) {
+        StudioDivider()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (findingLyrics) LoadingIndicator()
-                else Icon(Icons.Rounded.Lyrics, stringResource(R.string.lyrics_find))
+                Box(
+                    Modifier.size(7.dp)
+                        .background(
+                            if (count > 0) colors.accent else colors.textTertiary.copy(0.4f),
+                            CircleShape,
+                        )
+                )
+                Text(
+                    if (count > 0) pluralStringResource(R.plurals.changes_count, count, count)
+                    else stringResource(R.string.no_changes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-        }
-        Tooltip(stringResource(R.string.revert_all)) {
-            IconButton(
-                onClick = onRevertAll,
-                enabled = dirty,
-                shapes = IconButtonDefaults.shapes(),
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.revert_all))
-            }
+            StudioButton(
+                text = stringResource(R.string.discard_changes),
+                onClick = { onIntent(EditorIntent.RevertAll) },
+                enabled = state.isDirty && !state.saving,
+            )
+            StudioButton(
+                text = stringResource(if (state.saving) R.string.saving else R.string.save),
+                onClick = { onIntent(EditorIntent.Save) },
+                style = StudioButtonStyle.Primary,
+                enabled = state.isDirty,
+                busy = state.saving,
+                shortcut = shortcutHint(KeyEvent.KEYCODE_S, ctrl = true),
+            )
         }
     }
 }
@@ -503,7 +595,7 @@ private fun EditorToolbar(
 @Composable
 private fun EditorShortcuts(
     state: EditorState,
-    fieldsState: LazyListState,
+    scroll: ScrollState,
     onIntent: (EditorIntent) -> Unit,
     onFindMetadata: () -> Unit,
     onFindCover: () -> Unit,
@@ -512,6 +604,7 @@ private fun EditorShortcuts(
 ) {
     val ready = state.status == EditorStatus.Ready
     val scope = rememberCoroutineScope()
+    val page = { scroll.viewportSize * PAGE_SHARE }
     KeyboardShortcuts(
         title = stringResource(R.string.shortcuts_editor),
         shortcuts =
@@ -575,7 +668,7 @@ private fun EditorShortcuts(
                     enabled = ready,
                     repeats = true,
                 ) {
-                    scope.launch { fieldsState.scrollBy(fieldsState.pageHeight()) }
+                    scope.launch { scroll.animateScrollBy(page()) }
                 },
                 Shortcut(
                     KeyEvent.KEYCODE_PAGE_UP,
@@ -583,14 +676,14 @@ private fun EditorShortcuts(
                     enabled = ready,
                     repeats = true,
                 ) {
-                    scope.launch { fieldsState.scrollBy(-fieldsState.pageHeight()) }
+                    scope.launch { scroll.animateScrollBy(-page()) }
                 },
             ),
     )
 }
 
 /** Most of what is in view: a field or two stay, to keep the place. */
-private fun LazyListState.pageHeight(): Float = layoutInfo.viewportSize.height * 0.85f
+private const val PAGE_SHARE = 0.85f
 
 /**
  * Takes a picture dropped on this element, as one dragged out of a file manager on a desktop is,
@@ -640,86 +733,64 @@ private fun Modifier.imageDropTarget(onDropped: (uri: String) -> Unit): Modifier
             if (hovered) {
                 Modifier.border(
                     width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = MaterialTheme.shapes.extraLarge,
+                    color = Studio.colors.accent,
+                    shape = MaterialTheme.shapes.medium,
                 )
             } else Modifier
         )
 }
 
-/** Every editable section, as items of the editor's list. Each is a group, as the app's lists. */
-private fun LazyListScope.fields(
-    state: EditorState,
-    draft: TagDraft,
-    onIntent: (EditorIntent) -> Unit,
-) {
+/** Every editable section, as groups of fields under their titles. */
+@Composable
+private fun Fields(parts: EditorParts, draft: TagDraft) {
+    val state = parts.state
+    val onIntent = parts.onIntent
     val separator = state.settings.multiValueSeparator
-    val missing = draft.missingEssentials()
-    if (missing.isNotEmpty()) {
-        item(key = "attention") { AttentionNotice(missing, Modifier.animateItem()) }
-    }
-    item(key = "main-header") { SectionHeader(stringResource(R.string.section_main)) }
-    fieldGroup(MainFields, draft, separator, onIntent)
+    val missing = EssentialFields.filter { field -> draft.tags[field.key].all { it.isBlank() } }
+    if (missing.isNotEmpty()) AttentionNotice(missing.map { fieldLabel(it.key) })
 
-    item(key = "track-header") { SectionHeader(stringResource(R.string.section_track)) }
-    val positions = listOf(TagField.TrackNumber, TagField.DiscNumber)
-    positions.forEachIndexed { index, field ->
-        item(key = field.key) {
-            val position = state.position(field)
-            val keys =
-                listOf(field.key) +
-                    if (field == TagField.TrackNumber) TagField.TrackTotalKeys
-                    else TagField.DiscTotalKeys
-            PositionField(
-                label = fieldLabel(field.key),
-                number = position.number,
-                total = position.total,
-                onChange = { number, total ->
-                    onIntent(EditorIntent.SetPosition(field, Position(number, total)))
-                },
-                changed = keys.any(draft::isChanged),
-                onRevert = { onIntent(EditorIntent.Revert(keys)) },
-                modifier = GroupGap,
-                first = index == 0,
-                last = index == positions.lastIndex,
-            )
-        }
-    }
-
-    item(key = "credits-header") { SectionHeader(stringResource(R.string.section_credits)) }
-    fieldGroup(CreditFields, draft, separator, onIntent)
-
-    item(key = "more-header") { SectionHeader(stringResource(R.string.section_more)) }
-    fieldGroup(MoreFields, draft, separator, onIntent)
-
-    val lyrics = draft.tags.first(TagField.Lyrics.key).orEmpty()
-    item(key = "lyrics-header") {
-        SectionHeader(
-            stringResource(R.string.section_lyrics),
-            trailing = {
-                FilledTonalButton(
-                    onClick = { onIntent(EditorIntent.FindLyrics) },
-                    enabled = !state.findingLyrics,
-                    shapes = ButtonDefaults.shapes(),
-                ) {
-                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(ButtonDefaults.IconSize))
-                    Text(
-                        stringResource(R.string.lyrics_find),
-                        Modifier.padding(start = ButtonDefaults.IconSpacing),
-                    )
-                }
-            },
+    Section(stringResource(R.string.section_main)) {
+        FieldInput(TagField.Title, draft, separator, onIntent)
+        FieldInput(TagField.Artist, draft, separator, onIntent)
+        FieldInput(TagField.Album, draft, separator, onIntent)
+        FieldInput(TagField.AlbumArtist, draft, separator, onIntent)
+        SideBySide(
+            { FieldInput(TagField.Date, draft, separator, onIntent) },
+            { FieldInput(TagField.Genre, draft, separator, onIntent) },
+        )
+        SideBySide(
+            { PositionInput(TagField.TrackNumber, state, draft, onIntent) },
+            { PositionInput(TagField.DiscNumber, state, draft, onIntent) },
         )
     }
-    if (Lrc.isSynced(lyrics)) {
-        item(key = "lyrics-synced") {
-            // Said, not pressed: a label, where a chip would ask to be tapped.
-            Box(Modifier.padding(bottom = Spacing.small).animateItem()) {
+
+    Section(stringResource(R.string.section_credits)) {
+        CreditFields.forEach { FieldInput(it, draft, separator, onIntent) }
+    }
+
+    Section(stringResource(R.string.section_more)) {
+        FieldInput(TagField.Comment, draft, separator, onIntent)
+        SideBySide(
+            { FieldInput(TagField.Bpm, draft, separator, onIntent) },
+            { FieldInput(TagField.Isrc, draft, separator, onIntent) },
+        )
+        FieldInput(TagField.Copyright, draft, separator, onIntent)
+        SideBySide(
+            { FieldInput(TagField.Label, draft, separator, onIntent) },
+            { FieldInput(TagField.Grouping, draft, separator, onIntent) },
+        )
+    }
+
+    val lyrics = draft.tags.first(TagField.Lyrics.key).orEmpty()
+    Section(
+        stringResource(R.string.section_lyrics),
+        trailing = {
+            if (Lrc.isSynced(lyrics)) {
+                // Said, not pressed: a label, where a chip would ask to be tapped.
                 LabelChip(stringResource(R.string.lyrics_synced), Icons.Rounded.Schedule)
             }
-        }
-    }
-    item(key = TagField.Lyrics.key) {
+        },
+    ) {
         TagTextField(
             label = fieldLabel(TagField.Lyrics.key),
             value = lyrics,
@@ -734,44 +805,24 @@ private fun LazyListScope.fields(
 
     val otherKeys =
         (draft.tags.keys + draft.original.tags.keys).filter { it !in KnownKeys }.distinct().sorted()
-    item(key = "all-header") {
-        var adding by rememberSaveable { mutableStateOf(false) }
-        SectionHeader(
-            stringResource(R.string.section_all_tags),
-            trailing = {
-                FilledTonalIconButton(
-                    onClick = { adding = true },
-                    shapes = IconButtonDefaults.shapes(),
-                ) {
-                    Icon(Icons.Rounded.Add, stringResource(R.string.add_field))
-                }
-            },
-        )
-        if (adding) {
-            AddFieldDialog(
-                onAdd = { key, value ->
-                    adding = false
-                    onIntent(EditorIntent.SetField(key, listOf(value)))
-                },
-                onDismiss = { adding = false },
+    var adding by rememberSaveable { mutableStateOf(false) }
+    Section(
+        stringResource(R.string.section_all_tags),
+        trailing = {
+            StudioButton(
+                text = stringResource(R.string.add_field),
+                onClick = { adding = true },
+                icon = Icons.Rounded.Add,
+                style = StudioButtonStyle.Ghost,
             )
-        }
-    }
-    item(key = "all-description") {
+        },
+    ) {
         Text(
             stringResource(R.string.all_tags_description),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier =
-                Modifier.padding(
-                    start = Spacing.small,
-                    end = Spacing.small,
-                    bottom = Spacing.small,
-                ),
+            color = Studio.colors.textTertiary,
         )
-    }
-    otherKeys.forEachIndexed { index, key ->
-        item(key = "raw:$key") {
+        otherKeys.forEach { key ->
             TagChipsField(
                 label = key,
                 values = draft.tags[key],
@@ -779,99 +830,63 @@ private fun LazyListScope.fields(
                 changed = draft.isChanged(key),
                 onRevert = { onIntent(EditorIntent.Revert(listOf(key))) },
                 separator = separator,
-                // No placement animation: a focused field stays composed out of view, and scrolled
-                // back to, it would travel to its place from wherever it was kept.
-                modifier = GroupGap.animateItem(placementSpec = null),
-                shape = GroupShapes.itemShape(index, otherKeys.size),
             )
         }
     }
+    if (adding) {
+        AddFieldDialog(
+            onAdd = { key, value ->
+                adding = false
+                onIntent(EditorIntent.SetField(key, listOf(value)))
+            },
+            onDismiss = { adding = false },
+        )
+    }
 }
 
-/**
- * The essential tags the song would still be missing if it were saved now: what the library flags
- * it for, read from the draft, so the notice goes as the fields are filled in.
- */
-private fun TagDraft.missingEssentials(): List<TagField> =
-    EssentialFields.keys.filter { field -> tags[field.key].all { it.isBlank() } }
-
-/** The tags a song needs, in the order the editor has them, each with the icon of its chip. */
-private val EssentialFields: Map<TagField, ImageVector> =
-    linkedMapOf(
-        TagField.Artist to Icons.Rounded.Person,
-        TagField.Album to Icons.Rounded.Album,
-        TagField.AlbumArtist to Icons.Rounded.Groups,
-        TagField.Date to Icons.Rounded.CalendarMonth,
-        TagField.TrackNumber to Icons.Rounded.Numbers,
-    )
-
-private const val PILL_FOLLOW_MS = 60
-
-/** Why the library says this song needs attention, before the fields that would fix it. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
+/** A titled group of fields. */
 @Composable
-private fun AttentionNotice(missing: List<TagField>, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Row(
-            // Read as one thing: "Needs attention. Year".
-            modifier = Modifier.padding(Spacing.large).semantics(mergeDescendants = true) {},
-            horizontalArrangement = Arrangement.spacedBy(Spacing.large),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ShapedIcon(
-                icon = Icons.Rounded.PriorityHigh,
-                size = 56.dp,
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                turnMillis = 20_000,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                Text(
-                    stringResource(R.string.needs_attention_title),
-                    style = MaterialTheme.typography.titleMediumEmphasized,
-                )
-
-                var arrived by rememberSaveable { mutableStateOf(false) }
-                LaunchedEffect(Unit) { arrived = true }
-
-                FlowRow(Modifier.heightIn(min = AssistChipDefaults.Height + Spacing.small)) {
-                    EssentialFields.entries.forEachIndexed { index, (field, icon) ->
-                        RolledIn(
-                            target = field.takeIf { arrived && it in missing },
-                            delayMillis = index * PILL_FOLLOW_MS,
-                        ) { shown ->
-                            LabelChip(
-                                label = fieldLabel(shown.key),
-                                icon = icon,
-                                modifier =
-                                    Modifier.padding(end = Spacing.small, bottom = Spacing.small),
-                            )
-                        }
-                    }
-                }
-            }
-        }
+private fun Section(
+    title: String,
+    trailing: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader(title, trailing = trailing)
+        content()
     }
 }
 
-/** What keeps the fields of a group apart: the gap of the app's grouped lists. */
-private val GroupGap = Modifier.padding(bottom = ListItemDefaults.SegmentedGap)
+/** Two fields side by side, sharing the width. */
+@Composable
+private fun SideBySide(start: @Composable () -> Unit, end: @Composable () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.weight(1f)) { start() }
+        Box(Modifier.weight(1f)) { end() }
+    }
+}
 
-private fun LazyListScope.fieldGroup(
-    fields: List<TagField>,
+@Composable
+private fun PositionInput(
+    field: TagField,
+    state: EditorState,
     draft: TagDraft,
-    separator: String,
     onIntent: (EditorIntent) -> Unit,
 ) {
-    fields.forEachIndexed { index, field ->
-        item(key = field.key) {
-            FieldInput(field, draft, separator, GroupShapes.itemShape(index, fields.size), onIntent)
-        }
-    }
+    val position = state.position(field)
+    val keys =
+        listOf(field.key) +
+            if (field == TagField.TrackNumber) TagField.TrackTotalKeys else TagField.DiscTotalKeys
+    PositionField(
+        label = fieldLabel(field.key),
+        number = position.number,
+        total = position.total,
+        onChange = { number, total ->
+            onIntent(EditorIntent.SetPosition(field, Position(number, total)))
+        },
+        changed = keys.any(draft::isChanged),
+        onRevert = { onIntent(EditorIntent.Revert(keys)) },
+    )
 }
 
 @Composable
@@ -879,7 +894,6 @@ private fun FieldInput(
     field: TagField,
     draft: TagDraft,
     separator: String,
-    shape: RoundedCornerShape,
     onIntent: (EditorIntent) -> Unit,
 ) {
     val label = fieldLabel(field.key)
@@ -893,8 +907,6 @@ private fun FieldInput(
             changed = changed,
             onRevert = revert,
             separator = separator,
-            modifier = GroupGap,
-            shape = shape,
         )
     } else {
         TagTextField(
@@ -913,8 +925,6 @@ private fun FieldInput(
             capitalization =
                 if (field == TagField.Isrc) KeyboardCapitalization.Characters
                 else KeyboardCapitalization.Sentences,
-            modifier = GroupGap,
-            shape = shape,
         )
     }
 }
@@ -928,7 +938,7 @@ private fun AddFieldDialog(onAdd: (key: String, value: String) -> Unit, onDismis
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_field)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
                 TonalTextField(
                     value = key,
                     onValueChange = { key = it },
