@@ -24,8 +24,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
@@ -34,9 +39,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -146,6 +155,8 @@ object TonalFieldDefaults {
  * @param label what the field holds, or null where the screen already says it
  * @param emphasized tells the field from its neighbours (the editor: what will be written on
  *   saving)
+ * @param inputTransformation what may not be typed at all: a screen that refuses a value in
+ *   [onValueChange] never says it back, and the field would go on showing it
  * @param labelNote a few words after the label, in the accent ("Changed")
  */
 @Composable
@@ -163,7 +174,8 @@ fun TonalTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     trailingIcon: (@Composable () -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    onKeyboardAction: KeyboardActionHandler? = null,
+    inputTransformation: InputTransformation? = null,
     colors: TonalFieldColors = TonalFieldDefaults.colors(),
     shape: Shape = TonalFieldDefaults.shape,
     interactionSource: MutableInteractionSource? = null,
@@ -171,24 +183,26 @@ fun TonalTextField(
     enabled: Boolean = true,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
+    val state = rememberMirroredTextFieldState(value, onValueChange)
+    val empty by remember(state) { derivedStateOf { state.text.isEmpty() } }
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
     val studio = Studio.colors
     val text = textStyle.copy(color = if (enabled) studio.text else studio.textTertiary)
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state = state,
         modifier = modifier,
         enabled = enabled,
+        inputTransformation = inputTransformation,
         textStyle = text,
         keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        singleLine = singleLine,
-        minLines = minLines,
-        maxLines = maxLines,
+        onKeyboardAction = onKeyboardAction,
+        lineLimits =
+            if (singleLine) TextFieldLineLimits.SingleLine
+            else TextFieldLineLimits.MultiLine(minLines, maxLines),
         interactionSource = interactions,
         cursorBrush = SolidColor(studio.accent),
-        decorationBox = { inner ->
+        decorator = { inner ->
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (label != null) {
                     FieldLabel(label, labelNote, focused || emphasized)
@@ -202,7 +216,7 @@ fun TonalTextField(
                     singleLine = singleLine,
                     trailing = trailingIcon,
                 ) {
-                    if (value.isEmpty() && placeholder != null) {
+                    if (empty && placeholder != null) {
                         Text(
                             placeholder,
                             style = text,
@@ -344,21 +358,23 @@ fun StudioSearchField(
             label = "SearchLine",
         )
     val style = MaterialTheme.typography.bodyMedium.copy(color = studio.text)
+    val state = rememberMirroredTextFieldState(value, onValueChange)
+    val empty by remember(state) { derivedStateOf { state.text.isEmpty() } }
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state = state,
         modifier =
             modifier.then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             ),
         enabled = enabled,
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         textStyle = style,
         interactionSource = interactions,
         cursorBrush = SolidColor(studio.accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-        decorationBox = { inner ->
+        // The list filters as it is typed: searching only puts the keyboard away.
+        onKeyboardAction = { focusManager.clearFocus() },
+        decorator = { inner ->
             Row(
                 modifier =
                     Modifier.height(height)
@@ -375,7 +391,7 @@ fun StudioSearchField(
                     modifier = Modifier.size(18.dp),
                 )
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) {
+                    if (empty) {
                         Text(
                             placeholder,
                             style = style,
@@ -387,7 +403,7 @@ fun StudioSearchField(
                     inner()
                 }
                 AnimatedVisibility(
-                    visible = value.isNotEmpty(),
+                    visible = !empty,
                     enter = fadeIn(),
                     exit = fadeOut(),
                 ) {
@@ -395,19 +411,90 @@ fun StudioSearchField(
                         icon = Icons.Rounded.Close,
                         contentDescription = clearLabel,
                         onClick = {
-                            onValueChange("")
+                            state.clearText()
                             focusManager.clearFocus()
                         },
                         size = 26.dp,
                         iconSize = 16.dp,
                     )
                 }
-                if (shortcut != null && value.isEmpty()) Kbd(shortcut)
+                if (shortcut != null && empty) Kbd(shortcut)
                 trailing?.invoke(this)
-                if (trailing == null && (shortcut == null || value.isNotEmpty())) {
+                if (trailing == null && (shortcut == null || !empty)) {
                     Spacer(Modifier.size(2.dp))
                 }
             }
         },
     )
+}
+
+/**
+ * The text of a field whose screen keeps the text: what is typed is said with [onValueChange], and
+ * a [value] the screen sets on its own (an undo, a lookup, a revert) replaces what is in the field.
+ *
+ * What is typed comes back as [value] a frame or more later, and more may have been typed by then.
+ * A value that is only that echo is not set again: it would take away the keys typed since, and
+ * throw the cursor to the end.
+ */
+@Composable
+private fun rememberMirroredTextFieldState(
+    value: String,
+    onValueChange: (String) -> Unit,
+): TextFieldState {
+    val state = remember { TextFieldState(value) }
+    val mirror = remember { TextMirror(value) }
+    val report by rememberUpdatedState(onValueChange)
+    LaunchedEffect(state) {
+        snapshotFlow { state.text.toString() }
+            .collect { text ->
+                if (text != mirror.said) {
+                    mirror.typed(text)
+                    report(text)
+                }
+            }
+    }
+    LaunchedEffect(value) {
+        if (!mirror.isEcho(value) && value != state.text.toString()) {
+            mirror.set(value)
+            state.setTextAndPlaceCursorAtEnd(value)
+        }
+    }
+    return state
+}
+
+/** What a field and its screen have said to each other, so that neither takes its echo for news. */
+private class TextMirror(initial: String) {
+    /** The text both sides last agreed on, or the field last said. */
+    var said: String = initial
+        private set
+
+    /** What the field said and the screen has not said back yet, oldest first. */
+    private val unheard = ArrayDeque<String>()
+
+    fun typed(text: String) {
+        said = text
+        unheard.addLast(text)
+        // A screen that turns a text down never says it back; what it does say is newer.
+        while (unheard.size > MAX_UNHEARD) unheard.removeFirst()
+    }
+
+    /**
+     * Whether [value] is something the field said, come back. The screen says texts back in the
+     * order it was told them, skipping some, so those said before it are not coming any more.
+     */
+    fun isEcho(value: String): Boolean {
+        val index = unheard.indexOf(value)
+        if (index < 0) return false
+        repeat(index + 1) { unheard.removeFirst() }
+        return true
+    }
+
+    fun set(value: String) {
+        said = value
+        unheard.clear()
+    }
+
+    private companion object {
+        const val MAX_UNHEARD = 64
+    }
 }

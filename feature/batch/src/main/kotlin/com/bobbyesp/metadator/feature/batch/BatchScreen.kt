@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -463,6 +464,7 @@ private fun Tools(state: BatchState, onIntent: (BatchIntent) -> Unit) {
                     },
                     label = stringResource(R.string.batch_numbering_start),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    inputTransformation = NumberingStartInput,
                     modifier =
                         Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp).width(140.dp),
                 )
@@ -657,3 +659,8 @@ private fun reason(outcome: SaveOutcome): Int =
         SaveOutcome.Unsupported -> R.string.batch_reason_unsupported
         else -> R.string.batch_reason_failed
     }
+
+/** What the first track number takes: up to three digits, turned down as they are typed. */
+private val NumberingStartInput = InputTransformation {
+    if (length > 3 || !asCharSequence().all(Char::isDigit)) revertAllChanges()
+}

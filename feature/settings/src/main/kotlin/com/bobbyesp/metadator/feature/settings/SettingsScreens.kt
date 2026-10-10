@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BrightnessAuto
@@ -522,6 +523,7 @@ private fun LazyListScope.editor(
             },
             label = stringResource(R.string.separator),
             supportingText = stringResource(R.string.separator_description),
+            inputTransformation = SeparatorInput,
             modifier = Modifier.readableWidth().padding(top = Spacing.medium),
         )
     }
@@ -548,3 +550,9 @@ private fun LazyListScope.editor(
         )
     }
 }
+
+/**
+ * What the separator field takes: one to five characters. Turned down as it is typed, so that the
+ * field never shows a separator the settings did not take.
+ */
+private val SeparatorInput = InputTransformation { if (length !in 1..5) revertAllChanges() }
