@@ -144,7 +144,14 @@ components show where the pointer and the focus are.
 editor): dragged from a file manager in a window beside the app. The app asks for the permission
 that goes with the drag, which lasts as long as the activity.
 
-## Not yet verified
+## How far it has been tried
 
-All of this was written and compiled without a device or DeX at hand. See
-[testing.md](testing.md#not-yet-verified) for what to try first.
+On an Android 15 emulator made to look like a desktop (1920 x 1080 at the density of a monitor,
+a keyboard with real keys, a mouse made up with `uinput`), by the script that uses each APK
+([testing.md](testing.md#on-an-emulator-by-a-script)): the shortcuts, the list of them, Esc, Tab
+and Enter, the window resized and moved to another density, night, a narrow window, the second
+button's menu, a song in a window of its own, and Ctrl+click.
+
+Not on Samsung DeX itself: docking and undocking, and what One UI does with the two lines of the
+manifest that only it reads, have not been seen. See [testing.md](testing.md#not-yet-verified) for
+what to try first.
