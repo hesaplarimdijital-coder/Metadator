@@ -771,11 +771,17 @@ def apply_to_all():
         raise Skipped("no cover was found to apply")
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
-    expect("4 songs saved", 180)
+    expect("^Done$", 180)
+    nodes = screen()
     screenshot("all-saved")
+    # A song that has this very cover already has nothing to save, and is left as it is: the
+    # song given a cover on its own, when the sources chose the same picture for both.
+    saved = next((node.text for node in nodes if re.search(r"songs? saved", node.text)), "")
+    if find("couldn.t be saved", nodes) or not saved:
+        raise Failed(f"the batch did not save every song: {said_on(nodes)}")
     tap(expect("^Finish$", 10))
     expect("One More Time", 30)
-    return check_written(list(SONGS.values()))
+    return f"{saved}. " + check_written(list(SONGS.values()))
 
 
 def leave_batch():
@@ -927,8 +933,9 @@ class Gesture:
         return self.wait(300)
 
     def move(self, dx, dy):
-        """Slowly, a few counts at a time: a mouse moved fast is sped up further by the system."""
-        steps = max(abs(dx), abs(dy)) // 3 + 1
+        """Slowly, a count at a time: a mouse moved fast is sped up further by the system, by how
+        much depending on how the events bunch up on the way, and that changes from run to run."""
+        steps = max(abs(dx), abs(dy), 1)
         done_x = done_y = 0
         for index in range(1, steps + 1):
             x, y = dx * index // steps, dy * index // steps
@@ -936,7 +943,7 @@ class Gesture:
                 self.MOUSE,
                 [self.EV_REL, self.REL_X, x - done_x, self.EV_REL, self.REL_Y, y - done_y, 0, 0, 0],
             )
-            self.wait(12)
+            self.wait(8)
             done_x, done_y = x, y
         return self.wait(300)
 
@@ -1067,12 +1074,9 @@ def right_click_menu():
             raise Failed("the second button opened the song instead of its menu")
         if find(r"\d selected", nodes):
             raise Failed("the second button selected the song instead of opening its menu")
-        # The click fell elsewhere. Whatever it opened is closed, and the songs are shown again.
-        if not find(LIBRARY, nodes):
-            key(KEY_ESCAPE)
-        if not find("One More Time"):
-            key(KEY_CTRL, KEY_1)
-            expect("One More Time", 15)
+        # The click fell elsewhere, maybe outside the app, which a second button there sends back
+        # from. Everything is put back, the app included.
+        log(f"    a right click sent {sent_x},{sent_y} counts opened no menu: {home()}")
     raise Skipped(f"the pointer never landed on a song (gains tried: {tried})")
 
 
