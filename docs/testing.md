@@ -30,7 +30,7 @@ the one before, and the report says which held.
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
 | A narrow window | One pane at a time |
-| A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and each click is aimed by where the system says the one before landed |
+| A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and steered by where the input system says its pointer is |
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | Turkish | What the screen says |
 | Nothing crashed | The device's crash log |

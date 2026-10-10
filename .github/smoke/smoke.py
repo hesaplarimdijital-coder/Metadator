@@ -1048,28 +1048,121 @@ class Gesture:
         )
 
 
-# How far the pointer goes, across and down, for each count the mouse sends: read from where the
-# clicks landed, and read again after each one, since it changes from run to run.
-pointer_gain = None
+class LiveMouse:
+    """A mouse kept plugged in for the length of one step, moved a little at a time and looked at
+    in between, as a hand moves a mouse watching the screen.
 
+    How far the pointer goes for a count changes from one move to the next, by a quarter and
+    more: the system speeds a mouse up by how fast its events come, and on a busy emulator they
+    come in bursts. Aimed in one go, a click misses a row as often as not. So the pointer is
+    moved, where it got to is read from the input system, and the rest of the way is moved
+    again, until it is there.
+    """
 
-def counts(x, y):
-    """What to send the mouse from the top left corner to bring the pointer to (x, y)."""
-    gain_x, gain_y = pointer_gain
-    return max(1, round(x / gain_x)), max(1, round(y / gain_y))
+    def __init__(self):
+        self.process = subprocess.Popen(
+            ["adb", "shell", "uinput -"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.since = time.time()
+        for command in Gesture().commands:
+            self._write(command)
+        time.sleep(Gesture.SETTLE_MS / 1000 + 0.5)
+        self.gain = [3.0, 3.0]
 
+    def __enter__(self):
+        return self
 
-def window_of(node):
-    """The window a node is drawn in: the outermost thing around it."""
-    while node.parent is not None:
-        node = node.parent
-    return node
+    def __exit__(self, *_):
+        self.close()
 
+    def close(self):
+        try:
+            self.process.stdin.close()
+            self.process.wait(timeout=15)
+        except Exception:  # Gone already, or stuck: either way it is not wanted any more.
+            self.process.kill()
+        time.sleep(0.5)
 
-def display_size():
-    sizes = re.findall(r"size: (\d+)x(\d+)", shell("wm size"))
-    width, height = sizes[-1] if sizes else (1920, 1080)
-    return int(width), int(height)
+    def _write(self, command):
+        if self.process.poll() is not None:
+            raise Skipped("the made-up mouse was taken out by the system")
+        self.process.stdin.write((json.dumps(command) + "\n").encode())
+        self.process.stdin.flush()
+
+    def _inject(self, device, events, then_ms=0):
+        self._write({"id": device, "command": "inject", "events": events})
+        if then_ms:
+            self._write({"id": device, "command": "delay", "duration": then_ms})
+
+    def move(self, dx, dy, pace_ms=8):
+        """By (dx, dy) counts, one count at a time, and back once the system has had them."""
+        steps = max(abs(dx), abs(dy), 1)
+        done_x = done_y = 0
+        for index in range(1, steps + 1):
+            x, y = dx * index // steps, dy * index // steps
+            self._inject(
+                Gesture.MOUSE,
+                [Gesture.EV_REL, Gesture.REL_X, x - done_x, Gesture.EV_REL, Gesture.REL_Y,
+                 y - done_y, 0, 0, 0],
+                pace_ms,
+            )
+            done_x, done_y = x, y
+        time.sleep(steps * pace_ms / 1000 + 0.8)
+
+    def go_to(self, x, y, tolerance=6):
+        """Brings the pointer to within [tolerance] of (x, y). Says where it got to."""
+        at = pointer_position(self.since)
+        if at is None:
+            # It has not moved since it was plugged in, and is wherever the system put it: the
+            # top left corner is a place it can be sent without seeing it.
+            for _ in range(12):
+                self._inject(
+                    Gesture.MOUSE,
+                    [Gesture.EV_REL, Gesture.REL_X, -200, Gesture.EV_REL, Gesture.REL_Y, -200,
+                     0, 0, 0],
+                    4,
+                )
+            time.sleep(1)
+            self.move(4, 4)
+            at = pointer_position(self.since)
+            if at is None:
+                raise Skipped("where the pointer is cannot be read from the input system")
+        for _ in range(10):
+            off_x, off_y = x - at[0], y - at[1]
+            if abs(off_x) <= tolerance and abs(off_y) <= tolerance:
+                return at
+            sent_x, sent_y = round(off_x / self.gain[0]), round(off_y / self.gain[1])
+            sent_x = sent_x or (1 if off_x > tolerance else -1 if off_x < -tolerance else 0)
+            sent_y = sent_y or (1 if off_y > tolerance else -1 if off_y < -tolerance else 0)
+            self.move(sent_x, sent_y)
+            now = pointer_position(self.since) or at
+            # What it went for each count this time, to aim the rest by: within sense, since a
+            # short move says little, and one stopped by the edge of the screen less.
+            for axis, sent in ((0, sent_x), (1, sent_y)):
+                went = now[axis] - at[axis]
+                if abs(sent) >= 3 and went * sent > 0:
+                    self.gain[axis] = min(8.0, max(0.5, went / sent))
+            at = now
+        return at
+
+    def hold(self, key_code, down):
+        self._inject(Gesture.KEYS, [Gesture.EV_KEY, key_code, 1 if down else 0, 0, 0, 0])
+        time.sleep(0.15)
+
+    def click(self, button, held=None):
+        """A click where the pointer is, with the key [held] down for no longer than it takes:
+        a key held longer repeats."""
+        if held:
+            self.hold(held, True)
+        self._inject(Gesture.MOUSE, [Gesture.EV_KEY, button, 1, 0, 0, 0], 90)
+        self._inject(Gesture.MOUSE, [Gesture.EV_KEY, button, 0, 0, 0, 0])
+        time.sleep(0.2)
+        if held:
+            self.hold(held, False)
+        time.sleep(0.6)
 
 
 def mouse_events(newer_than_ms=20000):
@@ -1099,21 +1192,11 @@ def mouse_events(newer_than_ms=20000):
     return events
 
 
-unread_dumps = 0
-
-
-def where_clicked():
-    """Where the last click of the made-up mouse was, or where its pointer last was."""
-    global unread_dumps
-    events = mouse_events()
-    clicks = [event for event in events if event[0] in ("BUTTON_PRESS", "DOWN")]
-    last = clicks[-1] if clicks else (events[-1] if events else None)
-    if last is None and unread_dumps < 3:
-        # Kept, to see why: the queue may hold other events, or say it otherwise.
-        unread_dumps += 1
-        with open(os.path.join(out_dir, f"input-unread-{unread_dumps}.txt"), "w") as file:
-            file.write(shell("dumpsys input", timeout=60))
-    return (round(last[1]), round(last[2])) if last else None
+def pointer_position(since):
+    """Where the made-up mouse's pointer is: the place of its last event since [since], when the
+    mouse was plugged in. Another mouse's, taken out before, is somewhere else."""
+    events = mouse_events(newer_than_ms=(time.time() - since) * 1000)
+    return (round(events[-1][1]), round(events[-1][2])) if events else None
 
 
 def landed_row(point, listed):
@@ -1131,18 +1214,9 @@ def landed_row(point, listed):
     )
 
 
-def corrected(gain, sent, landed, edge):
-    """The travel per count that a click's landing place says, to aim the next one by."""
-    if landed >= edge - 2:
-        # Stopped by the edge of the display: it went further than that, how far is not known.
-        return max(gain, landed / sent) * 1.6
-    if landed <= 1:
-        # It never left the corner: what it was sent was lost, and says nothing.
-        return gain
-    return landed / sent
-
-
 mouse_works = False
+# The second button opened a song's menu, which the next step chooses from.
+menu_opened = False
 
 
 def plug_mouse():
@@ -1180,69 +1254,36 @@ def aim(node):
 
 def right_click_menu():
     """The second button opens the song's menu, and does not open the song."""
-    global pointer_gain
+    global menu_opened
     if not mouse_works:
         raise Skipped("no mouse")
     listed = rows()
-    # Any song will do: the middle of them leaves the most room to miss by.
-    target_x = (listed[0].left + listed[0].right) // 2
-    target_y = (listed[0].top + listed[-1].bottom) // 2
-    width, height = display_size()
-    # How far the pointer goes for a count is not known until a click has landed, and changes with
-    # the system's version and how its events bunch up on the way. So each click is aimed by where
-    # the one before it landed; when that cannot be read, along a line of guesses.
-    guesses = iter((1.0, 3.0, 0.36, 2.0, 0.5, 1.4, 0.7, 0.25))
-    gain_x = gain_y = next(guesses)
-    tried = []
-    for _ in range(7):
-        sent_x, sent_y = max(1, round(target_x / gain_x)), max(1, round(target_y / gain_y))
-        Gesture().to_corner().move(sent_x, sent_y).click(Gesture.BTN_RIGHT).run()
-        landed = where_clicked()
-        nodes = screen()
-        if landed_row(landed, listed) is not None and not find("Open in a new window", nodes):
-            # On a song: a menu that is still on its way is given a moment.
-            time.sleep(2)
-            nodes = screen()
-        tried.append(f"{sent_x},{sent_y} counts: {landed}")
-        if find("Open in a new window", nodes):
-            wanted = ["Edit tags", "Play", "Select", "Open in a new window"]
-            missing = [item for item in wanted if not find("^" + item + "$", nodes)]
-            if missing:
-                raise Failed(f"the menu lacks {missing}: {said_on(nodes)}")
-            if landed:
-                pointer_gain = (landed[0] / sent_x, landed[1] / sent_y)
-            else:
-                # The menu opens where the pointer is: the card that holds its items, that is,
-                # not its window, which has room around it for a shadow.
-                item = find("^Edit tags$", nodes)[0].pressed_as()
-                menu = item.parent or window_of(item)
-                pointer_gain = (menu.left / sent_x, menu.top / sent_y)
-            screenshot("right-click-menu")
-            return (
-                f"the menu says {said_on(nodes)}; the click landed at {landed} for {sent_x},"
-                f"{sent_y} counts ({pointer_gain[0]:.2f} x {pointer_gain[1]:.2f} px a count), "
-                f"after {len(tried)} tries"
-            )
-        titles = "|".join(re.escape(title) for title in SONGS)
-        if [node for node in nodes if node.is_field and node.says(titles)]:
-            raise Failed("the second button opened the song instead of its menu")
-        if find(r"\d selected", nodes):
-            raise Failed("the second button selected the song instead of opening its menu")
-        if landed_row(landed, listed) is not None:
-            raise Failed(f"a right click on a song, at {landed}, opened no menu")
-        # The click fell elsewhere, maybe outside the app, which a second button there sends back
-        # from. Everything is put back, the app included.
-        log(f"    a right click sent {sent_x},{sent_y} counts landed at {landed}: {home()}")
-        if landed is None:
-            gain_x = gain_y = next(guesses, 1.0)
-        else:
-            gain_x = corrected(gain_x, sent_x, landed[0], width)
-            gain_y = corrected(gain_y, sent_y, landed[1], height)
-    raise Skipped(f"the pointer never landed on a song: {tried}")
+    target = aim(listed[1])
+    with LiveMouse() as mouse:
+        at = mouse.go_to(*target)
+        if landed_row(at, listed) != 1:
+            raise Skipped(f"the pointer could not be brought to a song: it is at {at}")
+        mouse.click(Gesture.BTN_RIGHT)
+    time.sleep(1)
+    nodes = screen()
+    titles = "|".join(re.escape(title) for title in SONGS)
+    if [node for node in nodes if node.is_field and node.says(titles)]:
+        raise Failed("the second button opened the song instead of its menu")
+    if find(r"\d selected", nodes):
+        raise Failed("the second button selected the song instead of opening its menu")
+    if not find("Open in a new window", nodes):
+        raise Failed(f"a right click on a song, at {at}, opened no menu: {said_on(nodes)[:30]}")
+    wanted = ["Edit tags", "Play", "Select", "Open in a new window"]
+    missing = [item for item in wanted if not find("^" + item + "$", nodes)]
+    if missing:
+        raise Failed(f"the menu lacks {missing}: {said_on(nodes)}")
+    menu_opened = True
+    screenshot("right-click-menu")
+    return f"a right click at {at}, on the second song, opened its menu: {said_on(nodes)}"
 
 
 def open_in_new_window():
-    if not mouse_works or pointer_gain is None:
+    if not menu_opened:
         raise Skipped("no menu to choose from")
     tap(expect("^Open in a new window$", 10))
     time.sleep(4)
@@ -1260,32 +1301,6 @@ def open_in_new_window():
     return "the song opened in an activity of its own, and Ctrl+W closed it"
 
 
-def click_at(node, held):
-    """One click on the middle of [node] with the key [held] down, aimed by what the clicks
-    before said. Says where it landed, when the system says, and learns from it."""
-    global pointer_gain
-    width, height = display_size()
-    sent = counts(*aim(node))
-    # The key goes up as soon as the button does: held longer, it repeats, and its repeats
-    # crowd the clicks out of the system's short list of recent events.
-    (
-        Gesture()
-        .to_corner()
-        .move(*sent)
-        .hold(held, True)
-        .click(Gesture.BTN_LEFT, after=40)
-        .hold(held, False)
-        .run()
-    )
-    landed = where_clicked()
-    if landed:
-        pointer_gain = (
-            corrected(pointer_gain[0], sent[0], landed[0], width),
-            corrected(pointer_gain[1], sent[1], landed[1], height),
-        )
-    return landed
-
-
 def selected_songs(nodes):
     """The songs whose rows are checked, from the top one down."""
     checked = [node for node in nodes if node.checked]
@@ -1297,107 +1312,59 @@ def selected_songs(nodes):
     return [title for _, title in sorted(found)]
 
 
-class Box:
-    """A part of the screen to aim at: rows next to each other, any of which will do."""
-
-    def __init__(self, nodes):
-        self.left = min(node.left for node in nodes)
-        self.top = min(node.top for node in nodes)
-        self.right = max(node.right for node in nodes)
-        self.bottom = max(node.bottom for node in nodes)
-
-
 def ctrl_click_selects():
-    if not mouse_works or pointer_gain is None:
-        raise Skipped("the pointer could not be aimed")
+    if not mouse_works:
+        raise Skipped("no mouse")
     order = [next(title for title in SONGS if node.holds(re.escape(title))) for node in rows()]
-    # Where a pointer lands is known to within a sixth or so, less than a row: the clicks are
-    # aimed at the middle of several rows, and what they selected is read from the screen.
-    # Ctrl+click on any song: the one it lands on is selected, and it alone.
-    chosen, landed, nodes = [], None, []
-    for _ in range(3):
-        landed = click_at(Box(rows()), Gesture.KEY_LEFTCTRL)
+    with LiveMouse() as mouse:
+        # Ctrl+click on the first song: it is selected, and it alone.
+        listed = rows()
+        at = mouse.go_to(*aim(listed[0]))
+        if landed_row(at, listed) != 0:
+            raise Skipped(f"the pointer could not be brought to the first song: it is at {at}")
+        mouse.click(Gesture.BTN_LEFT, held=Gesture.KEY_LEFTCTRL)
         nodes = screen()
         chosen = selected_songs(nodes)
-        if chosen:
-            break
-        log(f"    a Ctrl+click landed at {landed}, and selected nothing: {home()}")
-    if not chosen:
-        raise Skipped(f"no Ctrl+click landed on a song; the last one at {landed}")
-    if len(chosen) != 1 or not find("^1 selected$", nodes):
-        raise Failed(f"a Ctrl+click selected {chosen}: {said_on(nodes)[:30]}")
-    first = order.index(chosen[0])
-    # Shift+click on a song on the side of it with more of them: every song from that one to the
-    # first, and no other. The rows have moved, under the bar of the selection.
-    now = chosen
-    for _ in range(3):
+        if chosen != [order[0]] or not find("^1 selected$", nodes):
+            raise Failed(f"a Ctrl+click on {order[0]!r} selected {chosen}: {said_on(nodes)[:24]}")
+        # Shift+click on the third: the three from the first to it, and no other. The rows have
+        # moved, under the bar of the selection.
         listed = rows()
-        above, below = listed[:first], listed[first + 1 :]
-        landed = click_at(Box(above if len(above) > len(below) else below), Gesture.KEY_LEFTSHIFT)
+        at = mouse.go_to(*aim(listed[2]))
+        if landed_row(at, listed) != 2:
+            raise Skipped(f"the pointer could not be brought to the third song: it is at {at}")
+        mouse.click(Gesture.BTN_LEFT, held=Gesture.KEY_LEFTSHIFT)
         nodes = screen()
         now = selected_songs(nodes)
-        if len(now) > 1 or not find(r"^\d selected$", nodes):
-            break
-        log(f"    a Shift+click landed at {landed}, and selected {now}")
-    if len(now) < 2:
-        raise Skipped(f"no Shift+click landed on another song; the last one at {landed}")
-    places = sorted(order.index(title) for title in now)
-    if places != list(range(places[0], places[-1] + 1)) or first not in (places[0], places[-1]):
-        raise Failed(f"Shift+click selected {now}, not the songs from {chosen[0]!r} to it")
-    if not find(f"^{len(now)} selected$", nodes):
-        raise Failed(f"{len(now)} songs are checked, and the bar says {said_on(nodes)[:8]}")
+    if now != order[:3] or not find("^3 selected$", nodes):
+        raise Failed(f"a Shift+click on {order[2]!r} left {now} selected: {said_on(nodes)[:24]}")
     screenshot("ctrl-and-shift-click")
     tap(expect("Stop selecting", 10))
     expect_gone(r"\d selected", 15)
     return (
-        f"Ctrl+click selected {chosen[0]!r} alone; Shift+click, landing at {landed}, selected "
-        f"the {len(now)} from it to {order[places[-1] if places[0] == first else places[0]]!r}"
+        f"Ctrl+click selected {order[0]!r} alone; Shift+click on {order[2]!r} selected the three "
+        f"from one to the other"
     )
 
 
-def pointer_position():
-    """Where the made-up mouse's pointer is, or was last: its last event's place."""
-    events = mouse_events(newer_than_ms=9000)
-    return (round(events[-1][1]), round(events[-1][2])) if events else None
-
-
 def tooltip_on_hover():
-    global pointer_gain
-    if not mouse_works or pointer_gain is None:
-        raise Skipped("the pointer could not be aimed")
-    width, height = display_size()
-    rested = None
-    for _ in range(3):
-        icon = find("^More options$")
-        if not icon:
-            raise Skipped("no icon button to rest on")
-        # The whole button, whose tooltip shows wherever on it the pointer rests: its icon is half
-        # as wide.
-        button = icon[0].pressed_as()
-        sent = counts(*aim(button))
-        moves = Gesture().to_corner().move(*sent)
-        arrives = moves.now / 1000
-        gesture = moves.start(linger=8000)
-        # The pointer rests there while the picture is taken, a little after a tooltip would
-        # show; then the mouse goes.
-        time.sleep(1 + arrives + 3)
-        rested = pointer_position()
-        on = landed_row(rested, [button]) is not None
+    if not mouse_works:
+        raise Skipped("no mouse")
+    icon = find("^More options$")
+    if not icon:
+        raise Skipped("no icon button to rest on")
+    button = icon[0].pressed_as()
+    with LiveMouse() as mouse:
+        at = mouse.go_to(*aim(button))
+        if landed_row(at, [button]) is None:
+            raise Skipped(f"the pointer could not be brought to the button: it is at {at}")
+        # Resting there a little longer than a tooltip takes to show.
+        time.sleep(2.5)
         picture = shots + 1
-        if on:
-            screenshot("pointer-resting-on-a-button")
-        gesture.wait(timeout=60)
-        if on:
-            # A tooltip is a window of its own, which the dump of the window in front does not
-            # show: the picture is what says whether it came.
-            return f"the pointer rested at {rested}, on the button: see picture {picture}"
-        log(f"    the pointer rested at {rested}, off the button at {button!r}")
-        if rested:
-            pointer_gain = (
-                corrected(pointer_gain[0], sent[0], rested[0], width),
-                corrected(pointer_gain[1], sent[1], rested[1], height),
-            )
-    raise Skipped(f"the pointer never rested on the button; the last time at {rested}")
+        screenshot("pointer-resting-on-a-button")
+    # A tooltip is a window of its own, which the dump of the window in front does not show: the
+    # picture is what says whether it came.
+    return f"the pointer rested at {at}, on the button: see picture {picture}"
 
 
 # --- Songs on the SD card ----------------------------------------------------------------------

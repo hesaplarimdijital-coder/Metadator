@@ -101,7 +101,7 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   for the one thing the runner does not ship: a system image.
 - `smoke.py` is the user. It reads the screen as the accessibility tree has it
   (`uiautomator dump`), presses keys and taps (`input`), plugs in a mouse the system believes in
-  (`uinput`) and reads where its clicks landed (`dumpsys input`), changes the display under the
+  (`uinput`) and steers it by where the input system says its pointer is (`dumpsys input`), changes the display under the
   app (`wm`, `cmd uimode`), puts songs on the SD card behind the media store's back (`su`, or
   `adb push` when there is none), and compares each song the app wrote with what it was before,
   with FFprobe. Every step leaves a picture of the screen. When the emulator has no SD card, it
