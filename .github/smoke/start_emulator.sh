@@ -5,15 +5,38 @@
 # monitor (1920 x 1080 at the density of one), with a keyboard that has real keys, and an SD card
 # for music to be kept on.
 #
-# Usage: start_emulator.sh [system image]
+# Usage: start_emulator.sh [system image...]
+#
+# Several images may be named: the first one the SDK repository has is used. A new release's
+# images are named differently from one release to the next (android-37.0, a 16 KB page variant),
+# and which of them exists is only known by asking.
 set -euo pipefail
 
 sdk="${ANDROID_HOME:?the Android SDK is where ANDROID_HOME says}"
 tools="$sdk/cmdline-tools/latest/bin"
-image="${1:-system-images;android-35;google_apis;x86_64}"
+if [ "$#" -gt 0 ]; then
+  candidates=("$@")
+else
+  candidates=("system-images;android-35;google_apis;x86_64")
+fi
 
 # The licenses are accepted on the runner already; sdkmanager asks again all the same.
 yes 2>/dev/null | "$tools/sdkmanager" --licenses >/dev/null 2>&1 || true
+available="$("$tools/sdkmanager" --list 2>/dev/null | awk '{print $1}' | grep '^system-images;' || true)"
+image=""
+for candidate in "${candidates[@]}"; do
+  if echo "$available" | grep -qxF "$candidate"; then
+    image="$candidate"
+    break
+  fi
+done
+if [ -z "$image" ]; then
+  echo "None of ${candidates[*]} is in the SDK repository. What there is for the newest releases:"
+  echo "$available" | grep -E 'android-3[6-9]' | head -n 40
+  exit 1
+fi
+echo "System image: $image"
+
 # A download that arrives broken is reported as a warning, and nothing more: what was asked for
 # is looked for, and asked for again when it is not there.
 image_dir="$sdk/$(echo "$image" | tr ';' '/')"

@@ -22,7 +22,7 @@ import time
 import traceback
 import xml.etree.ElementTree as ElementTree
 
-PACKAGE = "com.bobbyesp.metadator.dex"
+PACKAGE = "com.bobbyesp.metadator.one"
 MAIN = "com.bobbyesp.metadator.MainActivity"
 EXTERNAL = "com.bobbyesp.metadator.ExternalEditorActivity"
 MUSIC = "/sdcard/Music/Discovery"
