@@ -43,23 +43,42 @@ internal class StorageVolumes(private val context: Context) {
      */
     fun folderOfPath(path: String, roots: List<String>): String {
         val folder = path.substringBeforeLast('/', "")
-        val primary = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
-        val root =
-            (listOf(primary) + roots)
-                .filter { folder == it || folder.startsWith("$it/") }
-                .maxByOrNull { it.length } ?: return "$folder/"
+        val root = rootOf(folder, roots) ?: return "$folder/"
         val relative =
             folder.removePrefix(root).trimStart('/').let { if (it.isEmpty()) "" else "$it/" }
         // The top of the device's own storage was always "/".
-        if (root == primary) return relative.ifEmpty { "/" }
-        val label =
-            labels.getOrPut(root) {
-                runCatching { storage?.getStorageVolume(File(root))?.getDescription(context) }
-                    .getOrNull()
-                    ?.takeIf { it.isNotBlank() } ?: root.substringAfterLast('/')
-            }
+        val label = labelOfRoot(root) ?: return relative.ifEmpty { "/" }
         return "$label/$relative"
     }
+
+    /**
+     * What the volume MediaStore names [volumeName] is called, or null for the device's own
+     * storage: what the library tells an SD card's songs apart by.
+     */
+    fun volumeOf(volumeName: String?): String? = label(volumeName)
+
+    /** The same, from a file's path, before Android 10. */
+    fun volumeOfPath(path: String, roots: List<String>): String? =
+        rootOf(path.substringBeforeLast('/', ""), roots)?.let(::labelOfRoot)
+
+    /** The root of the volume [folder] is on: the longest of them it is under. */
+    private fun rootOf(folder: String, roots: List<String>): String? =
+        (listOf(primaryRoot()) + roots)
+            .filter { folder == it || folder.startsWith("$it/") }
+            .maxByOrNull { it.length }
+
+    /** What the volume at [root] is called; null for the device's own storage. */
+    private fun labelOfRoot(root: String): String? {
+        if (root == primaryRoot()) return null
+        return labels.getOrPut(root) {
+            runCatching { storage?.getStorageVolume(File(root))?.getDescription(context) }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() } ?: root.substringAfterLast('/')
+        }
+    }
+
+    private fun primaryRoot(): String =
+        Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
 
     /**
      * The roots of the volumes mounted now, the device's own among them: what to ask the media
@@ -82,7 +101,7 @@ internal class StorageVolumes(private val context: Context) {
 
     /** The roots of the volumes other than the device's own: SD cards and USB drives. */
     fun removableRoots(): List<String> {
-        val primary = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
+        val primary = primaryRoot()
         return mountedRoots().map { it.trimEnd('/') }.filter { it != primary }.distinct()
     }
 

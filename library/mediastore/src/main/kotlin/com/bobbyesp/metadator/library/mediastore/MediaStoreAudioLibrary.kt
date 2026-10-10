@@ -175,6 +175,12 @@ class MediaStoreAudioLibrary(
             dateModifiedEpochSeconds = long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
             artworkRef =
                 ContentRef(ContentUris.withAppendedId(AlbumArtCollection, albumId).toString()),
+            volume =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    volumes.volumeOf(string(MediaStore.Audio.Media.VOLUME_NAME))
+                } else {
+                    string(DATA_COLUMN)?.let { volumes.volumeOfPath(it, roots) }
+                },
         )
     }
 

@@ -34,6 +34,11 @@ data class Track(
     val dateModifiedEpochSeconds: Long,
     /** MediaStore's cached album art. Only for display: it is often a downscaled copy. */
     val artworkRef: ContentRef?,
+    /**
+     * What the volume the file is on is called, when it is not the device's own storage: an SD
+     * card, a USB drive. Null on the device's own.
+     */
+    val volume: String? = null,
 ) {
     /** The fields neither MediaStore nor the file has a value for. */
     val missingFields: Set<TrackField>

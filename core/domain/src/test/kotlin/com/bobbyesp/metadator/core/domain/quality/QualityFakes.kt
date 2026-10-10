@@ -8,6 +8,9 @@ import com.bobbyesp.metadator.library.api.AccessMode
 import com.bobbyesp.metadator.library.api.AudioFileOpener
 import com.bobbyesp.metadator.library.api.OpenResult
 import com.bobbyesp.metadator.library.api.OpenedAudioFile
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -113,3 +116,20 @@ internal fun cutAt(hz: Double): (Double) -> Double = { frequency ->
 /** About 20 dB below full scale: loud music. */
 private const val LEVEL = 0.1
 private const val TRANSITION_HZ = 300.0
+
+/** A mono, 16-bit WAV file holding [samples]. */
+internal fun wav(samples: IntArray, sampleRate: Int): ByteArray {
+    val data = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+    samples.forEach { data.putShort(it.toShort()) }
+    val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+    header.put("RIFF".toByteArray()).putInt(36 + data.capacity()).put("WAVE".toByteArray())
+    header.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
+    header.putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
+    header.put("data".toByteArray()).putInt(data.capacity())
+    return ByteArrayOutputStream()
+        .apply {
+            write(header.array())
+            write(data.array())
+        }
+        .toByteArray()
+}

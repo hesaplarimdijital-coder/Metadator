@@ -5,9 +5,6 @@ package com.bobbyesp.metadator.core.domain.quality
 
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.model.ContentRef
-import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -84,22 +81,5 @@ class CheckLosslessUseCaseTest {
         bytes[20] = 0x55
 
         assertNull(WavSource.open(MemoryAudioFile(bytes)))
-    }
-
-    /** A mono, 16-bit WAV file holding [samples]. */
-    private fun wav(samples: IntArray, sampleRate: Int): ByteArray {
-        val data = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
-        samples.forEach { data.putShort(it.toShort()) }
-        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
-        header.put("RIFF".toByteArray()).putInt(36 + data.capacity()).put("WAVE".toByteArray())
-        header.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
-        header.putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
-        header.put("data".toByteArray()).putInt(data.capacity())
-        return ByteArrayOutputStream()
-            .apply {
-                write(header.array())
-                write(data.array())
-            }
-            .toByteArray()
     }
 }

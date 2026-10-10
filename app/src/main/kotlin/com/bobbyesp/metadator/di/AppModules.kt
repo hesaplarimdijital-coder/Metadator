@@ -10,6 +10,7 @@ import com.bobbyesp.metadator.core.common.StringProvider
 import com.bobbyesp.metadator.core.data.AndroidImageSampler
 import com.bobbyesp.metadator.core.data.AndroidStringProvider
 import com.bobbyesp.metadator.core.data.DataStoreSettingsRepository
+import com.bobbyesp.metadator.core.data.FileQualityStore
 import com.bobbyesp.metadator.core.data.createSettingsDataStore
 import com.bobbyesp.metadator.core.database.MetadatorDatabase
 import com.bobbyesp.metadator.core.database.RoomTagBackupStore
@@ -24,6 +25,8 @@ import com.bobbyesp.metadator.core.domain.lookup.LookupService
 import com.bobbyesp.metadator.core.domain.lyrics.FindLyricsUseCase
 import com.bobbyesp.metadator.core.domain.lyrics.LoadLyricsUseCase
 import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
+import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
+import com.bobbyesp.metadator.core.domain.quality.QualityStore
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
@@ -148,6 +151,11 @@ private val domainModule = module {
     factory { FindLyricsUseCase(get()) }
     factory { LoadLyricsUseCase(get(), get()) }
     factory { CheckLosslessUseCase(get(), get()) }
+    single<QualityStore> {
+        FileQualityStore(File(File(androidContext().filesDir, "quality"), "verdicts.tsv"))
+    }
+    // One for the app: the check of the library goes on while its screens come and go.
+    single { LibraryQualityScanner(get(), get(), get(), get(AppScope)) }
     factory { FindCoversUseCase(get(), get(), get(), get()) }
     single {
         LookupService(
