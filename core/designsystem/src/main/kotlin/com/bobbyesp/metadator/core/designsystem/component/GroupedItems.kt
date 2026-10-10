@@ -3,11 +3,11 @@
  */
 package com.bobbyesp.metadator.core.designsystem.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -17,11 +17,9 @@ import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,8 +28,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
 object GroupedItemDefaults {
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -43,20 +44,26 @@ object GroupedItemDefaults {
         )
 }
 
-/** An icon in a tinted circle, leading a grouped row. */
+/** An icon in a tinted square, leading a grouped row, as a desktop's settings lead theirs. */
 @Composable
 fun ItemIcon(icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        modifier = modifier.size(40.dp),
-        shape = CircleShape,
-        color = if (enabled) colors.primaryContainer else colors.onSurface.copy(alpha = 0.12f),
-        contentColor =
-            if (enabled) colors.onPrimaryContainer else colors.onSurface.copy(alpha = 0.38f),
+    val colors = Studio.colors
+    Box(
+        modifier =
+            modifier
+                .size(34.dp)
+                .background(
+                    if (enabled) colors.accentSoft else colors.hover,
+                    RoundedCornerShape(10.dp),
+                ),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
-        }
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (enabled) colors.accent else colors.textTertiary,
+            modifier = Modifier.size(19.dp),
+        )
     }
 }
 
@@ -85,7 +92,7 @@ fun NavigationItem(
         supportingContent = supportingText?.let { { Text(it) } },
         colors = GroupedItemDefaults.colors(),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLargeEmphasized)
+        Text(title, style = ItemTitleStyle)
     }
 }
 
@@ -114,20 +121,12 @@ fun SwitchItem(
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = { ItemIcon(icon, enabled = enabled) },
         trailingContent = {
-            Switch(
-                checked = checked,
-                onCheckedChange = null,
-                enabled = enabled,
-                thumbContent =
-                    if (checked) {
-                        { Icon(Icons.Rounded.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
-                    } else null,
-            )
+            StudioSwitch(checked = checked, onCheckedChange = null, enabled = enabled)
         },
         supportingContent = supportingText?.let { { Text(it) } },
         colors = GroupedItemDefaults.colors(),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLargeEmphasized)
+        Text(title, style = ItemTitleStyle)
     }
 }
 
@@ -151,6 +150,12 @@ fun RadioItem(
         supportingContent = supportingText?.let { { Text(it) } },
         colors = GroupedItemDefaults.colors(),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(title, style = ItemTitleStyle)
     }
 }
+
+/** The title of a grouped row: the text of the panel, a little heavier than its body. */
+private val ItemTitleStyle: TextStyle
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)

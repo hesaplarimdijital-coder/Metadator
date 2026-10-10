@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,8 +38,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.Kbd
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.ui.R
 import kotlinx.coroutines.launch
 
@@ -178,8 +179,8 @@ private const val PageShare = 0.85f
 private fun GroupTitle(title: String) {
     Text(
         title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.labelMedium,
+        color = Studio.colors.textTertiary,
         modifier = Modifier.padding(top = Spacing.small),
     )
 }
@@ -210,21 +211,31 @@ private fun ShortcutRow(label: String, keys: List<String>) {
     }
 }
 
-/** A key as it looks on the keyboard: its legend on a little square of its own. */
+/** A key as it looks on the keyboard: its legend on a little cap of its own. */
 @Composable
 private fun KeyCap(legend: String) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Text(
-            legend,
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
-        )
-    }
+    Kbd(legend)
+}
+
+/**
+ * The keys of a shortcut as a key cap of the app writes them on a button or a menu ("Ctrl K"), or
+ * null where no keyboard is plugged in to press them on: they are shown only where they mean
+ * something.
+ */
+@Composable
+fun shortcutHint(
+    keyCode: Int,
+    ctrl: Boolean = false,
+    shift: Boolean = false,
+    alt: Boolean = false,
+): String? {
+    if (!hasHardwareKeyboard()) return null
+    val keys = mutableListOf<String>()
+    if (ctrl) keys += stringResource(R.string.key_ctrl)
+    if (alt) keys += stringResource(R.string.key_alt)
+    if (shift) keys += stringResource(R.string.key_shift)
+    keys += keyLegend(keyCode)
+    return keys.joinToString(" ")
 }
 
 /** The keys of the shortcut, modifiers first, as their legends. */

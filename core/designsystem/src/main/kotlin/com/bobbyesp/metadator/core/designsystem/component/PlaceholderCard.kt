@@ -3,32 +3,32 @@
  */
 package com.bobbyesp.metadator.core.designsystem.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
-/** What a screen shows instead of content: empty, needs a permission, or failed. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * What a screen shows instead of content: empty, needs a permission, or failed. Not a card of its
+ * own: it is the panel's content, centered, with its icon in a tinted square and the one thing to
+ * do about it as the panel's main button.
+ */
 @Composable
 fun PlaceholderCard(
     title: String,
@@ -42,65 +42,62 @@ fun PlaceholderCard(
     secondaryActionText: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val shapeColor = if (isError) colors.errorContainer else colors.primaryContainer
-    val onShapeColor = if (isError) colors.onErrorContainer else colors.onPrimaryContainer
-
-    Surface(
-        modifier = modifier.widthIn(max = 480.dp).fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
-        color = colors.surfaceContainerLow,
+    val tone = (if (isError) StudioTone.Danger else StudioTone.Accent).colors()
+    Column(
+        modifier = modifier.widthIn(max = 420.dp).fillMaxWidth().padding(vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Box(
+            Modifier.size(56.dp).background(tone.container, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center,
         ) {
-            ShapedIcon(
-                icon = icon,
-                containerColor = shapeColor,
-                contentColor = onShapeColor,
-                turnMillis = if (isError) 20_000 else 12_000,
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = tone.content,
+                modifier = Modifier.size(28.dp),
             )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = Studio.colors.text,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = Studio.colors.textSecondary,
+            )
+        }
+        val hasAction = actionText != null && onAction != null
+        val hasSecondary = secondaryActionText != null && onSecondaryAction != null
+        if (hasAction || hasSecondary) {
+            Row(
+                modifier = Modifier.padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmallEmphasized,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = colors.onSurfaceVariant,
-                )
-            }
-            if (actionText != null && onAction != null) {
-                val height = ButtonDefaults.MediumContainerHeight
-                Button(
-                    onClick = onAction,
-                    modifier = Modifier.padding(top = 8.dp).heightIn(min = height),
-                    shapes = ButtonDefaults.shapes(),
-                    contentPadding =
-                        ButtonDefaults.contentPaddingFor(height, hasStartIcon = actionIcon != null),
-                ) {
-                    if (actionIcon != null) {
-                        Icon(
-                            actionIcon,
-                            contentDescription = null,
-                            modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)),
-                        )
-                        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
-                    }
-                    Text(text = actionText, style = ButtonDefaults.textStyleFor(height))
+                if (secondaryActionText != null && onSecondaryAction != null) {
+                    StudioButton(
+                        text = secondaryActionText,
+                        onClick = onSecondaryAction,
+                        style = StudioButtonStyle.Secondary,
+                    )
                 }
-            }
-            if (secondaryActionText != null && onSecondaryAction != null) {
-                TextButton(onClick = onSecondaryAction, shapes = ButtonDefaults.shapes()) {
-                    Text(secondaryActionText)
+                if (actionText != null && onAction != null) {
+                    StudioButton(
+                        text = actionText,
+                        onClick = onAction,
+                        icon = actionIcon,
+                        style = StudioButtonStyle.Primary,
+                    )
                 }
             }
         }

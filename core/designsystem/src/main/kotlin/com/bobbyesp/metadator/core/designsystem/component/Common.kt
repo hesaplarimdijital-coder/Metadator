@@ -26,12 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
-import java.util.Locale
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
-/** A section title over a group: small, upper case, quiet. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * A section title over a group: small and quiet, as a desktop form names the parts of it. The group
+ * under it is what is read; this only says where one ends and the next begins.
+ */
 @Composable
 fun SectionHeader(
     title: String,
@@ -42,18 +43,14 @@ fun SectionHeader(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .padding(start = 20.dp, end = if (trailing != null) 8.dp else 20.dp),
+                .heightIn(min = 36.dp)
+                .padding(start = 4.dp, end = if (trailing != null) 0.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            // In the language of the title: Turkish has two letters where others have one i.
-            text = title.uppercase(Locale.getDefault()),
-            style =
-                MaterialTheme.typography.labelLargeEmphasized.copy(
-                    letterSpacing = 1.25.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                ),
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = Studio.colors.textTertiary,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

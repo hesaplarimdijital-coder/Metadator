@@ -3,22 +3,19 @@
  */
 package com.bobbyesp.metadator.core.designsystem.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetState
@@ -46,6 +43,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import kotlinx.coroutines.launch
 
 /*
@@ -136,10 +134,9 @@ fun SheetQueryField(
 }
 
 /**
- * The one thing to do at each stage, as Material's medium button: tall and as wide as the sheet, so
- * that it is found without being looked for.
+ * The one thing to do at each stage: the main button, as wide as the sheet, so that it is found
+ * without being looked for.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SheetButton(
     text: String,
@@ -148,21 +145,17 @@ fun SheetButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val height = ButtonDefaults.MediumContainerHeight
-    Button(
+    StudioButton(
+        text = text,
         onClick = onClick,
-        shapes = ButtonDefaults.shapesFor(height),
+        icon = icon,
+        style = StudioButtonStyle.Primary,
         enabled = enabled,
-        modifier = modifier.heightIn(min = height),
-        contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = true),
-    ) {
-        Icon(icon, null, Modifier.size(ButtonDefaults.iconSizeFor(height)))
-        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
-        Text(text, style = ButtonDefaults.textStyleFor(height))
-    }
+        modifier = modifier.heightIn(min = 44.dp),
+    )
 }
 
-/** Why there are no results, under the shape the app's empty screens use. */
+/** Why there are no results, under a tinted square as the app's empty screens have. */
 @Composable
 fun SheetMessage(
     icon: ImageVector,
@@ -170,22 +163,27 @@ fun SheetMessage(
     modifier: Modifier = Modifier,
     isError: Boolean = false,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val tone = (if (isError) StudioTone.Danger else StudioTone.Accent).colors()
     Column(
         modifier = modifier.fillMaxWidth().padding(vertical = Spacing.extraLarge),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.large),
     ) {
-        ShapedIcon(
-            icon = icon,
-            size = 88.dp,
-            containerColor = if (isError) colors.errorContainer else colors.primaryContainer,
-            contentColor = if (isError) colors.onErrorContainer else colors.onPrimaryContainer,
-        )
+        Box(
+            Modifier.size(56.dp).background(tone.container, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = tone.content,
+                modifier = Modifier.size(28.dp),
+            )
+        }
         Text(
             text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Studio.colors.textSecondary,
             textAlign = TextAlign.Center,
         )
     }

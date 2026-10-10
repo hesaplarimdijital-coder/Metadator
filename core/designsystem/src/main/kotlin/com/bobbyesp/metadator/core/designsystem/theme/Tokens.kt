@@ -36,36 +36,39 @@ object Spacing {
     val contentMaxWidth = 720.dp
 }
 
-/** Shapes for grouped lists: rounded outer corners, tight inner ones, as Material groups rows. */
+/**
+ * Shapes for grouped lists: rounded outer corners, tight inner ones, so that a group reads as one
+ * card cut into rows, as a desktop's settings are.
+ */
 object GroupShapes {
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private val top: RoundedCornerShape
         @Composable
         get() =
             RoundedCornerShape(
-                topStart = shapes.largeIncreased.topStart,
-                topEnd = shapes.largeIncreased.topEnd,
-                bottomStart = shapes.extraSmall.bottomStart,
-                bottomEnd = shapes.extraSmall.bottomEnd,
+                topStart = shapes.medium.topStart,
+                topEnd = shapes.medium.topEnd,
+                bottomStart = InnerCorner.bottomStart,
+                bottomEnd = InnerCorner.bottomEnd,
             )
 
     private val middle: RoundedCornerShape
-        @Composable get() = RoundedCornerShape(shapes.extraSmall.topStart)
+        @Composable get() = RoundedCornerShape(InnerCorner.topStart)
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private val bottom: RoundedCornerShape
         @Composable
         get() =
             RoundedCornerShape(
-                topStart = shapes.extraSmall.topStart,
-                topEnd = shapes.extraSmall.topEnd,
-                bottomStart = shapes.largeIncreased.bottomStart,
-                bottomEnd = shapes.largeIncreased.bottomEnd,
+                topStart = InnerCorner.topStart,
+                topEnd = InnerCorner.topEnd,
+                bottomStart = shapes.medium.bottomStart,
+                bottomEnd = shapes.medium.bottomEnd,
             )
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private val single: RoundedCornerShape
-        @Composable get() = RoundedCornerShape(shapes.largeIncreased.topStart)
+        @Composable get() = RoundedCornerShape(shapes.medium.topStart)
 
     /** The shape of the item at [index] of [count] in a group. */
     @Composable
@@ -92,8 +95,8 @@ object GroupShapes {
         start: Boolean = true,
         end: Boolean = true,
     ): RoundedCornerShape {
-        val outer = shapes.largeIncreased.topStart
-        val inner = shapes.extraSmall.topStart
+        val outer = shapes.medium.topStart
+        val inner = InnerCorner.topStart
         fun corner(isOuter: Boolean): CornerSize = if (isOuter) outer else inner
         return RoundedCornerShape(
             topStart = corner(first && start),
@@ -119,7 +122,7 @@ object GroupShapes {
             )
         if (fraction == 0f) return shape
         val density = LocalDensity.current
-        val round = shapes.largeIncreased
+        val round = shapes.medium
         // The spring overshoots, and a corner cannot be less than square.
         fun corner(from: CornerSize, to: CornerSize): CornerSize {
             val rest = from.toPx(Size.Zero, density)
@@ -133,6 +136,9 @@ object GroupShapes {
             bottomStart = corner(shape.bottomStart, round.bottomStart),
         )
     }
+
+    /** Where two rows of a group meet. */
+    private val InnerCorner = RoundedCornerShape(3.dp)
 
     /** [itemShape] with the list's pressed, selected and focused shapes on top. */
     @Composable

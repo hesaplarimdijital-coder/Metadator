@@ -4,15 +4,26 @@
 package com.bobbyesp.metadator.core.designsystem.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.DropdownMenuPopupPositionProvider
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorPosition
 import androidx.compose.material3.MenuDefaults
@@ -27,9 +38,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -38,22 +51,116 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.bobbyesp.metadator.core.designsystem.theme.LocalBackdropHaze
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorBlurDefaults
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.blurHalo
 import com.bobbyesp.metadator.core.designsystem.theme.frosted
 import dev.chrisbanes.haze.HazeState
 
-/** One thing a menu can do. */
+/**
+ * One thing a menu can do.
+ *
+ * @param shortcut the keys that do the same, written at the end of the item where there is a
+ *   keyboard to press them on ("Ctrl K")
+ * @param iconTint the icon's own color, for the item a menu is mostly for (finding a cover)
+ */
 @Immutable
 class MenuAction(
     val text: String,
     val icon: ImageVector,
     val enabled: Boolean = true,
+    val shortcut: String? = null,
+    val iconTint: Color = Color.Unspecified,
     val onClick: () -> Unit,
 )
 
+/** The corners of a menu, as of the app's other floating surfaces. */
+val StudioMenuShape = RoundedCornerShape(12.dp)
+
 /**
- * A menu in Material's expressive form: a floating group whose items take its corners. Groups are
- * the unit, so a menu with two kinds of things (choices, then an action) is two groups with a gap.
+ * An item of a [PopupMenu], as a desktop's: a line of text with its icon before it, and after it
+ * the keys that do the same, or a check for the option that is on.
+ *
+ * @param checked whether the option it is is on; null for an item that is an action
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun StudioMenuItem(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    iconTint: Color = Color.Unspecified,
+    shortcut: String? = null,
+    checked: Boolean? = null,
+    enabled: Boolean = true,
+) {
+    val colors = Studio.colors
+    DropdownMenuItem(
+        onClick = onClick,
+        text = {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.height(StudioMenuItemHeight),
+        leadingIcon =
+            icon?.let {
+                {
+                    Icon(
+                        it,
+                        contentDescription = null,
+                        tint =
+                            if (iconTint.isSpecified && enabled) iconTint
+                            else LocalContentColor.current,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+        trailingContent =
+            when {
+                checked == true -> {
+                    { Icon(Icons.Rounded.Check, null, Modifier.size(18.dp), tint = colors.accent) }
+                }
+                shortcut != null -> {
+                    { Kbd(shortcut, Modifier.padding(start = 12.dp)) }
+                }
+                else -> null
+            },
+        enabled = enabled,
+        colors =
+            MenuDefaults.itemColors(
+                textColor = colors.text,
+                leadingIconColor = colors.textSoft,
+                trailingIconColor = colors.textTertiary,
+                disabledTextColor = colors.textTertiary,
+                disabledLeadingIconColor = colors.textTertiary.copy(alpha = 0.6f),
+                disabledTrailingIconColor = colors.textTertiary.copy(alpha = 0.6f),
+            ),
+        contentPadding = PaddingValues(horizontal = 10.dp),
+    )
+}
+
+/** A hairline between the parts of one group of a [PopupMenu]. */
+@Composable
+fun StudioMenuDivider() {
+    Box(
+        Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Studio.colors.line)
+    )
+}
+
+/** Tall enough for a finger, short enough that a menu reads as a desktop's. */
+private val StudioMenuItemHeight = 38.dp
+
+/**
+ * A menu: Material's popup, which places it, opens it and moves through it with the keys, around
+ * one or more [PopupMenuGroup]s.
  *
  * Over a screen the shell records ([LocalBackdropHaze]) the menu is frosted, and lifted off the
  * screen by a blur halo where the device can draw one; anywhere else it is Material's own, shadow
@@ -80,20 +187,32 @@ fun PopupMenu(
     }
 }
 
-/** The group at [index] of [count] in a [PopupMenu]. */
+/**
+ * A group of a [PopupMenu]: a raised surface with a hairline edge, frosted over the screen where
+ * the device can blur it. A menu of two kinds of things has two, with a gap between them; or one,
+ * with a [StudioMenuDivider].
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun PopupMenuGroup(index: Int = 0, count: Int = 1, content: @Composable ColumnScope.() -> Unit) {
-    val shapes = MenuDefaults.groupShape(index, count)
+fun PopupMenuGroup(content: @Composable ColumnScope.() -> Unit) {
+    val colors = Studio.colors
+    val shape = StudioMenuShape
+    val shapes = MenuGroupShapes(shape = shape, inactiveShape = shape)
+    val border = BorderStroke(1.dp, colors.lineStrong)
     val backdrop = LocalBackdropHaze.current
     if (backdrop == null || !MetadatorBlurDefaults.isBlurSupported) {
-        DropdownMenuGroup(shapes = shapes, content = content)
+        DropdownMenuGroup(
+            shapes = shapes,
+            containerColor = colors.raisedHigh,
+            border = border,
+            contentPadding = MenuGroupPadding,
+            content = content,
+        )
         return
     }
     // The frost goes around the group, because the group's own modifier lands inside its
     // container. The group keeps one shape, hovered or not, so that the frost, clipped to it,
     // always matches.
-    val shape = shapes.shape
     Box(
         // What lifts the group is the menu's halo; where there is none (Android 12), Material's
         // shadow, cast from outside the frost, whose clip would cut a shadow of the group's own.
@@ -105,22 +224,24 @@ fun PopupMenuGroup(index: Int = 0, count: Int = 1, content: @Composable ColumnSc
             )
             .frosted(
                 state = backdrop,
-                style =
-                    MetadatorBlurDefaults.surfaceStyle(MenuDefaults.groupStandardContainerColor),
+                style = MetadatorBlurDefaults.surfaceStyle(colors.raisedHigh),
                 shape = shape,
             )
     ) {
         DropdownMenuGroup(
-            shapes = MenuGroupShapes(shape = shape, inactiveShape = shape),
+            shapes = shapes,
             containerColor = Color.Transparent,
             shadowElevation = 0.dp,
+            border = border,
+            contentPadding = MenuGroupPadding,
             content = content,
         )
     }
 }
 
+private val MenuGroupPadding = PaddingValues(6.dp)
+
 /** A menu of plain actions. Choosing one closes the menu first, so it never outlives its screen. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ActionMenu(
     expanded: Boolean,
@@ -130,15 +251,16 @@ fun ActionMenu(
 ) {
     PopupMenu(expanded, onDismissRequest, modifier) {
         PopupMenuGroup {
-            actions.forEachIndexed { index, action ->
-                DropdownMenuItem(
+            actions.forEach { action ->
+                StudioMenuItem(
+                    text = action.text,
                     onClick = {
                         onDismissRequest()
                         action.onClick()
                     },
-                    text = { Text(action.text) },
-                    shape = MenuDefaults.itemShape(index, actions.size).shape,
-                    leadingIcon = { Icon(action.icon, contentDescription = null) },
+                    icon = action.icon,
+                    iconTint = action.iconTint,
+                    shortcut = action.shortcut,
                     enabled = action.enabled,
                 )
             }
@@ -211,7 +333,7 @@ private fun HaloMenuPopup(
                     state = backdrop,
                     // However many groups, they read as one menu: the halo follows its outer
                     // corners.
-                    shape = MenuDefaults.groupShape(index = 0, count = 1).shape,
+                    shape = StudioMenuShape,
                     spread = spread,
                     strength = haloStrength.value,
                     reserveSpace = true,
