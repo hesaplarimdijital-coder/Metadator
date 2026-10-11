@@ -1789,12 +1789,62 @@ def clear_of(seen):
     return f"the message ended {button.top - message.bottom} px above Save"
 
 
+def in_view(pattern, attempts=6, field=False):
+    """The first node saying [pattern] (the first field, with [field]), scrolled into the part of
+    a phone's editor nothing covers: under its head, above its foot and the keyboard under that."""
+    for _ in range(attempts):
+        nodes = screen()
+        found = [node for node in nodes if node.says(pattern) and (node.is_field or not field)]
+        foot = [node for node in nodes if node.says("^Save$")]
+        bottom = (foot[0].top - 40) if foot else 1500
+        if found:
+            node = found[0]
+            if 300 <= node.top and node.bottom <= bottom:
+                return node
+            # The content moves the way the finger does: up, to bring what is below into view.
+            if node.top >= bottom or node.bottom > bottom:
+                shell(f"input swipe 540 {bottom - 100} 540 {max(bottom - 500, 350)} 400")
+            else:
+                shell("input swipe 540 500 540 900 400")
+        time.sleep(1)
+    raise Failed(f"/{pattern}/ could not be brought into view: {said_on(screen())[:30]}")
+
+
+def retyped_artist_is_kept():
+    """An artist taken out and typed back in, then saved without pressing Enter, as someone who
+    edits a chip and saves does. The song has to keep its artist, and nothing be left to save:
+    Save once wrote the field without what was being typed, and the field added it after."""
+    file_name = SONGS["Digital Love"]
+    tap(in_view("^Remove Daft Punk$"))
+    tap(in_view("^Type and press enter$|^Add another$"))
+    for _ in range(3):
+        shell("input text Daft%sPunk")
+        time.sleep(1.5)
+        typed = [node.text for node in screen() if node.is_field and node.focused]
+        if typed == ["Daft Punk"]:
+            break
+        # A slow emulator can repeat the first key, as for a key held down: typed again.
+        log(f"    typed 'Daft Punk', the field holds {typed!r}: again")
+        key(KEY_CTRL, KEY_A)
+        key(KEY_DELETE)
+    else:
+        raise Failed(f"the artist could not be typed back: {said_on(screen())[:30]}")
+    tap(expect("^Save$", 10))
+    expect("^No changes$", 20)
+    artist = probe(pull(file_name))["tags"].get("artist")
+    if artist != before[file_name]["tags"].get("artist"):
+        raise Failed(f"Save without Enter left the artist as {artist!r}")
+    if not find("^Daft Punk$"):
+        raise Failed(f"the artist typed back is not a value of the field: {said_on(screen())[:30]}")
+    return "an artist typed back in and saved without Enter was kept, with nothing left to save"
+
+
 def saves_on_a_phone():
     """Saving on a phone again and again, as someone who had to wait for Save to show again would:
     what says a song was saved stays clear of the button, a newer message takes the place of the
     one on show, and the editor goes on showing the song as it was saved. The title is typed
     into with its field focused, as a person does, and the keyboard that brings up must leave
-    Save in reach."""
+    Save in reach. Then an artist is typed back in and saved without Enter."""
     shell("wm size 1080x1920")
     shell("wm density 420")
     try:
@@ -1805,7 +1855,8 @@ def saves_on_a_phone():
         edited = original
         notes, missed = [], []
         for attempt in (1, 2):
-            tap(editor_field(edited))
+            editor_field(edited)
+            tap(in_view("^" + re.escape(edited) + "$", field=True))
             key(KEY_MOVE_END)
             shell(f"input text _{attempt}")
             time.sleep(1.5)
@@ -1826,8 +1877,9 @@ def saves_on_a_phone():
                 missed.append(miss)
             # Still the song as it was saved, its title in its field and nothing left to save.
             editor_field(edited, 15)
+        notes.append(retyped_artist_is_kept())
         # Back to the title it had, so that the steps after this one find the song as it was.
-        tap(editor_field(edited))
+        tap(in_view("^" + re.escape(edited) + "$", field=True))
         key(KEY_CTRL, KEY_A)
         shell("input text Digital%sLove")
         editor_field(original, 15)
@@ -1877,12 +1929,19 @@ def glass_on_a_phone():
         screenshot("phone-selection-glass")
         key(KEY_ESCAPE)
         expect_gone(SELECTED, 15)
+        # A menu is glass too, with nothing around it.
+        tap(expect("^More options$", 10))
+        expect("^Rescan music folders$", 10)
+        time.sleep(1)
+        screenshot("phone-menu-glass")
+        key(KEY_ESCAPE)
+        expect_gone("^Rescan music folders$", 10)
     finally:
         shell("input keyevent 127")
         shell("wm size reset")
         shell("wm density reset")
         time.sleep(3)
-    return "pictures of the player's bar and the selection's bar over the list"
+    return "pictures of the player's bar, the selection's bar and a menu over the list"
 
 
 def no_crash():
