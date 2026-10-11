@@ -787,7 +787,9 @@ def save_song():
         raise Skipped("no cover was found to save")
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
-    expect("^Saved", 60)
+    # "Saved" shows for four seconds, which a screen read every two may miss; the foot saying
+    # nothing is changed any more says the same, and stays.
+    expect("^Saved|^No changes$", 60)
     return check_written(["01 - One More Time.flac"])
 
 
@@ -1561,7 +1563,9 @@ def card_cover_saved():
     expect(r"\d+ × \d+ px", 90)
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
-    expect("^Saved", 60)
+    # "Saved" shows for four seconds, which a screen read every two may miss; the foot saying
+    # nothing is changed any more says the same, and stays.
+    expect("^Saved|^No changes$", 60)
     written = check_written([CARD_SONGS["Around the World"]], f"{card['root']}/{CARD_FOLDER}")
     key(KEY_CTRL, KEY_W)
     return f"{written}. The sheet said: {reasons[:6]}"
@@ -1708,6 +1712,143 @@ def keeps_playing_in_background():
     return f"still playing ten seconds into the background. The audio service says: {hardening[:4]}"
 
 
+def editor_field(text, timeout=40):
+    """The editor's field that holds [text], once it does."""
+    deadline = time.time() + timeout
+    while True:
+        fields = [node for node in screen() if node.is_field and node.text == text]
+        if fields:
+            return fields[0]
+        if time.time() > deadline:
+            raise Failed(f"no field holds {text!r}: {said_on(screen())[:30]}")
+        time.sleep(1)
+
+
+def save_and_watch(shot):
+    """Taps Save and watches the song being saved. Returns what says it was saved and the Save
+    button, as they were seen together, or None if the message came and went between two reads of
+    the screen (each takes a second or two, and it shows for four)."""
+    tap(expect("^Save$", 10))
+    seen, saved_at = None, None
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        nodes = screen()
+        if not any(node.package == PACKAGE for node in nodes) and find(r"^(Allow|ALLOW)$", nodes):
+            # The system asks once for each file whether the app may change it.
+            tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+            continue
+        messages = find("^Saved$", nodes)
+        if len(messages) > 1:
+            raise Failed(f"{len(messages)} messages say Saved at once")
+        if messages and seen is None:
+            message = messages[0]
+            while message.parent is not None and not message.holds("^Undo$"):
+                message = message.parent
+            # The button around the word: once saved it takes no click, so the nearest thing that
+            # does would be something else.
+            buttons = [node.parent or node for node in find("^Save$", nodes)]
+            seen = (message, buttons[0] if buttons else None)
+            screenshot(shot)
+        if find("^No changes$", nodes):
+            saved_at = saved_at or time.time()
+            if seen or time.time() - saved_at > 5:
+                return seen
+        time.sleep(0.3)
+    raise Failed(f"the song was not saved after 60 s: {said_on(screen())[:30]}")
+
+
+def clear_of(seen):
+    """Whether the message stood clear of the Save button, as a line for the report."""
+    if seen is None:
+        return "the message came and went unseen"
+    message, button = seen
+    if button is None:
+        raise Failed(f"Save was not in sight beside the message {message!r}")
+    if message.bottom > button.top and message.top < button.bottom:
+        raise Failed(f"the message {message!r} stood over Save {button!r}")
+    return f"the message ended {button.top - message.bottom} px above Save"
+
+
+def saves_on_a_phone():
+    """Saving on a phone again and again, as someone who had to wait for Save to show again would:
+    what says a song was saved stays clear of the button, a newer message takes the place of the
+    one on show, and the editor goes on showing the song as it was saved."""
+    shell("wm size 1080x1920")
+    shell("wm density 420")
+    try:
+        time.sleep(4)
+        home()
+        tap(row("Digital Love"))
+        original = "Digital Love"
+        edited = original
+        notes = []
+        for attempt in (1, 2):
+            tap(editor_field(edited))
+            key(KEY_MOVE_END)
+            shell(f"input text _{attempt}")
+            time.sleep(1.5)
+            typed = next(
+                (
+                    node.text
+                    for node in screen()
+                    if node.is_field and node.text.startswith(edited) and node.text != edited
+                ),
+                None,
+            )
+            if typed is None:
+                raise Failed(f"the title could not be changed: {said_on(screen())[:20]}")
+            edited = typed
+            notes.append(clear_of(save_and_watch(f"phone-saved-{attempt}")))
+            # Still the song as it was saved, its title in its field and nothing left to save.
+            editor_field(edited, 15)
+        # Back to the title it had, so that the steps after this one find the song as it was.
+        tap(editor_field(edited))
+        key(KEY_CTRL, KEY_A)
+        shell("input text Digital%sLove")
+        editor_field(original, 15)
+        save_and_watch("phone-saved-back")
+        file_name = SONGS[original]
+        after = probe(pull(file_name))
+        if after["tags"] != before[file_name]["tags"]:
+            raise Failed(f"{file_name} is not back as it was: {after['tags']}")
+        key(KEY_CTRL, KEY_W)
+        expect(LIBRARY, 20)
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    return f"saved as {edited!r} twice in a row: " + "; ".join(notes) + ". Then back as it was"
+
+
+def glass_on_a_phone():
+    """On a phone the player's bar and the selection's float over the list as glass."""
+    home()
+    tap(expect("^Play all$", 15))
+    deadline = time.time() + 20
+    while playback_state() != 3:
+        if time.time() > deadline:
+            raise Skipped(f"nothing played on this emulator: {playback_state()}")
+        time.sleep(1)
+    shell("wm size 1080x1920")
+    shell("wm density 420")
+    try:
+        time.sleep(4)
+        expect("One More Time", 15)
+        screenshot("phone-player-glass")
+        key(KEY_CTRL, KEY_A)
+        expect(SELECTED, 15)
+        expect("^Edit together$", 10)
+        screenshot("phone-selection-glass")
+        key(KEY_ESCAPE)
+        expect_gone(SELECTED, 15)
+    finally:
+        shell("input keyevent 127")
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    return "pictures of the player's bar and the selection's bar over the list"
+
+
 def no_crash():
     crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
     with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
@@ -1793,6 +1934,8 @@ def main():
         keeps_playing_in_background,
         required=False,
     )
+    step("On a phone, saving again and again keeps the editor whole", saves_on_a_phone, required=False)
+    step("On a phone the bars float as glass", glass_on_a_phone, required=False)
     step("Nothing crashed", no_crash)
 
 

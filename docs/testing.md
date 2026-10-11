@@ -37,6 +37,8 @@ the one before, and the report says which held.
 | Turkish | What the screen says |
 | How it looks: the library by day and by night, the editor beside it, a phone's screen | Screenshots, for a person to look at. Not required |
 | The music goes on with the app in the background | The media session's state ten seconds after Home. Not required |
+| A song saved twice in a row on a phone, then put back | What says it was saved stands clear of Save, one at a time; the title stays in its field; the file read back with FFprobe is as it was. Not required |
+| The player's bar and the selection's bar on a phone | Screenshots of the glass, for a person to look at. Not required |
 | Nothing crashed | The device's crash log |
 
 It is one pass on one emulator (Android 17, x86-64), with the files it makes itself and an SD card
