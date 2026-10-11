@@ -111,6 +111,12 @@ object StudioDefaults {
     val ButtonHeight = 36.dp
     val RowHeight = 40.dp
 
+    /**
+     * The height of an editor's foot, where it says what changed and saves it: what floats over the
+     * screen (a message) keeps above it.
+     */
+    val FooterHeight = 64.dp
+
     /** The type of keys and of what a file is: a format, a size. */
     val MonoStyle =
         TextStyle(

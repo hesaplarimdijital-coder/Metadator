@@ -158,10 +158,19 @@ fun MetadatorApp(onExit: () -> Unit) {
             ),
     )
     val docked = panels && showPlayer && playback.isActive
+    val editing = top is Editor || top is BatchEditor
     val snackbarClearance by
         animateDpAsState(
             targetValue =
                 when {
+                    // An editor's foot holds its Save button: a message goes above it, never over
+                    // it. In a panel, the foot is above the panels' gap and the docked bar.
+                    editing && panels ->
+                        StudioDefaults.PanelGap +
+                            (if (docked) PlayerSheetDefaults.DockedClearance else 0.dp) +
+                            StudioDefaults.FooterHeight +
+                            Spacing.small
+                    editing -> StudioDefaults.FooterHeight + Spacing.small
                     docked -> PlayerSheetDefaults.DockedClearance
                     showPlayer && playback.isActive -> PlayerSheetDefaults.CollapsedClearance
                     else -> Spacing.medium

@@ -68,7 +68,10 @@ not supported, offline) is a sealed result the UI can explain.
 - `state`: one immutable `StateFlow`.
 - `effects`: commands for whoever is on screen now; dropped if nobody listens, since a command
   carried out later would act on whatever the user is doing by then.
-- `messages`: snackbars; buffered until shown, since losing one is a silent failure.
+- `messages`: snackbars; buffered until shown, since losing one is a silent failure. A newer one
+  takes the place of the one on show, and one with an action (Undo) is as short as one without:
+  kept for ten seconds, "Saved, Undo" stood over the next button to press, and a tap meant for
+  that undid the save. The shell keeps them above an editor's foot, where Save is.
 
 ViewModels never hold a `Context`. `StringProvider` gives them text; ports give them Android work.
 System prompts (permissions, MediaStore's write request) are shown by `ActivityResultHost`, to

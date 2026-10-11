@@ -13,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 
 /** Something to tell the user, with at most one action (Undo, Retry). */
 data class UiMessage(
@@ -25,25 +26,28 @@ data class UiMessage(
 /** The app's one snackbar host, so messages outlive the screen that raised them. */
 val LocalSnackbarHostState = staticCompositionLocalOf { SnackbarHostState() }
 
-/** Shows a ViewModel's messages while the screen is started. */
+/**
+ * Shows a ViewModel's messages while the screen is started.
+ *
+ * A message with an action is as short as one without: "Saved, Undo" kept for ten seconds stood
+ * over the next thing to press, and a tap meant for it undid the save. A newer message replaces the
+ * one on show rather than waiting behind it, so saving twice says it once, with the latest undo.
+ * Material lengthens both for whoever uses accessibility services.
+ */
 @Composable
 fun ShowMessages(messages: Flow<UiMessage>) {
     val host = LocalSnackbarHostState.current
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(messages, host) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            messages.collect { message ->
+            messages.collectLatest { message ->
                 val result =
                     host.showSnackbar(
                         message = message.text,
                         actionLabel = message.actionLabel,
                         withDismissAction = message.actionLabel == null && message.long,
                         duration =
-                            when {
-                                message.actionLabel != null -> SnackbarDuration.Long
-                                message.long -> SnackbarDuration.Long
-                                else -> SnackbarDuration.Short
-                            },
+                            if (message.long) SnackbarDuration.Long else SnackbarDuration.Short,
                     )
                 if (result == SnackbarResult.ActionPerformed) message.onAction?.invoke()
             }
