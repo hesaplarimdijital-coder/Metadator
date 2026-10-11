@@ -68,7 +68,8 @@
     <string name="file_bitrate">Bit hızı</string>
     <string name="file_bitrate_value">%1$d kbps</string>
     <string name="file_sample_rate">Örnekleme hızı</string>
-    <string name="file_sample_rate_value">%1$s kHz</string>
+    <string name="file_sample_rate_whole">%1$d kHz</string>
+    <string name="file_sample_rate_tenths">%1$.1f kHz</string>
     <string name="file_channels">Kanallar</string>
     <string name="file_channels_mono">Mono</string>
     <string name="file_channels_stereo">Stereo</string>

@@ -114,11 +114,11 @@ import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
 import com.bobbyesp.metadator.feature.editor.components.TagChipsField
 import com.bobbyesp.metadator.feature.editor.components.TagTextField
+import com.bobbyesp.metadator.feature.editor.components.kiloHertz
 import com.bobbyesp.metadator.lyrics.api.Lrc
 import com.bobbyesp.metadator.tags.api.FieldKind
 import com.bobbyesp.metadator.tags.api.TagField
 import java.util.Locale
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /** The fields of each section, in order. */
@@ -456,16 +456,6 @@ private fun fileFacts(state: EditorState): List<String> {
             ?.let { stringResource(R.string.file_bitrate_value, it) },
         state.coverInfo?.let { stringResource(R.string.cover_size, it.width, it.height) },
     )
-}
-
-/** [hertz] in kHz, as a file's facts say it: "44,1 kHz". */
-@Composable
-private fun kiloHertz(hertz: Int): String {
-    val tenths = (hertz / 100.0).roundToInt()
-    val value =
-        if (tenths % 10 == 0) (tenths / 10).toString()
-        else String.format(Locale.getDefault(), "%.1f", tenths / 10.0)
-    return stringResource(R.string.file_sample_rate_value, value)
 }
 
 /** The inspector's menu: what the head has no button for. */

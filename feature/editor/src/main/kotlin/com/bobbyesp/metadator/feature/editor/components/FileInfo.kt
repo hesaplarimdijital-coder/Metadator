@@ -47,6 +47,7 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioDivider
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.editor.LoadedTrack
 import com.bobbyesp.metadator.feature.editor.R
+import kotlin.math.roundToInt
 
 /** One thing known about the audio: what it measures, and how much of it there is. */
 private class FileStat(val label: String, val value: String)
@@ -220,10 +221,7 @@ private fun fileStats(loaded: LoadedTrack): List<FileStat> {
                 add(
                     FileStat(
                         stringResource(R.string.file_sample_rate),
-                        stringResource(
-                            R.string.file_sample_rate_value,
-                            (it / 1000.0).toString().removeSuffix(".0"),
-                        ),
+                        kiloHertz(it),
                     )
                 )
             }
@@ -243,4 +241,15 @@ private fun fileStats(loaded: LoadedTrack): List<FileStat> {
                 )
             }
     }
+}
+
+/**
+ * [hertz] in kHz, to a tenth, as a file's facts say it: "44,1 kHz". The string formats the number
+ * in its own language, so the decimal mark is the one of the language the app is shown in.
+ */
+@Composable
+internal fun kiloHertz(hertz: Int): String {
+    val tenths = (hertz / 100.0).roundToInt()
+    return if (tenths % 10 == 0) stringResource(R.string.file_sample_rate_whole, tenths / 10)
+    else stringResource(R.string.file_sample_rate_tenths, tenths / 10.0)
 }
