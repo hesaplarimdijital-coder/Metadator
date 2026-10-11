@@ -128,6 +128,9 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
     Column(
         Modifier.fillMaxSize()
             .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
+            // The foot rides above the keyboard, so that "Apply to all" is in reach while a field
+            // is typed in.
+            .imePadding()
     ) {
         if (state.loading) {
             BatchHead(state, onClose, Modifier.padding(16.dp))
@@ -139,7 +142,6 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             modifier =
                 Modifier.weight(1f)
                     .fillMaxWidth()
-                    .imePadding()
                     .scrollbar(scroll)
                     .verticalScroll(scroll)
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),

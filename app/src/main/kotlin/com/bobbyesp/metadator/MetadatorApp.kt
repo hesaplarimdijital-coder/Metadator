@@ -8,9 +8,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -229,7 +231,11 @@ fun MetadatorApp(onExit: () -> Unit) {
                         snackbarHostState,
                         modifier =
                             Modifier.align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
+                                // Over the keyboard too, as an editor's foot is: under it, saying
+                                // a song was saved would say it to nobody.
+                                .windowInsetsPadding(
+                                    WindowInsets.navigationBars.union(WindowInsets.ime)
+                                )
                                 .padding(bottom = snackbarClearance),
                     )
                 }

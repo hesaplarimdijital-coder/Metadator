@@ -211,6 +211,9 @@ internal fun EditorScreen(
         modifier
             .fillMaxSize()
             .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
+            // The foot rides above the keyboard, so that Save is in reach while a field is typed
+            // in: under it, the keyboard had to be closed first.
+            .imePadding()
     ) {
         if (!panels) PhoneTopBar(parts, title = stringResource(R.string.edit_tags))
         val draft = state.draft
@@ -225,7 +228,7 @@ internal fun EditorScreen(
                     modifier = Modifier.weight(1f),
                 )
             else -> {
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val columns = panels && !showClose && maxWidth >= TwoColumnWidth
                     when {
                         columns -> TwoColumnEditor(parts, draft, loaded, scroll)
@@ -521,7 +524,7 @@ private fun PhoneTopBar(parts: EditorParts, title: String) {
 
 /**
  * The editor's foot: how many changes there are, and the two things to do with them. Always in
- * sight, however far the fields are scrolled.
+ * sight, however far the fields are scrolled, and above the keyboard while it is open.
  */
 @Composable
 private fun EditorFooter(state: EditorState, onIntent: (EditorIntent) -> Unit, phone: Boolean) {
