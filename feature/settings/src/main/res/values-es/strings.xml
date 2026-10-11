@@ -16,8 +16,8 @@
     <string name="theme_light">Claro</string>
     <string name="theme_dark">Oscuro</string>
     <string name="colors">Colores</string>
-    <string name="dynamic_color">Colores del fondo de pantalla</string>
-    <string name="dynamic_color_description">Material You, desde Android 12</string>
+    <string name="dynamic_color">La paleta del teléfono</string>
+    <string name="dynamic_color_description">El acento de los colores del propio teléfono, como los fijan One UI y el fondo de pantalla. Android 12 o posterior</string>
     <string name="pure_black">Negro puro</string>
     <string name="pure_black_description">Tema oscuro más oscuro, mejor para pantallas OLED</string>
     <string name="color_from_cover">Colorear el editor con la portada</string>
@@ -45,23 +45,31 @@
     <string name="warn_small_cover_description">Por debajo de 500 × 500 px</string>
     <string name="history">Historial para deshacer</string>
     <string name="clear_history">Borrar el historial para deshacer</string>
-    <string name="clear_history_description">Metadator guarda las etiquetas de tus últimos 100 guardados para poder deshacerlos</string>
+    <string name="clear_history_description">Metamatik guarda las etiquetas de tus últimos 100 guardados para poder deshacerlos</string>
     <string name="history_cleared">Historial borrado</string>
 
     <string name="lookup_sources">Fuentes</string>
     <string name="lookup_sources_description">Se consultan a la vez. Solo se envían el título, el artista y el álbum de la canción.</string>
     <string name="provider_musicbrainz_description">La enciclopedia musical abierta, con portadas del Cover Art Archive</string>
     <string name="provider_deezer_description">Gran catálogo de lanzamientos comerciales, portadas de hasta 1000 px</string>
+    <string name="provider_itunes_description">El catálogo de la iTunes Store de tu región, con portadas grandes</string>
     <string name="provider_other_description">Metadatos en internet</string>
 
     <string name="version">Versión %1$s</string>
     <string name="source_code">Código fuente</string>
-    <string name="source_code_description">Metadator es software libre, con licencia GPL 3.0</string>
+    <string name="source_code_description">Metamatik se basa en Metadator, software libre con licencia GPL 3.0</string>
     <string name="report_issue">Informar de un problema</string>
     <string name="report_issue_description">Abre una incidencia en GitHub</string>
     <string name="rate">Valorar Metadator</string>
     <string name="rate_description">En Google Play</string>
     <string name="credits">Hecho con</string>
-    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer y LRCLIB</string>
+    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes y LRCLIB</string>
     <string name="made_by">Hecho por BobbyESP</string>
+    <string name="accent">Color de acento</string>
+    <string name="accent_blue">Azul</string>
+    <string name="accent_violet">Violeta</string>
+    <string name="accent_teal">Verde azulado</string>
+    <string name="accent_orange">Naranja</string>
+    <string name="accent_pink">Rosa</string>
+    <string name="accent_graphite">Grafito</string>
 </resources>

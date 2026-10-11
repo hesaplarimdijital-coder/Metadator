@@ -12,7 +12,7 @@
     <string name="undo_failed">No se pudieron deshacer los cambios</string>
     <string name="save_failed">No se pudo guardar: %1$s</string>
     <string name="save_failed_restored">No se pudo guardar; el archivo se dejó como estaba (%1$s)</string>
-    <string name="write_access_denied">Metadator no tiene permiso para cambiar este archivo</string>
+    <string name="write_access_denied">Metamatik no tiene permiso para cambiar este archivo</string>
     <string name="format_unsupported">El formato de este archivo no se puede editar</string>
     <string name="more_options">Más opciones</string>
     <string name="revert_all">Deshacer todos los cambios</string>
@@ -68,11 +68,39 @@
     <string name="file_bitrate">Tasa de bits</string>
     <string name="file_bitrate_value">%1$d kbps</string>
     <string name="file_sample_rate">Frecuencia de muestreo</string>
-    <string name="file_sample_rate_value">%1$s kHz</string>
+    <string name="file_sample_rate_whole">%1$d kHz</string>
+    <string name="file_sample_rate_tenths">%1$.1f kHz</string>
     <string name="file_channels">Canales</string>
     <string name="file_channels_mono">Mono</string>
     <string name="file_channels_stereo">Estéreo</string>
     <string name="file_location">Ubicación</string>
+
+    <string name="lossless_checking">Comprobando si el audio es realmente sin pérdidas…</string>
+    <string name="lossless_failed">No se pudo leer el audio para comprobar si es realmente sin pérdidas</string>
+    <string name="lossless_verdict_lossless">Parece sin pérdidas de verdad</string>
+    <string name="lossless_verdict_upscaled">Sin pérdidas, pero reescalado</string>
+    <string name="lossless_verdict_unclear">No se puede saber si es sin pérdidas de verdad</string>
+    <string name="lossless_verdict_probably_transcoded">Probablemente hecho a partir de un archivo con pérdidas</string>
+    <string name="lossless_verdict_transcoded">Hecho a partir de un archivo con pérdidas</string>
+    <string name="lossless_summary_full_band">Sin señales de compresión con pérdidas: el sonido ocupa toda la banda, hasta %1$s kHz.</string>
+    <string name="lossless_summary_natural_end">Sin señales de compresión con pérdidas: el sonido llega hasta %1$s kHz, hasta donde llega una grabación real.</string>
+    <string name="lossless_summary_transcoded">El sonido se corta en seco a %1$s kHz, como en un MP3 o AAC de unos %2$d kbps. El archivo ocupa lo que uno real, pero suena como el que tenía pérdidas.</string>
+    <string name="lossless_summary_probably">El sonido se corta a %1$s kHz. Ahí termina un archivo con pérdidas de unos %2$d kbps, y también algunos másteres reales.</string>
+    <string name="lossless_summary_shelf">La banda por encima de 16 kHz va y viene, como la deja un codificador de MP3.</string>
+    <string name="lossless_summary_upsampled">Un archivo de %1$s kHz cuyo sonido se corta a %2$s kHz: audio de menor resolución guardado con una frecuencia de muestreo mayor.</string>
+    <string name="lossless_summary_padded">Un archivo de %1$d bits que solo usa %2$d: audio de menor resolución guardado con más bits.</string>
+    <string name="lossless_summary_too_quiet">Tiene demasiado poco sonido para juzgarlo.</string>
+    <string name="lossless_summary_low_rate">Su frecuencia de muestreo es demasiado baja para que se vea el corte de un codificador con pérdidas.</string>
+    <string name="lossless_summary_borderline">El sonido se corta a %1$s kHz, entre donde cortan los codificadores con pérdidas y donde terminan las grabaciones reales.</string>
+    <string name="lossless_format">%1$s · %2$d bits · %3$s kHz</string>
+    <string name="lossless_cutoff">Sonido hasta %1$s kHz</string>
+    <string name="lossless_source_bitrate">Origen de unos %1$d kbps</string>
+    <string name="lossless_bits_used">Usa %1$d de %2$d bits</string>
+    <string name="lossless_frequency">%1$s kHz</string>
+    <string name="lossless_chart_description">Cuánto suena cada frecuencia de la canción, de la más baja a la más alta que cabe en el archivo</string>
+    <string name="lossless_footnote">Leído del espectro de unos %1$d segundos de la canción, en este dispositivo. Un archivo con pérdidas de tasa de bits muy alta conserva toda la banda y puede pasar por uno sin pérdidas.</string>
+    <string name="lossless_expanded">Detalles a la vista</string>
+    <string name="lossless_collapsed">Detalles ocultos</string>
 
     <string name="unsaved_title">¿Descartar los cambios?</string>
     <string name="unsaved_description">Los cambios en esta canción no se han guardado.</string>
@@ -82,9 +110,9 @@
     <string name="file_gone_title">Este archivo ya no está</string>
     <string name="file_gone_description">Se movió o se borró después de que la biblioteca lo listara.</string>
     <string name="access_denied_title">No se puede abrir este archivo</string>
-    <string name="access_denied_description">La app que lo compartió no permitió a Metadator leerlo. Prueba a abrirlo desde la biblioteca o desde un gestor de archivos.</string>
+    <string name="access_denied_description">La app que lo compartió no permitió a Metamatik leerlo. Prueba a abrirlo desde la biblioteca o desde un gestor de archivos.</string>
     <string name="unsupported_title">Formato no compatible</string>
-    <string name="unsupported_description">Metadator no puede leer las etiquetas de este tipo de archivo.</string>
+    <string name="unsupported_description">Metamatik no puede leer las etiquetas de este tipo de archivo.</string>
     <string name="failed_title">No se pudo abrir este archivo</string>
     <string name="retry">Reintentar</string>
     <string name="go_back">Volver</string>
@@ -113,4 +141,16 @@
     <string name="lookup_apply">Usar lo seleccionado</string>
     <string name="lookup_back">Volver a los resultados</string>
     <string name="lookup_applied">Aplicado. Revisa y guarda cuando quieras</string>
+    <string name="shortcuts_editor">Editor</string>
+    <string name="track_position">Pista %1$s</string>
+    <string name="fact_bits">%1$d bits</string>
+    <string name="no_changes">Sin cambios</string>
+    <string name="discard_changes">Deshacer</string>
+    <string name="action_find_cover">Buscar portada</string>
+    <string name="action_metadata">Metadatos</string>
+    <string name="action_lyrics">Letra</string>
+    <plurals name="changes_count">
+        <item quantity="one">%1$d cambio</item>
+        <item quantity="other">%1$d cambios</item>
+    </plurals>
 </resources>

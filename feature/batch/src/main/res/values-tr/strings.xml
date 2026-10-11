@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="batch_title">
+        <item quantity="one">%1$d şarkıyı düzenle</item>
+        <item quantity="other">%1$d şarkıyı düzenle</item>
+    </plurals>
+    <string name="close">Kapat</string>
+    <string name="batch_files">Şarkılar</string>
+    <string name="batch_and_more">ve %1$d tane daha</string>
+    <string name="batch_fields">Her şarkıda ayarla</string>
+    <string name="batch_fields_description">Her şarkının kendi değerini korumak için alanı olduğu gibi bırakın.</string>
+    <string name="batch_multiple_values">Birden çok değer</string>
+    <string name="batch_reset_field">Her şarkının kendi %1$s değerini koru</string>
+    <string name="batch_cover">Kapak</string>
+    <string name="batch_cover_find">Çevrimiçi kapak bul</string>
+    <string name="batch_cover_set">Hepsi için tek kapak kullan</string>
+    <string name="batch_cover_remove">Tüm kapakları kaldır</string>
+    <string name="batch_cover_keep">Her şarkının kapağını koru</string>
+    <string name="batch_cover_unreadable">Bu görsel okunamadı</string>
+    <string name="batch_cover_downloading">Kapak indiriliyor…</string>
+    <string name="batch_cover_download_failed">Bu kapak indirilemedi</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">%1$d şarkıda kullan</item>
+        <item quantity="other">%1$d şarkının hepsinde kullan</item>
+    </plurals>
+    <string name="batch_cover_will_replace">Her şarkı bu kapağı alacak</string>
+    <string name="batch_cover_will_remove">Her şarkının kapağı kaldırılacak</string>
+    <string name="batch_tools">Araçlar</string>
+    <string name="batch_numbering">Parçaları numarala</string>
+    <string name="batch_numbering_description">Gösterilen sırayla, %1$d parçadan N. parça olarak</string>
+    <string name="batch_numbering_start">Başlangıç</string>
+    <string name="batch_pattern">Etiketleri dosya adlarından oku</string>
+    <string name="batch_pattern_description">{title}, {artist}, {album}, {albumartist}, {track}, {disc}, {year} ve {genre} kullanın</string>
+    <string name="batch_pattern_field">Kalıp</string>
+    <string name="batch_pattern_invalid">Her yer tutucuyu bir kez, en az birini kullanın</string>
+    <string name="batch_pattern_no_match">Eşleşmiyor</string>
+    <string name="batch_apply">Hepsine uygula</string>
+    <string name="batch_access_denied">Metamatik\'in bu dosyaları değiştirmesine izin verilmedi</string>
+    <string name="batch_running">%2$d şarkıdan %1$d. kaydediliyor</string>
+    <string name="batch_cancel">Durdur</string>
+    <string name="batch_done_title">Bitti</string>
+    <plurals name="batch_saved">
+        <item quantity="one">%1$d şarkı kaydedildi</item>
+        <item quantity="other">%1$d şarkı kaydedildi</item>
+    </plurals>
+    <plurals name="batch_failed">
+        <item quantity="one">%1$d şarkı kaydedilemedi</item>
+        <item quantity="other">%1$d şarkı kaydedilemedi</item>
+    </plurals>
+    <plurals name="batch_undone">
+        <item quantity="one">%1$d şarkı geri yüklendi</item>
+        <item quantity="other">%1$d şarkı geri yüklendi</item>
+    </plurals>
+    <string name="batch_cancelled">Durduruldu. O ana kadar kaydedilen şarkılar değişikliklerini korur.</string>
+    <string name="batch_undo_all">Tümünü geri al</string>
+    <string name="batch_finish">Bitir</string>
+    <string name="batch_reason_access">izin yok</string>
+    <string name="batch_reason_gone">dosya yok</string>
+    <string name="batch_reason_unsupported">biçim desteklenmiyor</string>
+    <string name="batch_reason_failed">yazma başarısız</string>
+    <string name="shortcuts_batch">Birden çok şarkıyı düzenleme</string>
+    <string name="batch_changed">Değişti</string>
+    <string name="batch_cover_unchanged">Her şarkı kendi kapağını korur</string>
+    <string name="batch_nothing_yet">Hepsine uygulamak için bir alanı, kapağı veya bir aracı değiştirin</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">%1$d şarkıya yazılacak</item>
+        <item quantity="other">%1$d şarkıya yazılacak</item>
+    </plurals>
+</resources>

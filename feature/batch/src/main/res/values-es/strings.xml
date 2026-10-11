@@ -12,10 +12,17 @@
     <string name="batch_multiple_values">Varios valores</string>
     <string name="batch_reset_field">Mantener %1$s de cada canción</string>
     <string name="batch_cover">Portada</string>
+    <string name="batch_cover_find">Buscar portada en internet</string>
     <string name="batch_cover_set">Usar una portada para todas</string>
     <string name="batch_cover_remove">Quitar todas las portadas</string>
     <string name="batch_cover_keep">Mantener la portada de cada canción</string>
     <string name="batch_cover_unreadable">No se pudo leer esa imagen</string>
+    <string name="batch_cover_downloading">Descargando la portada…</string>
+    <string name="batch_cover_download_failed">No se pudo descargar esa portada</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">Usar en %1$d canción</item>
+        <item quantity="other">Usar en las %1$d canciones</item>
+    </plurals>
     <string name="batch_cover_will_replace">Todas las canciones tendrán esta portada</string>
     <string name="batch_cover_will_remove">Se quitará la portada de todas las canciones</string>
     <string name="batch_tools">Herramientas</string>
@@ -28,7 +35,7 @@
     <string name="batch_pattern_invalid">Usa cada marcador una vez, y al menos uno</string>
     <string name="batch_pattern_no_match">No coincide</string>
     <string name="batch_apply">Aplicar a todas</string>
-    <string name="batch_access_denied">Metadator no tiene permiso para cambiar estos archivos</string>
+    <string name="batch_access_denied">Metamatik no tiene permiso para cambiar estos archivos</string>
     <string name="batch_running">Guardando %1$d de %2$d</string>
     <string name="batch_cancel">Detener</string>
     <string name="batch_done_title">Hecho</string>
@@ -51,4 +58,12 @@
     <string name="batch_reason_gone">el archivo ya no está</string>
     <string name="batch_reason_unsupported">formato no compatible</string>
     <string name="batch_reason_failed">error al escribir</string>
+    <string name="shortcuts_batch">Edición de varias canciones</string>
+    <string name="batch_changed">Cambiado</string>
+    <string name="batch_cover_unchanged">Cada canción conserva su portada</string>
+    <string name="batch_nothing_yet">Cambia un campo, la portada o una herramienta para aplicarlo a todas</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">Se escribirá en %1$d canción</item>
+        <item quantity="other">Se escribirá en %1$d canciones</item>
+    </plurals>
 </resources>

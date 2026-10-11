@@ -21,6 +21,7 @@ class LibraryQueriesTest {
         year: Int? = 2000,
         track: Int? = id.toInt(),
         name: String = "$title.mp3",
+        folder: String = "Music/$album/",
     ) =
         Track(
             id = TrackId(id),
@@ -38,7 +39,7 @@ class LibraryQueriesTest {
             mimeType = "audio/mpeg",
             sizeBytes = 1,
             displayName = name,
-            folder = "Music/$album/",
+            folder = folder,
             dateAddedEpochSeconds = id,
             dateModifiedEpochSeconds = id,
             artworkRef = null,
@@ -95,5 +96,29 @@ class LibraryQueriesTest {
     fun `albums group by album artist and title`() {
         val albums = tracks.albums()
         assertEquals(listOf("Abbey Road", "Album"), albums.map { it.title })
+    }
+
+    @Test
+    fun `folders of the same name say where each one is`() {
+        val folders =
+            listOf(
+                    track(1, "One", folder = "Music/Discovery/"),
+                    track(2, "Two", folder = "SD card/Music/Discovery/"),
+                    track(3, "Three", folder = "SD card/Music/Discovery/"),
+                    track(4, "Four", folder = "SD card/"),
+                    track(5, "Five", folder = "/"),
+                )
+                .folders()
+        assertEquals(
+            listOf(
+                Triple("/", "", 1),
+                Triple("Discovery", "Music", 1),
+                Triple("Discovery", "SD card/Music", 2),
+                Triple("SD card", "", 1),
+            ),
+            folders
+                .map { Triple(it.title, it.parent, it.tracks.size) }
+                .sortedWith(compareBy({ it.first }, { it.second })),
+        )
     }
 }

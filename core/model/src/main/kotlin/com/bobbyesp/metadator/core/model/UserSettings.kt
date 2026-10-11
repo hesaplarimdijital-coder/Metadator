@@ -6,23 +6,28 @@ package com.bobbyesp.metadator.core.model
 /** Every user preference, read as one value so a screen never sees half an update. */
 data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.FollowSystem,
-    val useDynamicColor: Boolean = true,
+    val useDynamicColor: Boolean = false,
     val seedColor: Int = DEFAULT_SEED_COLOR,
     val paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val pureBlack: Boolean = false,
-    val colorEditorFromArtwork: Boolean = true,
+    val colorEditorFromArtwork: Boolean = false,
     val multiValueMode: MultiValueMode = MultiValueMode.Separate,
     val multiValueSeparator: String = "; ",
     val warnSmallArtwork: Boolean = true,
-    val enabledProviders: Set<String> = setOf(PROVIDER_MUSICBRAINZ, PROVIDER_DEEZER),
+    val enabledProviders: Set<String> =
+        setOf(PROVIDER_MUSICBRAINZ, PROVIDER_DEEZER, PROVIDER_ITUNES),
     val successfulSaves: Int = 0,
 ) {
     companion object {
-        /** The 1.x seed, so a user who never touched it keeps the same colors. */
-        const val DEFAULT_SEED_COLOR: Int = 0xFF415F76.toInt()
+        /**
+         * The accent the app starts with: the Studio blue, which sits well beside Samsung's own.
+         * One of the accents the theme offers, which it knows by this value.
+         */
+        const val DEFAULT_SEED_COLOR: Int = 0xFF0B6BDE.toInt()
 
         const val PROVIDER_MUSICBRAINZ = "musicbrainz"
         const val PROVIDER_DEEZER = "deezer"
+        const val PROVIDER_ITUNES = "itunes"
     }
 }
 

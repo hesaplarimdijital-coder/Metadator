@@ -11,6 +11,8 @@ import com.bobbyesp.metadator.core.domain.batch.BatchProgress
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.batch.FileNamePattern
 import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
+import com.bobbyesp.metadator.core.domain.batch.changesFor
+import com.bobbyesp.metadator.core.domain.cover.CoverRequest
 import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
@@ -22,6 +24,7 @@ import com.bobbyesp.metadator.library.api.AccessResult
 import com.bobbyesp.metadator.library.api.AudioFileInfo
 import com.bobbyesp.metadator.library.api.AudioLibrary
 import com.bobbyesp.metadator.library.api.WriteAccess
+import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
 import com.bobbyesp.metadator.tags.api.ArtworkChange
 import com.bobbyesp.metadator.tags.api.EmbeddedPicture
 import com.bobbyesp.metadator.tags.api.PictureType
@@ -29,6 +32,8 @@ import com.bobbyesp.metadator.tags.api.TagField
 import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagReadResult
 import com.bobbyesp.metadator.tags.api.TagReader
+import com.bobbyesp.metadator.tags.api.TagSnapshot
+import com.bobbyesp.metadator.tags.api.applying
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
@@ -55,6 +60,8 @@ data class BatchState(
     /** The fields the user set, and to what. Untouched fields keep each file's own value. */
     val edits: Map<String, List<String>> = emptyMap(),
     val cover: ArtworkChange = ArtworkChange.Unchanged,
+    /** A cover was chosen and is being fetched: it is not in [cover] yet. */
+    val loadingCover: Boolean = false,
     val numbering: TrackNumbering? = null,
     val pattern: String = FileNamePattern.Suggestions.first(),
     val usePattern: Boolean = false,
@@ -80,8 +87,28 @@ data class BatchState(
             return files.take(3).map { it.item.displayName to parsed.parse(it.item.displayName) }
         }
 
+    /** Not while a cover is on its way: applying then would leave it out without saying so. */
     val canApply: Boolean
-        get() = !edit.isEmpty && files.isNotEmpty() && progress?.isRunning != true
+        get() = !edit.isEmpty && files.isNotEmpty() && progress?.isRunning != true && !loadingCover
+
+    /**
+     * The tags each song will have once [edit] is applied: what a cover is looked for by, so that
+     * an album named here is searched for under its new name.
+     */
+    val editedTags: List<TagMap>
+        get() {
+            val pending = edit
+            return files.mapIndexed { index, file ->
+                val changes =
+                    pending.changesFor(
+                        file.item,
+                        index,
+                        files.size,
+                        TagSnapshot(file.tags, emptyList()),
+                    )
+                file.tags.applying(changes.fields)
+            }
+        }
 }
 
 sealed interface BatchIntent {
@@ -90,6 +117,12 @@ sealed interface BatchIntent {
     data class ResetField(val key: String) : BatchIntent
 
     data class SetCoverFromUri(val uri: String) : BatchIntent
+
+    /** Uses the cover an online source has at [url]. */
+    data class SetCoverFromUrl(val url: String) : BatchIntent
+
+    /** Asks for the covers the online sources have for these songs. */
+    data object FindCover : BatchIntent
 
     data object RemoveCovers : BatchIntent
 
@@ -112,6 +145,9 @@ sealed interface BatchIntent {
 
 sealed interface BatchEffect {
     data object Close : BatchEffect
+
+    /** Show the covers there are for [request], for one of them to be chosen. */
+    class FindCover(val request: CoverRequest) : BatchEffect
 }
 
 class BatchViewModel(
@@ -124,6 +160,7 @@ class BatchViewModel(
     private val writeAccess: WriteAccess,
     private val settings: SettingsRepository,
     private val images: CoverReader,
+    private val artwork: ArtworkDownloader,
     private val strings: StringProvider,
 ) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState()) {
 
@@ -142,24 +179,12 @@ class BatchViewModel(
                 setState { copy(edits = edits + (intent.key to intent.values)) }
             is BatchIntent.ResetField -> setState { copy(edits = edits - intent.key) }
             is BatchIntent.SetCoverFromUri ->
-                launch {
-                    val image = images.read(intent.uri)
-                    if (image == null)
-                        showMessage(UiMessage(strings.get(R.string.batch_cover_unreadable)))
-                    else
-                        setState {
-                            copy(
-                                cover =
-                                    ArtworkChange.Replace(
-                                        EmbeddedPicture(
-                                            image.first,
-                                            image.second,
-                                            type = PictureType.FrontCover,
-                                        )
-                                    )
-                            )
-                        }
+                setCover(R.string.batch_cover_unreadable) { images.read(intent.uri) }
+            is BatchIntent.SetCoverFromUrl ->
+                setCover(R.string.batch_cover_download_failed) {
+                    artwork.download(intent.url)?.let { it.bytes to it.mimeType }
                 }
+            BatchIntent.FindCover -> findCover()
             BatchIntent.RemoveCovers -> setState { copy(cover = ArtworkChange.Remove) }
             BatchIntent.KeepCovers -> setState { copy(cover = ArtworkChange.Unchanged) }
             is BatchIntent.SetNumbering -> setState { copy(numbering = intent.numbering) }
@@ -206,6 +231,55 @@ class BatchViewModel(
                 }
             setState { copy(loading = false, files = files, common = commonValues(files)) }
         }
+
+    /**
+     * Makes the picture [source] gives the cover of every song, or says [failure] if it gives none.
+     */
+    private fun setCover(failure: Int, source: suspend () -> Pair<ByteArray, String>?) =
+        launch(onError = { setState { copy(loadingCover = false) } }) {
+            setState { copy(loadingCover = true) }
+            val image = source()
+            setState { copy(loadingCover = false) }
+            if (image == null) {
+                showMessage(UiMessage(strings.get(failure)))
+                return@launch
+            }
+            val (bytes, mime) = image
+            setState {
+                copy(
+                    cover =
+                        ArtworkChange.Replace(
+                            EmbeddedPicture(bytes, mime, type = PictureType.FrontCover)
+                        )
+                )
+            }
+        }
+
+    /**
+     * Has the screen show the covers there are for these songs. They are looked for as the songs
+     * will be once the edit is applied, and with the cover they have now: the one chosen here, or
+     * the first song's, read from its file for this. The files were listed without their pictures.
+     */
+    private fun findCover() {
+        val state = currentState
+        val first = state.files.firstOrNull() ?: return
+        launch {
+            val chosen = (state.cover as? ArtworkChange.Replace)?.picture
+            val current =
+                chosen
+                    ?: (reader.read(first.item.ref) as? TagReadResult.Success)?.snapshot?.frontCover
+            sendEffect(
+                BatchEffect.FindCover(
+                    CoverRequest.forSongs(
+                        songs = state.editedTags,
+                        titleFallback = first.title,
+                        durationMs = reader.readAudioProperties(first.item.ref)?.durationMs,
+                        currentCover = current?.data,
+                    )
+                )
+            )
+        }
+    }
 
     private fun commonValues(files: List<BatchFile>): Map<String, CommonValue> =
         EditableFields.associate { field ->

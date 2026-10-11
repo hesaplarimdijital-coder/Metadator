@@ -23,4 +23,5 @@
     <string name="lyrics_unreadable_description">No se pudo abrir el archivo.</string>
     <string name="back_to_current_line">Volver a la línea actual</string>
     <string name="queue_empty">No hay nada más en la cola</string>
+    <string name="seek_position">Posición en la canción</string>
 </resources>

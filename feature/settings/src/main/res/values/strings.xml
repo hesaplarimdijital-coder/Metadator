@@ -16,8 +16,8 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="colors">Colors</string>
-    <string name="dynamic_color">Colors from the wallpaper</string>
-    <string name="dynamic_color_description">Material You, from Android 12</string>
+    <string name="dynamic_color">The phone\'s palette</string>
+    <string name="dynamic_color_description">The accent from the phone\'s own colors, as One UI and the wallpaper set them. Android 12 and later</string>
     <string name="pure_black">Pure black</string>
     <string name="pure_black_description">Darker dark theme, easier on OLED screens</string>
     <string name="color_from_cover">Color the editor from the cover</string>
@@ -45,23 +45,31 @@
     <string name="warn_small_cover_description">Below 500 × 500 px</string>
     <string name="history">Undo history</string>
     <string name="clear_history">Clear undo history</string>
-    <string name="clear_history_description">Metadator keeps the tags of your last 100 saves so they can be undone</string>
+    <string name="clear_history_description">Metamatik keeps the tags of your last 100 saves so they can be undone</string>
     <string name="history_cleared">Undo history cleared</string>
 
     <string name="lookup_sources">Sources</string>
     <string name="lookup_sources_description">Searched together. Nothing is sent but the song\'s title, artist and album.</string>
     <string name="provider_musicbrainz_description">The open music encyclopedia, with covers from the Cover Art Archive</string>
     <string name="provider_deezer_description">Large catalogue of commercial releases, covers up to 1000 px</string>
+    <string name="provider_itunes_description">The catalogue of the iTunes Store in your region, with large covers</string>
     <string name="provider_other_description">Online metadata</string>
 
     <string name="version">Version %1$s</string>
     <string name="source_code">Source code</string>
-    <string name="source_code_description">Metadator is free software, licensed under the GPL 3.0</string>
+    <string name="source_code_description">Metamatik is built on Metadator, free software licensed under the GPL 3.0</string>
     <string name="report_issue">Report a problem</string>
     <string name="report_issue_description">Open an issue on GitHub</string>
     <string name="rate">Rate Metadator</string>
     <string name="rate_description">On Google Play</string>
     <string name="credits">Built with</string>
-    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer and LRCLIB</string>
+    <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes and LRCLIB</string>
     <string name="made_by">Made by BobbyESP</string>
+    <string name="accent">Accent</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_violet">Violet</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_graphite">Graphite</string>
 </resources>

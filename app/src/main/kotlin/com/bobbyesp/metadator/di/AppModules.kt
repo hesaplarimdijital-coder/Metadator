@@ -7,19 +7,26 @@ import com.bobbyesp.metadator.BuildConfig
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.common.AppInfo
 import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.data.AndroidImageSampler
 import com.bobbyesp.metadator.core.data.AndroidStringProvider
 import com.bobbyesp.metadator.core.data.DataStoreSettingsRepository
+import com.bobbyesp.metadator.core.data.FileQualityStore
 import com.bobbyesp.metadator.core.data.createSettingsDataStore
 import com.bobbyesp.metadator.core.database.MetadatorDatabase
 import com.bobbyesp.metadator.core.database.RoomTagBackupStore
 import com.bobbyesp.metadator.core.database.RoomTrackTagCache
 import com.bobbyesp.metadator.core.database.TagBackupFiles
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
+import com.bobbyesp.metadator.core.domain.cover.FindCoversUseCase
+import com.bobbyesp.metadator.core.domain.cover.ImageSampler
 import com.bobbyesp.metadator.core.domain.editor.LoadTrackUseCase
 import com.bobbyesp.metadator.core.domain.library.TagCompletedAudioLibrary
 import com.bobbyesp.metadator.core.domain.lookup.LookupService
 import com.bobbyesp.metadator.core.domain.lyrics.FindLyricsUseCase
 import com.bobbyesp.metadator.core.domain.lyrics.LoadLyricsUseCase
+import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
+import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
+import com.bobbyesp.metadator.core.domain.quality.QualityStore
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
@@ -27,6 +34,7 @@ import com.bobbyesp.metadator.core.network.HttpClientFactory
 import com.bobbyesp.metadator.core.network.KtorArtworkDownloader
 import com.bobbyesp.metadator.core.ui.artwork.AndroidArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.artwork.ArtworkAccentSource
+import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.feature.batch.batchModule
 import com.bobbyesp.metadator.feature.editor.editorModule
 import com.bobbyesp.metadator.feature.library.libraryModule
@@ -47,6 +55,7 @@ import com.bobbyesp.metadator.library.mediastore.MediaStoreWriteAccess
 import com.bobbyesp.metadator.library.mediastore.RecoverableAccessCache
 import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
 import com.bobbyesp.metadator.lookup.deezer.DeezerProvider
+import com.bobbyesp.metadator.lookup.itunes.ITunesProvider
 import com.bobbyesp.metadator.lookup.musicbrainz.MusicBrainzProvider
 import com.bobbyesp.metadator.lyrics.api.LyricsProvider
 import com.bobbyesp.metadator.lyrics.lrclib.LrcLibProvider
@@ -61,6 +70,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -89,6 +99,8 @@ private val appModule = module {
     single<SettingsRepository> {
         DataStoreSettingsRepository(createSettingsDataStore(androidContext()))
     }
+    // The cover finder is opened by the editor and by the batch editor: it is neither's to declare.
+    viewModelOf(::CoverFinderViewModel)
 }
 
 /*
@@ -125,6 +137,8 @@ private val engineModule = module {
     single<ArtworkDownloader> { KtorArtworkDownloader(get()) }
     single { MusicBrainzProvider(get()) }
     single { DeezerProvider(get()) }
+    single { ITunesProvider(get()) }
+    single<ImageSampler> { AndroidImageSampler(get()) }
     single<LyricsProvider> { LrcLibProvider(get()) }
 
     single<PlayerController> { Media3PlayerController(androidContext(), get(MainScope)) }
@@ -136,7 +150,19 @@ private val domainModule = module {
     factory { RestoreBackupUseCase(get(), get(), get()) }
     factory { FindLyricsUseCase(get()) }
     factory { LoadLyricsUseCase(get(), get()) }
-    single { LookupService(listOf(get<MusicBrainzProvider>(), get<DeezerProvider>()), get()) }
+    factory { CheckLosslessUseCase(get(), get()) }
+    single<QualityStore> {
+        FileQualityStore(File(File(androidContext().filesDir, "quality"), "verdicts.tsv"))
+    }
+    // One for the app: the check of the library goes on while its screens come and go.
+    single { LibraryQualityScanner(get(), get(), get(), get(AppScope)) }
+    factory { FindCoversUseCase(get(), get(), get(), get()) }
+    single {
+        LookupService(
+            listOf(get<MusicBrainzProvider>(), get<DeezerProvider>(), get<ITunesProvider>()),
+            get(),
+        )
+    }
     single { BatchRunner(get(AppScope), get()) }
 }
 

@@ -35,12 +35,12 @@
         <item quantity="other">%1$d canciones</item>
     </plurals>
     <string name="permission_title">Tu música, lista para editar</string>
-    <string name="permission_description">Metadator necesita ver tu música para mostrarla. Nada sale de tu dispositivo y ningún archivo cambia hasta que lo guardes.</string>
+    <string name="permission_description">Metamatik necesita ver tu música para mostrarla. Nada sale de tu dispositivo y ningún archivo cambia hasta que lo guardes.</string>
     <string name="permission_grant">Permitir acceso</string>
     <string name="permission_denied_description">El acceso a tu música está desactivado. Puedes activarlo en los ajustes de la app, o abrir un archivo suelto sin él.</string>
     <string name="permission_open_settings">Abrir ajustes</string>
     <string name="empty_library_title">Aún no hay canciones</string>
-    <string name="empty_library_description">Metadator muestra las canciones que Android ha encontrado en tu dispositivo. Copia música a la carpeta Música, o vuelve a escanear si acabas de hacerlo.</string>
+    <string name="empty_library_description">Metamatik muestra las canciones que Android ha encontrado en tu dispositivo. Copia música a la carpeta Música, o vuelve a escanear si acabas de hacerlo.</string>
     <string name="no_results_title">No hay coincidencias</string>
     <string name="no_results_description">Prueba con menos palabras, o quita los filtros.</string>
     <string name="clear_filters">Quitar filtros</string>
@@ -51,4 +51,50 @@
     <string name="back">Atrás</string>
     <string name="no_song_open_title">Elige una canción</string>
     <string name="no_song_open_description">Sus etiquetas se abren aquí, junto a tu biblioteca.</string>
+
+    <string name="keyboard_shortcuts">Atajos de teclado</string>
+    <string name="shortcuts_library">Biblioteca</string>
+    <string name="shortcut_search">Buscar en la biblioteca</string>
+    <string name="shortcut_list_start">Ir a la primera canción</string>
+    <string name="shortcut_list_end">Ir a la última canción</string>
+    <string name="edit_song">Editar etiquetas</string>
+    <string name="play_song">Reproducir</string>
+    <string name="select_song">Seleccionar</string>
+    <string name="deselect_song">Quitar de la selección</string>
+    <string name="open_in_new_window">Abrir en una ventana nueva</string>
+    <string name="sidebar_library">Biblioteca</string>
+    <string name="sidebar_smart_lists">Listas inteligentes</string>
+    <string name="sidebar_storage">Almacenamiento</string>
+    <string name="needs_attention">Requieren atención</string>
+    <string name="fake_lossless">FLAC falsos</string>
+    <string name="fake_lossless_filter">FLAC falsos (%1$d)</string>
+    <string name="storage_device">Teléfono</string>
+    <string name="library_title">Biblioteca</string>
+    <string name="sort_by">Ordenar: %1$s</string>
+    <string name="songs_on_storage">%1$s en %2$s</string>
+    <string name="quality_progress">Comprobando archivos sin pérdidas: %1$s de %2$s</string>
+    <string name="no_fake_title">Ningún FLAC falso</string>
+    <string name="no_fake_description">Todos los archivos sin pérdidas de tu biblioteca parecen ser lo que dicen.</string>
+    <string name="no_fake_yet_description">Ninguno por ahora: %1$d de %2$d archivos sin pérdidas comprobados. El resto se comprueba en segundo plano.</string>
+    <string name="find_cover">Buscar portada</string>
+    <plurals name="selected_songs">
+        <item quantity="one">%1$d canción seleccionada</item>
+        <item quantity="other">%1$d canciones seleccionadas</item>
+    </plurals>
+    <plurals name="song_count_formatted">
+        <item quantity="one">%1$s canción</item>
+        <item quantity="other">%1$s canciones</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%1$s álbum</item>
+        <item quantity="other">%1$s álbumes</item>
+    </plurals>
+    <plurals name="artist_count">
+        <item quantity="one">%1$s artista</item>
+        <item quantity="other">%1$s artistas</item>
+    </plurals>
+    <plurals name="folder_count">
+        <item quantity="one">%1$s carpeta</item>
+        <item quantity="other">%1$s carpetas</item>
+    </plurals>
 </resources>

@@ -7,6 +7,7 @@ import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
 import com.bobbyesp.metadator.lookup.api.DownloadedImage
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
@@ -24,6 +25,16 @@ class KtorArtworkDownloader(private val client: HttpClient) : ArtworkDownloader 
                     ?: return@networkCall null
             if (!mime.startsWith("image/")) return@networkCall null
             DownloadedImage(bytes, mime)
+        }
+
+    override suspend fun peek(url: String, maxBytes: Int): ByteArray? =
+        networkCall(onError = { null }) {
+            // A server that does not do ranges answers with the whole picture, which is cut
+            // here: more than was asked for arrives, but never more than a cover.
+            val response = client.get(url) { header(HttpHeaders.Range, "bytes=0-${maxBytes - 1}") }
+            if (!response.status.isSuccess()) return@networkCall null
+            val bytes = response.bodyAsBytes()
+            if (bytes.size > maxBytes) bytes.copyOf(maxBytes) else bytes
         }
 
     private companion object {

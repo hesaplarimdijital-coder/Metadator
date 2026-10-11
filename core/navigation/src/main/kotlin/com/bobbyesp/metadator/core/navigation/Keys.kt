@@ -20,8 +20,17 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Collection(val type: CollectionType, val key: String, val title: String) : NavKey
 
-/** The tag editor for one file, by its `content://` URI. */
-@Serializable data class Editor(val uri: String) : NavKey
+/**
+ * The tag editor for one file, by its `content://` URI. [then] is what it does once it has read the
+ * file, when it was opened for that: a song's menu in the library finds its cover.
+ */
+@Serializable data class Editor(val uri: String, val then: EditorAction? = null) : NavKey
+
+/** What the editor can be opened to do, beyond showing the song's tags. */
+@Serializable
+enum class EditorAction {
+    FindCover
+}
 
 /** Editing several files at once. */
 @Serializable data class BatchEditor(val uris: List<String>) : NavKey

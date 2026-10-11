@@ -17,16 +17,60 @@ data class LibraryFilter(
     val needsAttention: Boolean = false,
     /** File extensions, lower case. Empty means every format. */
     val formats: Set<String> = emptySet(),
+    /** Only the lossless files whose audio was found to have come from a lossy one. */
+    val fakeLossless: Boolean = false,
+    /** Only the songs on one volume; null for all of them. */
+    val storage: Storage? = null,
 ) {
     val isActive: Boolean
-        get() = search.isNotBlank() || needsAttention || formats.isNotEmpty()
+        get() =
+            search.isNotBlank() ||
+                needsAttention ||
+                formats.isNotEmpty() ||
+                fakeLossless ||
+                storage != null
 }
 
-fun List<Track>.filtered(filter: LibraryFilter): List<Track> {
+/** A volume songs are on: the device's own storage, or one that can be taken out. */
+sealed interface Storage {
+    data object Device : Storage
+
+    /** An SD card or a USB drive, by what it is called ([Track.volume]). */
+    data class Removable(val name: String) : Storage
+}
+
+/** The volume this song is on. */
+val Track.storage: Storage
+    get() = volume?.let { Storage.Removable(it) } ?: Storage.Device
+
+/** How many songs each volume holds: the device's own first, then the others by name. */
+fun List<Track>.countByStorage(): List<Pair<Storage, Int>> {
+    val counts = groupingBy { it.storage }.eachCount()
+    val device = counts[Storage.Device]
+    val removable =
+        counts
+            .filterKeys { it is Storage.Removable }
+            .toList()
+            .sortedBy {
+                (it.first as Storage.Removable).name
+            }
+    return listOfNotNull(device?.let { Storage.Device to it }) + removable
+}
+
+/**
+ * The songs [filter] lets through. [isFake] says whether a song's audio was found to have come from
+ * a lossy file: what the library knows of that is not in the song itself.
+ */
+fun List<Track>.filtered(
+    filter: LibraryFilter,
+    isFake: (Track) -> Boolean = { false },
+): List<Track> {
     val terms = filter.search.normalizedForComparison().split(' ').filter { it.isNotEmpty() }
     return filter { track ->
         (!filter.needsAttention || track.needsAttention) &&
             (filter.formats.isEmpty() || track.fileExtension in filter.formats) &&
+            (filter.storage == null || track.storage == filter.storage) &&
+            (!filter.fakeLossless || isFake(track)) &&
             (terms.isEmpty() || track.matches(terms))
     }
 }
@@ -107,9 +151,11 @@ fun List<Track>.folders(): List<TrackCollection.Folder> = groupBy {
     it.folder.orEmpty()
 }
     .map { (folder, tracks) ->
+        val path = folder.trimEnd('/')
         TrackCollection.Folder(
             key = "folder:$folder",
-            title = folder.trimEnd('/').substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
+            title = path.substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
+            parent = path.substringBeforeLast('/', ""),
             tracks = tracks.sorted(SortOrder(TrackSort.Title)),
         )
     }

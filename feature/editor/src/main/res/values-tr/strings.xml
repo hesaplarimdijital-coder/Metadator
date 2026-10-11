@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="edit_tags">Etiketleri düzenle</string>
+    <string name="close">Kapat</string>
+    <string name="save">Kaydet</string>
+    <string name="saving">Kaydediliyor…</string>
+    <string name="saved">Kaydedildi</string>
+    <string name="saved_some_unsupported">Kaydedildi. Bu biçim şunları saklayamıyor: %1$s</string>
+    <string name="undo">Geri al</string>
+    <string name="undone">Değişiklikler geri alındı</string>
+    <string name="undo_unavailable">Özgün etiketler artık mevcut değil</string>
+    <string name="undo_failed">Değişiklikler geri alınamadı</string>
+    <string name="save_failed">Kaydedilemedi: %1$s</string>
+    <string name="save_failed_restored">Kaydedilemedi, dosya olduğu gibi bırakıldı (%1$s)</string>
+    <string name="write_access_denied">Metamatik\'in bu dosyayı değiştirmesine izin verilmedi</string>
+    <string name="format_unsupported">Bu dosyanın biçimi düzenlenemiyor</string>
+    <string name="more_options">Diğer seçenekler</string>
+    <string name="revert_all">Tüm değişiklikleri geri al</string>
+    <string name="revert_field">%1$s değişikliğini geri al</string>
+    <string name="changed">Değişti</string>
+    <string name="play_song">Çal</string>
+    <string name="pause_song">Duraklat</string>
+    <string name="play_unavailable">Yalnızca kitaplığınızdaki şarkılar çalınabilir</string>
+
+    <string name="needs_attention_title">İlgi bekliyor</string>
+    <string name="section_main">Şarkı</string>
+    <string name="section_track">Parça</string>
+    <string name="section_credits">Emeği geçenler</string>
+    <string name="section_more">Diğer</string>
+    <string name="section_lyrics">Şarkı sözleri</string>
+    <string name="section_all_tags">Tüm etiketler</string>
+    <string name="section_file">Dosya</string>
+    <string name="all_tags_description">Dosyadaki diğer tüm etiketler. Burada değiştirmediğiniz sürece olduğu gibi kalır.</string>
+
+    <string name="add_value">Bir tane daha ekle</string>
+    <string name="add_value_hint">Yazıp Enter\'a basın</string>
+    <string name="remove_value">%1$s değerini kaldır</string>
+
+    <string name="cover">Kapak</string>
+    <string name="cover_change">Kapak seç</string>
+    <string name="cover_remove">Kapağı kaldır</string>
+    <string name="cover_revert">Özgün kapağı koru</string>
+    <string name="cover_find_online">Çevrimiçi kapak bul</string>
+    <string name="cover_size">%1$d × %2$d px</string>
+    <string name="cover_small_warning">Küçük kapak: büyük ekranda bulanık görünebilir</string>
+    <string name="cover_unreadable">Bu görsel okunamadı</string>
+    <string name="cover_none">Kapak yok</string>
+
+    <string name="lyrics_find">Şarkı sözü bul</string>
+    <string name="lyrics_synced">Eşzamanlı</string>
+    <string name="lyrics_found_synced">Eşzamanlı şarkı sözleri eklendi</string>
+    <string name="lyrics_found_plain">Şarkı sözleri eklendi</string>
+    <string name="lyrics_not_found">Bu şarkı için söz bulunamadı</string>
+    <string name="lyrics_instrumental">Bu şarkı enstrümantal</string>
+    <string name="lyrics_failed">Şarkı sözleri aranamadı</string>
+    <string name="lyrics_need_title_artist">Önce bir başlık ve bir sanatçı ekleyin</string>
+    <string name="offline">Çevrimdışısınız</string>
+
+    <string name="add_field">Etiket ekle</string>
+    <string name="add_field_name">Ad</string>
+    <string name="add_field_name_hint">Örneğin MOOD</string>
+    <string name="add_field_value">Değer</string>
+    <string name="add">Ekle</string>
+    <string name="cancel">İptal</string>
+
+    <string name="file_size">Boyut</string>
+    <string name="file_duration">Süre</string>
+    <string name="file_bitrate">Bit hızı</string>
+    <string name="file_bitrate_value">%1$d kbps</string>
+    <string name="file_sample_rate">Örnekleme hızı</string>
+    <string name="file_sample_rate_whole">%1$d kHz</string>
+    <string name="file_sample_rate_tenths">%1$.1f kHz</string>
+    <string name="file_channels">Kanallar</string>
+    <string name="file_channels_mono">Mono</string>
+    <string name="file_channels_stereo">Stereo</string>
+    <string name="file_location">Konum</string>
+
+    <string name="lossless_checking">Sesin gerçekten kayıpsız olup olmadığına bakılıyor…</string>
+    <string name="lossless_failed">Gerçekten kayıpsız olup olmadığına bakmak için ses okunamadı</string>
+    <string name="lossless_verdict_lossless">Gerçek kayıpsız gibi görünüyor</string>
+    <string name="lossless_verdict_upscaled">Kayıpsız ama büyütülmüş</string>
+    <string name="lossless_verdict_unclear">Gerçek kayıpsız olup olmadığı anlaşılamıyor</string>
+    <string name="lossless_verdict_probably_transcoded">Büyük olasılıkla kayıplı bir dosyadan yapılmış</string>
+    <string name="lossless_verdict_transcoded">Kayıplı bir dosyadan yapılmış</string>
+    <string name="lossless_summary_full_band">Kayıplı sıkıştırma izi yok: ses %1$s kHz\'e kadar tüm bandı dolduruyor.</string>
+    <string name="lossless_summary_natural_end">Kayıplı sıkıştırma izi yok: ses, gerçek bir kayıtta olduğu gibi %1$s kHz\'e kadar uzanıyor.</string>
+    <string name="lossless_summary_transcoded">Ses %1$s kHz\'de bıçak gibi kesiliyor; yaklaşık %2$d kbps bir MP3 veya AAC böyle yapar. Dosya gerçeği kadar yer kaplıyor ama kayıplı olan gibi duyuluyor.</string>
+    <string name="lossless_summary_probably">Ses %1$s kHz\'de kesiliyor. Yaklaşık %2$d kbps kayıplı bir dosya orada biter; birkaç gerçek master da öyle.</string>
+    <string name="lossless_summary_shelf">16 kHz üstündeki bant bir var bir yok; MP3 kodlayıcısı böyle bırakır.</string>
+    <string name="lossless_summary_upsampled">Sesi %2$s kHz\'de kesilen %1$s kHz bir dosya: daha düşük çözünürlüklü ses, daha yüksek örnekleme hızıyla kaydedilmiş.</string>
+    <string name="lossless_summary_padded">Yalnızca %2$d bitini kullanan %1$d bit bir dosya: daha düşük çözünürlüklü ses, daha yüksek bit derinliğiyle kaydedilmiş.</string>
+    <string name="lossless_summary_too_quiet">Karar vermek için içinde çok az ses var.</string>
+    <string name="lossless_summary_low_rate">Örnekleme hızı, kayıplı bir kodlayıcının kesişinin görünmesi için çok düşük.</string>
+    <string name="lossless_summary_borderline">Ses %1$s kHz\'de kesiliyor: kayıplı kodlayıcıların kestiği yer ile gerçek kayıtların bittiği yer arasında.</string>
+    <string name="lossless_format">%1$s · %2$d bit · %3$s kHz</string>
+    <string name="lossless_cutoff">Ses %1$s kHz\'e kadar</string>
+    <string name="lossless_source_bitrate">Yaklaşık %1$d kbps kaynak</string>
+    <string name="lossless_bits_used">%2$d bitin %1$d tanesi kullanılıyor</string>
+    <string name="lossless_frequency">%1$s kHz</string>
+    <string name="lossless_chart_description">Şarkının her frekansının, en düşüğünden dosyanın tutabildiği en yükseğine kadar ne kadar güçlü olduğu</string>
+    <string name="lossless_footnote">Şarkının yaklaşık %1$d saniyesinin spektrumundan, bu cihazda okundu. Çok yüksek bit hızlı kayıplı bir dosya tüm bandı korur ve kayıpsız sanılabilir.</string>
+    <string name="lossless_expanded">Ayrıntılar gösteriliyor</string>
+    <string name="lossless_collapsed">Ayrıntılar gizli</string>
+
+    <string name="unsaved_title">Değişiklikler atılsın mı?</string>
+    <string name="unsaved_description">Bu şarkıdaki değişiklikler kaydedilmedi.</string>
+    <string name="unsaved_discard">At</string>
+    <string name="unsaved_keep">Düzenlemeyi sürdür</string>
+
+    <string name="file_gone_title">Bu dosya artık yok</string>
+    <string name="file_gone_description">Kitaplık listeledikten sonra taşınmış veya silinmiş.</string>
+    <string name="access_denied_title">Bu dosya açılamıyor</string>
+    <string name="access_denied_description">Dosyayı paylaşan uygulama Metamatik\'in onu okumasına izin vermedi. Kitaplıktan veya bir dosya yöneticisinden açmayı deneyin.</string>
+    <string name="unsupported_title">Biçim desteklenmiyor</string>
+    <string name="unsupported_description">Metamatik bu tür dosyalardan etiket okuyamıyor.</string>
+    <string name="failed_title">Bu dosya açılamadı</string>
+    <string name="retry">Yeniden dene</string>
+    <string name="go_back">Geri dön</string>
+
+    <string name="lookup_title">Meta veri bul</string>
+    <string name="lookup_find">Meta veri bul</string>
+    <string name="lookup_search">Ara</string>
+    <string name="lookup_searching">Aranıyor…</string>
+    <string name="lookup_no_results">Eşleşme yok. Daha az sözcük deneyin.</string>
+    <string name="lookup_no_providers">Tüm kaynaklar kapalı. Ayarlar\'dan birini açın.</string>
+    <string name="lookup_rate_limited">Kaynaklar meşgul. Birazdan yeniden deneyin.</string>
+    <string name="lookup_failed">Arama başarısız oldu. Yeniden deneyin.</string>
+    <string name="lookup_partial">%1$s yanıt vermedi</string>
+    <string name="lookup_confidence_high">İyi eşleşme</string>
+    <string name="lookup_confidence_medium">Olası eşleşme</string>
+    <string name="lookup_confidence_low">Zayıf eşleşme</string>
+    <string name="lookup_compare_title">Neyin kullanılacağını seçin</string>
+    <string name="lookup_current">Şimdi: %1$s</string>
+    <string name="lookup_empty_value">boş</string>
+    <string name="lookup_show_unchanged">Zaten eşleşen alanlar (%1$d)</string>
+    <string name="lookup_results">Sonuçlar</string>
+    <string name="lookup_selected_count">%2$d alandan %1$d tanesi seçili</string>
+    <string name="lookup_select_all">Tümünü seç</string>
+    <string name="lookup_select_none">Temizle</string>
+    <string name="lookup_use_cover">Bu kapağı kullan</string>
+    <string name="lookup_apply">Seçilenleri kullan</string>
+    <string name="lookup_back">Sonuçlara dön</string>
+    <string name="lookup_applied">Uygulandı. Gözden geçirip hazır olunca kaydedin</string>
+    <string name="shortcuts_editor">Düzenleyici</string>
+    <string name="track_position">%1$s. parça</string>
+    <string name="fact_bits">%1$d bit</string>
+    <string name="no_changes">Değişiklik yok</string>
+    <string name="discard_changes">Geri al</string>
+    <string name="action_find_cover">Kapak bul</string>
+    <string name="action_metadata">Meta veri</string>
+    <string name="action_lyrics">Sözler</string>
+    <plurals name="changes_count">
+        <item quantity="one">%1$d değişiklik</item>
+        <item quantity="other">%1$d değişiklik</item>
+    </plurals>
+</resources>

@@ -32,6 +32,12 @@ sealed interface TrackCollection {
     data class Folder(
         override val key: String,
         override val title: String,
+        /**
+         * Where the folder is: the folder it is in, after the name of its volume when that is not
+         * the device's own storage ("SD card/Music"). Empty at the top of the device's storage. Two
+         * folders can have the same name, as every album's "CD1" does.
+         */
+        val parent: String,
         override val tracks: List<Track>,
     ) : TrackCollection
 }

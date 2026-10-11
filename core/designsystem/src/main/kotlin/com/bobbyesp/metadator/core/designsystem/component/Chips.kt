@@ -3,41 +3,54 @@
  */
 package com.bobbyesp.metadator.core.designsystem.component
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
+
+/** The height of the app's chips: a desktop toolbar's, which a finger still finds. */
+private val ChipHeight = 30.dp
 
 /**
- * Something a list is narrowed down by, or one option of a few: Material's filter chip in its
- * expressive form, which changes shape as it is pressed and once chosen, and ticks under the
- * finger.
+ * Something a list is narrowed down by: a pill with a hairline edge that takes the accent once it
+ * is on, and ticks under the finger.
  *
- * Chosen, it shows a check where its [icon] was: the color alone would not say it to everyone.
+ * On, it shows a check where its [icon] was: the color alone would not say it to everyone.
+ *
+ * @param iconTint the icon's own color, for a filter that is a warning (what needs attention)
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ToggleChip(
     selected: Boolean,
@@ -45,34 +58,71 @@ fun ToggleChip(
     label: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    iconTint: Color = Color.Unspecified,
 ) {
     val haptics = LocalHapticFeedback.current
+    val colors = Studio.colors
+    val motion = MaterialTheme.motionScheme
+    val container by
+        animateColorAsState(
+            targetValue =
+                when {
+                    selected -> colors.accentSoft
+                    colors.isDark -> Color.Transparent
+                    else -> colors.field
+                },
+            animationSpec = motion.fastEffectsSpec(),
+            label = "ChipContainer",
+        )
+    val edge by
+        animateColorAsState(
+            targetValue = if (selected) colors.accent.copy(alpha = 0.5f) else colors.lineStrong,
+            animationSpec = motion.fastEffectsSpec(),
+            label = "ChipEdge",
+        )
     val leading = if (selected) Icons.Rounded.Check else icon
-    FilterChip(
-        selected = selected,
-        onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-            onClick()
-        },
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        shapes = FilterChipDefaults.shapes(),
-        modifier = modifier,
-        leadingIcon =
-            leading?.let {
-                {
-                    Icon(
-                        imageVector = it,
-                        contentDescription = null,
-                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+    CompositionLocalProvider(
+        LocalContentColor provides if (selected) colors.accent else colors.textSoft
+    ) {
+        Row(
+            modifier =
+                modifier
+                    .height(ChipHeight)
+                    .clip(CircleShape)
+                    .background(container, CircleShape)
+                    .border(1.dp, edge, CircleShape)
+                    .toggleable(
+                        value = selected,
+                        interactionSource = null,
+                        indication = ripple(),
+                        role = Role.Checkbox,
+                        onValueChange = {
+                            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onClick()
+                        },
                     )
-                }
-            },
-    )
+                    .padding(start = if (leading != null) 9.dp else 12.dp, end = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (leading != null) {
+                Icon(
+                    leading,
+                    contentDescription = null,
+                    tint =
+                        if (!selected && iconTint.isSpecified) iconTint
+                        else LocalContentColor.current,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+            ChipText(label, selected)
+        }
+    }
 }
 
 /**
- * A chip that does something rather than being chosen: it never looks selected, so it is not
- * mistaken for a filter that is on.
+ * A chip that does something rather than being chosen: it never looks on, so it is not mistaken for
+ * a filter that is.
  *
  * @param opensMenu whether it opens a menu, which an arrow at its end then says
  */
@@ -84,61 +134,74 @@ fun ActionChip(
     modifier: Modifier = Modifier,
     opensMenu: Boolean = false,
 ) {
-    AssistChip(
-        onClick = onClick,
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        modifier = modifier,
-        leadingIcon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(AssistChipDefaults.IconSize),
-            )
-        },
-        trailingIcon =
-            if (opensMenu) {
-                {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowDropDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(AssistChipDefaults.IconSize),
+    val colors = Studio.colors
+    CompositionLocalProvider(LocalContentColor provides colors.textSoft) {
+        Row(
+            modifier =
+                modifier
+                    .height(ChipHeight)
+                    .clip(CircleShape)
+                    .background(
+                        if (colors.isDark) Color.Transparent else colors.field,
+                        CircleShape,
                     )
-                }
-            } else null,
+                    .border(1.dp, colors.lineStrong, CircleShape)
+                    .clickable(
+                        interactionSource = null,
+                        indication = ripple(),
+                        role = Role.Button,
+                        onClick = onClick,
+                    )
+                    .padding(start = 9.dp, end = if (opensMenu) 7.dp else 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp))
+            ChipText(label, selected = false)
+            if (opensMenu) {
+                Icon(Icons.Rounded.ExpandMore, contentDescription = null, Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChipText(label: String, selected: Boolean) {
+    Text(
+        label,
+        style =
+            MaterialTheme.typography.labelLarge.copy(
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
 /**
  * A chip that only says something: what a thing is or belongs to, with an icon for the kind of
- * thing. It is not pressed, so it has neither the outline of the chips that are nor their states: a
- * tonal pill, as Material's expressive badges and labels are.
+ * thing. It is not pressed, so it has none of the edge of the chips that are: a quiet pill.
  */
 @Composable
 fun LabelChip(label: String, icon: ImageVector, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    val colors = Studio.colors
+    Row(
+        modifier =
+            modifier
+                .height(26.dp)
+                .background(colors.hover, CircleShape)
+                .padding(start = 8.dp, end = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier =
-                Modifier.heightIn(min = AssistChipDefaults.Height)
-                    .padding(start = Spacing.small, end = Spacing.medium),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(AssistChipDefaults.IconSize),
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(14.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textSoft,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

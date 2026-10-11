@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="now_playing">Şimdi çalıyor</string>
+    <string name="open_player">Oynatıcıyı aç</string>
+    <string name="play">Çal</string>
+    <string name="pause">Duraklat</string>
+    <string name="next">Sonraki</string>
+    <string name="previous">Önceki</string>
+    <string name="shuffle">Karıştır</string>
+    <string name="repeat_off">Tekrar kapalı</string>
+    <string name="repeat_all">Tümünü tekrarla</string>
+    <string name="repeat_one">Birini tekrarla</string>
+    <string name="edit_tags">Etiketleri düzenle</string>
+    <string name="up_next">Sıradakiler</string>
+    <string name="close">Kapat</string>
+    <string name="stop">Durdur</string>
+    <string name="nothing_playing">Hiçbir şey çalmıyor</string>
+    <string name="unknown_artist">Bilinmeyen sanatçı</string>
+    <string name="lyrics">Şarkı sözleri</string>
+    <string name="no_lyrics">Şarkı sözü yok</string>
+    <string name="no_lyrics_description">Bu şarkının etiketlerinde söz yok. Düzenleyicide yazın veya arayın.</string>
+    <string name="lyrics_unreadable">Şarkı sözleri okunamadı</string>
+    <string name="lyrics_unreadable_description">Dosya açılamadı.</string>
+    <string name="back_to_current_line">Geçerli satıra dön</string>
+    <string name="queue_empty">Sırada başka bir şey yok</string>
+    <string name="seek_position">Şarkıdaki konum</string>
+</resources>

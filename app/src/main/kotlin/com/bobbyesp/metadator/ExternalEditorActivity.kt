@@ -4,16 +4,23 @@
 package com.bobbyesp.metadator
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.KeyboardShortcutGroup
+import android.view.Menu
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -23,10 +30,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorTheme
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
+import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
+import com.bobbyesp.metadator.core.ui.input.ShortcutDispatcher
+import com.bobbyesp.metadator.core.ui.input.ShortcutsHelp
 import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
 import com.bobbyesp.metadator.feature.editor.EditorDestination
 import com.bobbyesp.metadator.library.mediastore.ActivityResultHost
@@ -39,6 +53,9 @@ import org.koin.android.ext.android.inject
 class ExternalEditorActivity : ComponentActivity() {
     private val settingsRepository: SettingsRepository by inject()
     private val resultHost: ActivityResultHost by inject()
+
+    /** The keys no view took, for the editor to take as shortcuts. */
+    private val shortcuts = ShortcutDispatcher()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -55,11 +72,29 @@ class ExternalEditorActivity : ComponentActivity() {
                 settingsRepository.settings.collectAsStateWithLifecycle(initialValue = null)
             val settings = loaded ?: return@setContent
             val snackbar = remember { SnackbarHostState() }
-            CompositionLocalProvider(LocalSnackbarHostState provides snackbar) {
+            CompositionLocalProvider(
+                LocalSnackbarHostState provides snackbar,
+                LocalShortcutDispatcher provides shortcuts,
+            ) {
                 MetadatorTheme(settings) {
-                    Surface(color = MaterialTheme.colorScheme.surface) {
+                    // A window of its own on a desktop: as wide as one, it is a panel on the
+                    // ground, as the main window's editor is.
+                    val window = LocalWindowInfo.current.containerSize
+                    val panels =
+                        with(LocalDensity.current) { window.width.toDp() } >= PanelWindowWidth
+                    Surface(color = MaterialTheme.colorScheme.background) {
                         Box(Modifier.fillMaxSize()) {
-                            EditorDestination(uri = uri.toString(), onClose = ::finish)
+                            ShortcutsHelp()
+                            CompositionLocalProvider(LocalPanels provides panels) {
+                                Box(
+                                    if (panels) {
+                                        Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                                            .padding(StudioDefaults.PanelGap)
+                                    } else Modifier
+                                ) {
+                                    EditorDestination(uri = uri.toString(), onClose = ::finish)
+                                }
+                            }
                             SnackbarHost(
                                 snackbar,
                                 Modifier.align(Alignment.BottomCenter)
@@ -71,6 +106,30 @@ class ExternalEditorActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
+        (event != null && shortcuts.dispatch(event)) || super.onKeyDown(keyCode, event)
+
+    override fun onProvideKeyboardShortcuts(
+        data: MutableList<KeyboardShortcutGroup>?,
+        menu: Menu?,
+        deviceId: Int,
+    ) {
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+        data?.addAll(shortcuts.systemGroups())
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // As in the main activity: the bars' icons follow day and night, which no longer
+        // recreate the activity.
+        enableEdgeToEdge()
+    }
+
+    private companion object {
+        /** As the main window: narrower, the screen is one, as a phone's. */
+        val PanelWindowWidth = 600.dp
     }
 
     private fun Intent.audioUri(): Uri? =

@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,8 +45,9 @@ internal fun PlayPauseButton(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource? = null,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
-    val colors = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
     FilledIconToggleButton(
         checked = isPlaying,
@@ -54,10 +56,10 @@ internal fun PlayPauseButton(
         modifier = modifier,
         colors =
             IconButtonDefaults.filledIconToggleButtonColors(
-                containerColor = colors.primary,
-                contentColor = colors.onPrimary,
-                checkedContainerColor = colors.primary,
-                checkedContentColor = colors.onPrimary,
+                containerColor = containerColor,
+                contentColor = contentColor,
+                checkedContainerColor = containerColor,
+                checkedContentColor = contentColor,
             ),
         interactionSource = interactionSource,
     ) {

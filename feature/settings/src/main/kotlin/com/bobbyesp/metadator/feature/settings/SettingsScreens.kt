@@ -3,92 +3,84 @@
  */
 package com.bobbyesp.metadator.feature.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Wallpaper
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.bobbyesp.metadator.core.designsystem.component.BrandMark
 import com.bobbyesp.metadator.core.designsystem.component.Choice
 import com.bobbyesp.metadator.core.designsystem.component.ConnectedChoices
+import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.NavigationItem
 import com.bobbyesp.metadator.core.designsystem.component.RadioItem
 import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
-import com.bobbyesp.metadator.core.designsystem.component.ShapedIcon
+import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.SwitchItem
-import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
 import com.bobbyesp.metadator.core.designsystem.component.readableWidth
-import com.bobbyesp.metadator.core.designsystem.component.sidesOf
+import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
+import com.bobbyesp.metadator.core.designsystem.theme.StudioAccent
+import com.bobbyesp.metadator.core.designsystem.theme.StudioAccents
 import com.bobbyesp.metadator.core.designsystem.theme.isDynamicColorSupported
 import com.bobbyesp.metadator.core.model.MultiValueMode
-import com.bobbyesp.metadator.core.model.PaletteStyle
 import com.bobbyesp.metadator.core.model.ThemeMode
 import com.bobbyesp.metadator.core.model.UserSettings
 import com.bobbyesp.metadator.core.navigation.About
@@ -101,23 +93,9 @@ import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
-private const val APP_NAME = "Metadator"
 private const val SOURCE_URL = "https://github.com/BobbyESP/Metadator"
 private const val ISSUES_URL = "https://github.com/BobbyESP/Metadator/issues"
 private const val PLAY_URL = "https://play.google.com/store/apps/details?id=com.bobbyesp.metadator"
-
-/** Seeds offered when wallpaper colors are off: the 1.x default first. */
-private val SeedColors =
-    listOf(
-        UserSettings.DEFAULT_SEED_COLOR,
-        0xFF6750A4.toInt(),
-        0xFF006A6A.toInt(),
-        0xFF8B5000.toInt(),
-        0xFFB3261E.toInt(),
-        0xFF386A20.toInt(),
-        0xFF984061.toInt(),
-        0xFF00639B.toInt(),
-    )
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
@@ -213,6 +191,8 @@ fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
                                             R.string.provider_musicbrainz_description
                                         UserSettings.PROVIDER_DEEZER ->
                                             R.string.provider_deezer_description
+                                        UserSettings.PROVIDER_ITUNES ->
+                                            R.string.provider_itunes_description
                                         else -> R.string.provider_other_description
                                     }
                                 ),
@@ -233,22 +213,26 @@ fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
         val info = viewModel.appInfo
         SettingsPage(stringResource(R.string.about), onBack = navigator::goBack) {
             item {
+                val context = LocalContext.current
+                val appName =
+                    remember(context) {
+                        context.applicationInfo.loadLabel(context.packageManager).toString()
+                    }
                 Column(
                     modifier = Modifier.readableWidth().padding(vertical = Spacing.large),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Spacing.small),
                 ) {
-                    ShapedIcon(
-                        icon = Icons.Rounded.MusicNote,
-                        size = 120.dp,
-                        polygon = MaterialShapes.Cookie12Sided,
-                        modifier = Modifier.padding(bottom = Spacing.small),
+                    BrandMark(Modifier.padding(bottom = Spacing.small), size = 88.dp)
+                    Text(
+                        appName,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Studio.colors.text,
                     )
-                    Text(APP_NAME, style = MaterialTheme.typography.headlineMediumEmphasized)
                     Text(
                         stringResource(R.string.version, info.versionName),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Studio.colors.textSecondary,
                     )
                 }
             }
@@ -313,30 +297,43 @@ fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * A page of settings: its title and the way back over a list at a readable width. On a wide window
+ * it is a panel, as the library is.
+ */
 @Composable
 private fun SettingsPage(title: String, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back))
-                    }
-                },
-                scrollBehavior = scrollBehavior,
+    val panels = LocalPanels.current
+    Column(
+        Modifier.fillMaxSize()
+            .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
+    ) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(start = 6.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StudioIconButton(
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = stringResource(R.string.back),
+                onClick = onBack,
+                size = 44.dp,
+                iconSize = 22.dp,
             )
-        },
-    ) { padding ->
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = Studio.colors.text,
+            )
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize().sidesOf(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
-                    top = padding.calculateTopPadding(),
-                    bottom = padding.calculateBottomPadding() + Spacing.huge,
+                    top = Spacing.small,
+                    bottom = Spacing.huge,
                     start = Spacing.screen,
                     end = Spacing.screen,
                 ),
@@ -379,6 +376,17 @@ private fun LazyListScope.appearance(
             modifier = Modifier.readableWidth(),
         )
     }
+    item { SectionHeader(stringResource(R.string.accent), Modifier.readableWidth()) }
+    item {
+        AccentPicker(
+            selected =
+                if (settings.useDynamicColor && isDynamicColorSupported()) null
+                else StudioAccents.of(settings.seedColor),
+            onSelect = { accent ->
+                update { it.copy(seedColor = accent.id, useDynamicColor = false) }
+            },
+        )
+    }
     item { SectionHeader(stringResource(R.string.colors), Modifier.readableWidth()) }
     item {
         val dynamicAvailable = isDynamicColorSupported()
@@ -393,15 +401,7 @@ private fun LazyListScope.appearance(
                 checked = settings.useDynamicColor && dynamicAvailable,
                 enabled = dynamicAvailable,
                 onCheckedChange = { checked -> update { it.copy(useDynamicColor = checked) } },
-                shapes = GroupShapes.listItemShapes(0, 3),
-            )
-            SwitchItem(
-                title = stringResource(R.string.pure_black),
-                supportingText = stringResource(R.string.pure_black_description),
-                icon = Icons.Rounded.Contrast,
-                checked = settings.pureBlack,
-                onCheckedChange = { checked -> update { it.copy(pureBlack = checked) } },
-                shapes = GroupShapes.listItemShapes(1, 3),
+                shapes = GroupShapes.listItemShapes(0, 2),
             )
             SwitchItem(
                 title = stringResource(R.string.color_from_cover),
@@ -411,108 +411,80 @@ private fun LazyListScope.appearance(
                 onCheckedChange = { checked ->
                     update { it.copy(colorEditorFromArtwork = checked) }
                 },
-                shapes = GroupShapes.listItemShapes(2, 3),
+                shapes = GroupShapes.listItemShapes(1, 2),
             )
         }
     }
-    if (!settings.useDynamicColor || !isDynamicColorSupported()) {
-        item { SectionHeader(stringResource(R.string.seed_color), Modifier.readableWidth()) }
-        item {
-            SeedColorPicker(settings.seedColor) { color -> update { it.copy(seedColor = color) } }
-        }
-        item { SectionHeader(stringResource(R.string.palette_style), Modifier.readableWidth()) }
-        item {
-            PaletteStylePicker(settings.paletteStyle) { style ->
-                update { it.copy(paletteStyle = style) }
-            }
-        }
-    }
 }
 
+/**
+ * The accents the app comes in, as swatches with their names under them. None is chosen while the
+ * phone's own palette is used.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SeedColorPicker(selected: Int, onSelect: (Int) -> Unit) {
+private fun AccentPicker(selected: StudioAccent?, onSelect: (StudioAccent) -> Unit) {
+    val dark = Studio.colors.isDark
     FlowRow(
         modifier = Modifier.readableWidth().padding(horizontal = Spacing.small),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.large),
         verticalArrangement = Arrangement.spacedBy(Spacing.medium),
     ) {
-        SeedColors.forEach { color -> SeedColor(color, color == selected) { onSelect(color) } }
-    }
-}
-
-/** A color to pick. The chosen one stops being a circle, so it is found by shape, not by a ring. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun SeedColor(color: Int, selected: Boolean, onClick: () -> Unit) {
-    val motion = MaterialTheme.motionScheme
-    val swatch = Color(color)
-    val scale by
-        animateFloatAsState(
-            targetValue = if (selected) 1.15f else 1f,
-            animationSpec = motion.fastSpatialSpec(),
-            label = "SeedScale",
-        )
-    Surface(
-        onClick = onClick,
-        shape = if (selected) MaterialShapes.Cookie9Sided.toShape() else CircleShape,
-        color = swatch,
-        modifier =
-            Modifier.size(52.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .semantics {
-                    role = Role.RadioButton
-                    this.selected = selected
-                },
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            AnimatedVisibility(
-                visible = selected,
-                enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
-                exit = scaleOut(motion.fastEffectsSpec()) + fadeOut(motion.fastEffectsSpec()),
+        StudioAccents.All.forEach { accent ->
+            val chosen = accent == selected
+            val swatch = if (dark) accent.fillOnDark else accent.fillOnLight
+            val name = stringResource(accent.label)
+            Column(
+                modifier =
+                    Modifier.clip(RoundedCornerShape(12.dp))
+                        .selectable(
+                            selected = chosen,
+                            onClick = { onSelect(accent) },
+                            role = Role.RadioButton,
+                        )
+                        .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = if (swatch.luminance() > 0.5f) Color.Black else Color.White,
+                Box(
+                    Modifier.size(40.dp)
+                        .then(
+                            if (chosen) {
+                                Modifier.border(2.dp, Studio.colors.text, CircleShape).padding(4.dp)
+                            } else Modifier
+                        )
+                        .background(swatch, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (chosen) {
+                        Icon(
+                            Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Text(
+                    name,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (chosen) Studio.colors.text else Studio.colors.textSecondary,
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PaletteStylePicker(selected: PaletteStyle, onSelect: (PaletteStyle) -> Unit) {
-    FlowRow(
-        modifier = Modifier.readableWidth().padding(horizontal = Spacing.small),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-    ) {
-        PaletteStyle.entries.forEach { style ->
-            ToggleChip(
-                selected = style == selected,
-                onClick = { onSelect(style) },
-                label = stringResource(style.label),
-            )
-        }
-    }
-}
-
-private val PaletteStyle.label: Int
+/** What an accent is called, for its swatch and for a screen reader. */
+private val StudioAccent.label: Int
     get() =
         when (this) {
-            PaletteStyle.TonalSpot -> R.string.palette_tonal_spot
-            PaletteStyle.Neutral -> R.string.palette_neutral
-            PaletteStyle.Vibrant -> R.string.palette_vibrant
-            PaletteStyle.Expressive -> R.string.palette_expressive
-            PaletteStyle.Rainbow -> R.string.palette_rainbow
-            PaletteStyle.FruitSalad -> R.string.palette_fruit_salad
-            PaletteStyle.Monochrome -> R.string.palette_monochrome
-            PaletteStyle.Fidelity -> R.string.palette_fidelity
-            PaletteStyle.Content -> R.string.palette_content
+            StudioAccents.Violet -> R.string.accent_violet
+            StudioAccents.Teal -> R.string.accent_teal
+            StudioAccents.Orange -> R.string.accent_orange
+            StudioAccents.Pink -> R.string.accent_pink
+            StudioAccents.Graphite -> R.string.accent_graphite
+            else -> R.string.accent_blue
         }
 
 private fun LazyListScope.editor(
@@ -551,6 +523,7 @@ private fun LazyListScope.editor(
             },
             label = stringResource(R.string.separator),
             supportingText = stringResource(R.string.separator_description),
+            inputTransformation = SeparatorInput,
             modifier = Modifier.readableWidth().padding(top = Spacing.medium),
         )
     }
@@ -577,3 +550,9 @@ private fun LazyListScope.editor(
         )
     }
 }
+
+/**
+ * What the separator field takes: one to five characters. Turned down as it is typed, so that the
+ * field never shows a separator the settings did not take.
+ */
+private val SeparatorInput = InputTransformation { if (length !in 1..5) revertAllChanges() }

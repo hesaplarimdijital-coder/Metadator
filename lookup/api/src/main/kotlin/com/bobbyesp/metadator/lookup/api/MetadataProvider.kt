@@ -14,7 +14,17 @@ interface MetadataProvider {
     val providesArtwork: Boolean
 
     suspend fun search(query: LookupQuery): LookupResult
+
+    /**
+     * The covers this catalogue can name without a search, from ids of its own a file already
+     * carries ([identifiers], by tag key): the cover of the very release the file was tagged as.
+     * Naming one does not say it exists; whoever asks finds out on downloading it.
+     */
+    fun artworkFor(identifiers: Map<String, String>): List<ProvidedArtwork> = emptyList()
 }
+
+/** A cover a provider points at: the picture, and a small copy of it to show in a list. */
+data class ProvidedArtwork(val url: String, val thumbnailUrl: String?)
 
 data class LookupQuery(
     val title: String,
@@ -73,6 +83,12 @@ data class LookupCandidate(
 /** Downloads cover art proposed by a provider. */
 interface ArtworkDownloader {
     suspend fun download(url: String): DownloadedImage?
+
+    /**
+     * The first [maxBytes] of the picture at [url], or all of it when it is shorter: enough to read
+     * how large it is before deciding whether to download it. Null when it cannot be had.
+     */
+    suspend fun peek(url: String, maxBytes: Int): ByteArray?
 }
 
 class DownloadedImage(val bytes: ByteArray, val mimeType: String)

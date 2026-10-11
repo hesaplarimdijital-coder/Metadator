@@ -33,6 +33,19 @@ interface OpenedAudioFile : AutoCloseable {
      * and closes it.
      */
     fun detachDuplicateFd(): Int
+
+    /** How long the file is, in bytes, or -1 when whoever serves it does not say. */
+    val size: Long
+
+    /**
+     * Reads up to [length] bytes found at [position] of the file into [buffer], from [offset] on,
+     * for code that parses the audio itself. Returns how many were read, and 0 or less at the end
+     * of the file.
+     *
+     * @throws java.io.IOException when the file cannot be read at a position of one's choosing, as
+     *   one served through a pipe cannot
+     */
+    fun read(position: Long, buffer: ByteArray, offset: Int, length: Int): Int
 }
 
 /**

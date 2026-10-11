@@ -52,6 +52,11 @@ Android asks differently on each version (`MediaStoreWriteAccess`):
 A file opened from another app with write access needs nothing; one shared read-only cannot be
 written, and the editor says so.
 
+A song on an SD card is asked for the same way from Android 10 on: MediaStore manages the card as
+it manages the device. Up to 9 the storage permission does not reach a removable card, and a save
+there fails with the error the system gives; only the system's folder picker could grant it, and
+the app does not ask for that.
+
 ## Process death
 
 The editor's text changes are kept in the `SavedStateHandle` as JSON and reapplied on a freshly

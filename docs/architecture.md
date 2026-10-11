@@ -8,6 +8,7 @@ plain Kotlin) and one or more implementations; features see the contracts only.
 ```
 app ──────────────► every module (the only place implementations are named)
 feature:* ────────► core:*, *:api
+core:ui ──────────► core:designsystem, core:domain (what two features show alike)
 core:domain ──────► core:model, core:common, tags:api, library:api, lookup:api, lyrics:api
 tags:taglib ──────► tags:api, library:api (opens files through AudioFileOpener)
 lookup:* , lyrics:lrclib ─► their api, core:network
@@ -26,12 +27,18 @@ or on another feature fails the build.
 
 - **Domain** (`core:domain`): use cases and pure logic. `SaveTagChangesUseCase`,
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
-  `FileNamePattern`, library filtering and grouping.
+  `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
+  and the spectrum it reads ([lossless-check.md](lossless-check.md)), and `FindCoversUseCase` with
+  the scoring of covers ([cover-finder.md](cover-finder.md)).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
-  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`.
+  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. One port is the domain's own, having no
+  engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
+  (`AndroidImageSampler` in `core:data`).
 - **Implementations**: TagLib, MediaStore, Room, DataStore, Ktor, Media3.
-- **Presentation** (`feature:*`): screens and ViewModels.
+- **Presentation** (`feature:*`): screens and ViewModels. What two features show alike is in
+  `core:ui`, since a feature cannot depend on another: the cover finder's sheet and its ViewModel
+  (`core/ui/.../cover`), opened by the editor and by the batch editor.
 
 The library is MediaStore's, completed from the files (`TagCompletedAudioLibrary`). Android's
 scanner does not index every tag of every format: a FLAC's `DATE` never becomes a year, and before
@@ -39,6 +46,18 @@ Android 11 there is no album artist or genre at all. A song with a field MediaSt
 for has its tags read once, and what was read is cached in Room (`track_tags`) against the file's
 modification date and size. MediaStore's values always win; the file only fills the gaps, so
 "Needs attention" means the file itself lacks the field.
+
+**SD cards and USB drives are part of the library.** MediaStore lists the songs of every mounted
+volume in one collection, and a song on a card is read, checked and written through the same
+`content://` URIs as one on the device. What differs is where it is (`StorageVolumes`):
+
+- A folder is relative to its own volume, so `Music/Album/` on a card would be taken for the
+  folder of that name on the device, and the two listed as one. A folder on any other volume is
+  shown under the volume's own name, as the system gives it ("SD card", or the card's brand).
+- The Folders tab says where each folder is, beside how many songs it has ("2 songs · SD
+  card/Music"): two folders can have the same name, as the "CD1" of two albums do.
+- "Rescan music folders" asks the scanner to look again at the device's Music and Download
+  folders, and at the whole of each card: music on a card is kept anywhere on it.
 
 Results, not exceptions: everything the user can cause or fix (no permission, file gone, format
 not supported, offline) is a sealed result the UI can explain.
@@ -49,7 +68,12 @@ not supported, offline) is a sealed result the UI can explain.
 - `state`: one immutable `StateFlow`.
 - `effects`: commands for whoever is on screen now; dropped if nobody listens, since a command
   carried out later would act on whatever the user is doing by then.
-- `messages`: snackbars; buffered until shown, since losing one is a silent failure.
+- `messages`: snackbars; buffered until shown, since losing one is a silent failure. A newer one
+  takes the place of the one on show, and one with an action (Undo) is as short as one without:
+  kept for ten seconds, "Saved, Undo" stood over the next button to press, and a tap meant for
+  that undid the save. The shell keeps them above an editor's foot, where Save is, and above the
+  keyboard. The editors pad their whole column for the keyboard, not only what scrolls, so their
+  foot rides above it while a field is typed in.
 
 ViewModels never hold a `Context`. `StringProvider` gives them text; ports give them Android work.
 System prompts (permissions, MediaStore's write request) are shown by `ActivityResultHost`, to
@@ -64,14 +88,37 @@ whether they share the window (`LocalPaneContext`), never measure it. The list-d
 told not to move the focus to the pane it shows (`paneDirective` in `MetadatorApp`): it would give
 it to the library's search field, and open the keyboard, on every rotation to a wide window.
 
+**A window 600 dp wide or more is laid out as panels on a ground**, as a desktop tool is. The
+shell says so to every screen (`LocalPanels`): the library is a panel with its sidebar, the editor
+and the batch editor are the inspector beside it, and the player's bar is docked under both. The
+shell keeps the gaps, and the screens draw the panels: the display is padded by the system's bars
+and `StudioDefaults.PanelGap` all around, list-detail's spacer is that same gap, room is kept under
+the panels for the docked bar, and each screen puts `Modifier.studioPanel` on itself, or nothing on
+a phone. The inspector keeps its width whatever the window's (`StudioDefaults.InspectorWidth`):
+list-detail is given a pane expansion anchored that far from the end, and the library takes the
+rest. Left to itself, the scaffold splits the window down the middle. A list is told which detail
+is beside it (`LocalShownDetail`), and marks that song.
+
+A feature moves through the stack with its `Navigator` and nothing else. `goTo` adds a
+destination. `showDetail` is what a list uses for what is chosen in it: the choice takes the place
+of the detail on top when that is of the same kind, so that on a wide window, where the list stays
+beside its detail, choosing song after song does not pile up an editor for each. A detail that
+holds what must not be thrown away says so with `hold` (the editor, while it has unsaved changes),
+and stays under the next one instead.
+
 Every transition between screens is in `NavigationMotion`:
 
-- **Forward**: the new screen springs in from the end, over the old one, which moves a quarter of
-  the way, shrinks a little and fades. **Backward** is the reverse. Both run on the theme's motion
-  scheme: the default spatial spring for what moves and the effects springs for the fades. Not the
-  slow spring Material suggests for a full screen: a screen is changed too often to wait for it.
-  The springs are given a threshold of one pixel, or the transition, with both screens composed,
-  would outlast the motion.
+- **Forward**: the new screen fades up from 32 dp towards the end as the old one fades away
+  towards the start: a short shift through a fade, as a desktop tool changes what it shows. A set
+  distance, not a share of the window, which may be as wide as a monitor. **Backward** is the
+  reverse. Both run on the theme's motion scheme: the default spatial spring for what moves, the
+  default effects spring for the screen arriving and the fast one for the screen leaving, so that
+  little of the two shows at once. The springs are given a threshold of one pixel, or the
+  transition, with both screens composed, would outlast the motion.
+- **Every destination is drawn on the ground** (`Ground`, an entry decorator): the screens draw
+  their panels, or their content on a phone, and nothing under it, so without it a screen fading
+  over another showed the other through it. Overlays are left without one, to keep in sight what
+  they open over.
 - **Predictive back**: the screen shrinks under the finger and shows the one behind, then leaves
   the way the finger goes. `NavDisplay` seeks this transition by the gesture's progress and plays
   what is left of it once released, so it is tweens of one length: each spring would run through
@@ -84,16 +131,22 @@ The entry provider is remembered in `MetadatorApp`. Entries are equal only while
 the same instance, and `NavDisplay` finishes a back gesture that was let go only if the scene it
 was showing equals the one the stack ends on: otherwise the leaving screen is gone at once.
 
-"Open with Metadator" runs `ExternalEditorActivity` in its own task with only the editor, so
-closing it returns to the app that opened the file.
+"Edit tags" (a file opened with the app) runs `ExternalEditorActivity` in its own task with only
+the editor, so closing it returns to the app that opened the file.
 
 ## Theme
 
 `MetadatorTheme` is `MaterialExpressiveTheme` with `MotionScheme.expressive()` (one instance:
-Material keys running shape morphs by their spec) and a color scheme from the wallpaper or a seed
-(MaterialKolor). Schemes are cached and built off the main thread. The editor and the player nest
-`MetadatorAccentTheme`, seeded from the cover's dominant color and harmonized with the app's. That
-color comes from `ArtworkAccentSource` (`:core:ui`), which keeps bitmaps out of ViewModels.
+Material keys running shape morphs by their spec) and the Studio colors (`StudioColors`, read as
+`Studio.colors`): neutral panels on a darker ground, hairline edges, and one accent. The accent is
+one of a few (`StudioAccents`), or the phone's own palette when the user asks for it; nothing else
+changes with it, so the app is the same app in any of them. The Studio colors are put in
+Material's roles (`toColorScheme`), so that Material's components draw in them without being
+restyled. They are a handful of fixed values, made where they are needed: nothing is computed off
+the main thread. The player, and the editor when the setting asks for it, nest
+`MetadatorAccentTheme`, which takes the accent from the cover's dominant color, brought to a
+lightness that reads on the panels; the grays stay the app's. That color comes from
+`ArtworkAccentSource` (`:core:ui`), which keeps bitmaps out of ViewModels.
 
 A new scheme costs one recomposition of what is under its theme, and nothing else does: what the
 theme provides keeps its instance until the scheme changes, so saving an unrelated setting
@@ -101,43 +154,63 @@ recomposes nothing. Schemes are swapped, not faded: `ColorScheme` is immutable a
 static, so a fade would recompose everything under the theme on every frame. Both activities wait
 for the settings before composing, so the default theme is never shown in place of the user's.
 
-Settings keep the 1.x DataStore file name and theme keys, so an update keeps the user's theme.
+Settings keep the 1.x DataStore file name and theme keys, so an update keeps the user's theme. The
+accent is kept under the seed color's key; a seed from before that is none of the accents is read
+as the first one.
 
 ### Shared components
 
-`:core:designsystem` holds what more than one screen uses, so the expressive vocabulary is the
-same everywhere:
+`:core:designsystem` holds what more than one screen uses, so that every screen speaks the same
+desktop vocabulary over Material's components:
 
-- `ConnectedChoices`: a few exclusive options as a connected button group (the library's tabs, the
-  theme mode). Used instead of a tab row or a short radio list.
-- `ActionMenu`, `PopupMenu`, `PopupMenuGroup`: menus as floating groups. `ActionMenu` takes a list
-  of `MenuAction`s and closes itself before running one. Over a screen they are frosted and lifted
-  by a blur halo (see Blur).
-- `TonalTextField`: the app's text field, a rounded block of tone with its label inside and neither
-  an outline nor an indicator line. Stacked outlines turn a form into a grid of boxes; tone keeps
-  the fields apart quietly. Focus raises the tone, `emphasized` tints it with the primary color (the
-  editor: what will be written on saving), and `TonalFieldDefaults` has the tones for a field in a
-  dialog or a sheet. Stacked fields are a group like the app's lists: each takes its `shape` from
-  `GroupShapes` (`itemShape`, or `cellShape` where the group has columns too), and
-  `GroupShapes.focusedShape` rounds off the one with the focus, on the theme's spring.
-- `ToggleChip`, `ActionChip`: a filter or one option of a few, and a chip that does something. The
-  first is Material's filter chip with its expressive shapes, a tick under the finger, and a check
-  once chosen; the second never looks selected, so it is not read as a filter that is on.
-- `FloatingActionToolbar`: the vibrant toolbar with the screen's main action beside it (the editor,
-  the library's selection).
-- `ActionButtonGroup`: what to do with everything a screen shows, as an expressive button group of
-  medium buttons across the width (an album, an artist, a folder: play, edit all, shuffle). The
-  primary action keeps its label; the others fall back to their icon where the row is narrow. The
-  primary one is filled unless the screen's main action is elsewhere (`prominent = false`: the
-  editor's cover, on a screen that saves from its toolbar).
-- `ShapedIcon`: an icon on a slowly turning Material shape, for empty states and the About page.
+- The Studio pieces (`Studio.kt`): `Modifier.studioPanel`, a screen's panel; `StudioButton`, as
+  primary, secondary or ghost, with its shortcut written after its label as on a key cap (`Kbd`);
+  `StudioIconButton`, square, quiet until pointed at, and named by a tooltip; `SidebarTitle` and
+  `SidebarItem`, with a count at the end; `StatusPill` and `FactChip`, what a song is in a few
+  words; `StudioCheckbox`, `StudioSwitch`, `StudioDivider` and `BrandMark`. `StudioDefaults` has
+  their sizes, the panels' gap and the inspector's width.
+- `ConnectedChoices`: a few exclusive options as one segmented control (the theme mode, the
+  library's places where there is no sidebar to hold them). Used instead of a tab row or a short
+  radio list.
+- `ActionMenu`, `PopupMenu`, `PopupMenuGroup`, `StudioMenuItem`: menus as a desktop's, a raised
+  surface with a hairline edge and rows short enough to read as one, each with its shortcut at the
+  end. `ActionMenu` takes a list of `MenuAction`s and closes itself before running one. Over a
+  screen they are frosted and lifted by a blur halo (see Blur).
+- `TonalTextField`: the app's text field, its label above it as a desktop form has them, over a
+  well with a hairline edge. The field with the focus takes the accent on its edge, with a soft
+  ring; an `emphasized` one too, quieter, and its label says why (the editor: what will be written
+  on saving). `TonalFieldDefaults` has the tones for a field in a dialog or a sheet; `FieldWell`
+  and `FieldLabel` draw a field of several values the same way. It is built on the state-based
+  `BasicTextField`, under the `value` and `onValueChange` the screens keep: a `TextFieldState` in
+  between says what is typed, and takes a value the screen sets on its own (an undo, a lookup).
+  What is typed comes back a frame or more late, by when more may have been typed, so a value that
+  is only that echo is not set again. A screen that turns some input down does it with an
+  `inputTransformation`, as it is typed: one that refused it in `onValueChange` would never say the
+  refused text back, and the field would go on showing it. `StudioSearchField` is a toolbar's
+  search, the same way.
+- `ToggleChip`, `ActionChip`, `LabelChip`: a filter or one option of a few, a chip that does
+  something, and one that only says something. The second never looks selected, so it is not read
+  as a filter that is on.
+- `GlassSurface`: a bar floating over a list, as glass (see Blur): the player's bar and the
+  library's selection bar on a phone.
 - `PlayingBars`: the three bars on the row of the song that is playing; still while paused.
 - `SectionHeader`, `NavigationItem`, `SwitchItem`, `RadioItem`, `PlaceholderCard`: grouped lists
-  and what a screen shows instead of content.
-
+  (their shapes from `GroupShapes`) and what a screen shows instead of content.
 - `RolledIn`: something that turns up by rolling into its place through focus, and leaves the same
-  way, at the pace of `ThroughFocus`: the album's chip in the player, the pills of the editor's
-  "needs attention" notice.
+  way, at the pace of `ThroughFocus`: the album's chip in the player.
+- `Tooltip`, `ContextMenuArea`, `HeldKeys`: what a mouse adds. The name of a button that is only an
+  icon, a menu on the second button, and the keys held during a click
+  ([desktop.md](desktop.md#mouse)).
+
+`:core:ui` holds what two features show alike: `TrackTableHeader` and `TrackTableRow`, the table of
+songs, whose columns drop out as its panel narrows (`TrackColumns`: the year, then the format, then
+the album; the title, the artist, the quality and the length stay); `TrackRow`, a song on a phone;
+`CollectionCard`, an album, an artist or a folder; and `QualityBadge`, what the lossless check found
+in a song ([lossless-check.md](lossless-check.md#the-whole-library)).
+
+Keys are not handled by screens with `Modifier.onKeyEvent`: a screen offers shortcuts with
+`KeyboardShortcuts` (`core:ui`), and the activity's `ShortcutDispatcher` gives them the keys no
+view took ([desktop.md](desktop.md#keyboard)).
 
 Animations use the theme's motion scheme (`MaterialTheme.motionScheme`): spatial specs for what
 moves or changes size, effects specs for fades. They are kept for changes of state the user caused
@@ -157,6 +230,14 @@ the surface applies `Modifier.frosted` with `MetadatorBlurDefaults.surfaceStyle(
 The surface's own container becomes transparent and loses its shadow. That is the wide player's
 floating controls, and the menus.
 
+**A bar floating over a list is glass** (`GlassSurface`, with
+`MetadatorBlurDefaults.glassStyle`): frosted as above, more see-through, with a hairline edge
+lighter along its top, and nothing drawn around it. The glass is what sets it apart; a halo around
+it, as it once had, read as an effect beside the bar rather than on it. That is the player's bar on
+a phone, frosted with what the shell records, and the library's selection bar, with the list the
+library records. While the player's bar travels into the full player it is solid, since nothing
+frosts during a shared element transition.
+
 - **The source is a sibling of what frosts it, never an ancestor.** A surface inside its own source
   would blur itself.
 - **Content passes beneath the surface padded, not inset**, or there is nothing there to frost.
@@ -168,7 +249,8 @@ element goes out of focus, most at its edge, and is sharp again a little further
 shadow darkens, this softens. The halo follows the element's shape, reaches a little further below
 it than above, as Material's light does, and is drawn outside the element without changing its
 layout. It takes Android 13; below it `MetadatorBlurDefaults.isHaloSupported` is false and the
-element keeps its shadow. The player's bar, the floating toolbars and the menus have one.
+element keeps its shadow. The menus have one. The bars do not: they are glass, and the bar docked
+under the panels is a panel of the window, which nothing floats over.
 
 - **Out of the element's own enter and exit animation**, which would scale, slide and clip the halo
   with the element. Animate its `strength` instead.
@@ -199,15 +281,19 @@ system's media notification and lock-screen controls. Its player is built with t
 and the audio containers only (FLAC, WAV, MP4, AMR, Ogg, Matroska, ADTS, AC-3, AC-4, MP3), so R8
 drops the rest of Media3; a new container is one more line there. `Media3PlayerController`
 connects to it on first use and exposes a `StateFlow<PlaybackState>`. It is driven from the main
-thread, as Media3 requires. Both players show the position as a wave that lies flat while paused;
-in the full player it is the slider's track.
+thread, as Media3 requires. The full player shows the position as a wave that lies flat while
+paused, as its slider's track; the bar on a phone, as a hairline along the foot of its glass; the
+bar docked on a wide window, as a desktop player does, a thin line between the times, which a
+click, a drag or the arrow keys move.
 
 ### One surface, two sizes
 
 The player is not a destination. `PlayerSheet` sits in the app shell over the navigation display
-and has two states: a bar over the library and collections, and the full screen. Tapping the bar
-opens it, and so does dragging it up: the bar's edges follow the finger out to the edges of the
-screen while its corners straighten. Pulling the full player down, or back, closes it.
+and has two states: a bar, and the full screen. On a phone the bar floats over the library and the
+collections; on a wide window it is docked under the panels (`docked`, `DockedPlayerBar`), as a
+desktop player's bar, and stays under the inspector too. Tapping the bar opens it, and so does
+dragging the phone's up: the bar's edges follow the finger out to the edges of the screen while its
+corners straighten. Pulling the full player down, or back, closes it.
 
 - It is a shared element transition (`SharedTransitionLayout`) between the two contents of an
   `AnimatedContent`: the bar and the full player.

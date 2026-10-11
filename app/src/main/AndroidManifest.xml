@@ -12,6 +12,11 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- A desktop (Samsung DeX, a Chromebook) is driven with a mouse and a keyboard. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -24,12 +29,39 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Metadator">
 
+        <!--
+            Samsung DeX restarts the apps that are open when the phone is docked or undocked,
+            unless they say they follow the new display and its density while running. The
+            activities do (see their configChanges).
+        -->
+        <meta-data
+            android:name="com.samsung.android.keepalive.density"
+            android:value="true" />
+        <meta-data
+            android:name="com.samsung.android.multidisplay.keep_process_alive"
+            android:value="true" />
+
+        <!--
+            configChanges: everything a window on a desktop changes while it is used (its size as
+            it is dragged, the display it is on, the keyboard and mouse plugged in) and the day
+            and night theme. Compose lays the screen out again for each of them; recreating the
+            activity instead would flash on every resize and close whatever sheet was open.
+        -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|keyboard|keyboardHidden|navigation|touchscreen|colorMode"
             android:exported="true"
             android:launchMode="singleTask"
+            android:resizeableActivity="true"
             android:theme="@style/Theme.Metadator.Starting"
             android:windowSoftInputMode="adjustResize">
+            <!-- As a window, it opens wide enough for the library and the editor side by side. -->
+            <layout
+                android:defaultWidth="1180dp"
+                android:defaultHeight="760dp"
+                android:gravity="center"
+                android:minWidth="360dp"
+                android:minHeight="480dp" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,10 +72,19 @@
         <activity
             android:name=".ExternalEditorActivity"
             android:autoRemoveFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|keyboard|keyboardHidden|navigation|touchscreen|colorMode"
             android:exported="true"
             android:label="@string/edit_with_metadator"
+            android:resizeableActivity="true"
             android:taskAffinity=""
             android:windowSoftInputMode="adjustResize">
+            <!-- As a window, wide enough for the cover beside the fields. -->
+            <layout
+                android:defaultWidth="900dp"
+                android:defaultHeight="760dp"
+                android:gravity="center"
+                android:minWidth="360dp"
+                android:minHeight="480dp" />
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />

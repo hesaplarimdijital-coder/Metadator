@@ -12,10 +12,17 @@
     <string name="batch_multiple_values">Multiple values</string>
     <string name="batch_reset_field">Keep each song\'s %1$s</string>
     <string name="batch_cover">Cover</string>
+    <string name="batch_cover_find">Find a cover online</string>
     <string name="batch_cover_set">Use one cover for all</string>
     <string name="batch_cover_remove">Remove all covers</string>
     <string name="batch_cover_keep">Keep each song\'s cover</string>
     <string name="batch_cover_unreadable">Couldn\'t read that image</string>
+    <string name="batch_cover_downloading">Downloading the cover…</string>
+    <string name="batch_cover_download_failed">Couldn\'t download that cover</string>
+    <plurals name="batch_cover_use">
+        <item quantity="one">Use for %1$d song</item>
+        <item quantity="other">Use for all %1$d songs</item>
+    </plurals>
     <string name="batch_cover_will_replace">Every song will get this cover</string>
     <string name="batch_cover_will_remove">Every song\'s cover will be removed</string>
     <string name="batch_tools">Tools</string>
@@ -28,7 +35,7 @@
     <string name="batch_pattern_invalid">Use each placeholder once, and at least one</string>
     <string name="batch_pattern_no_match">Doesn\'t match</string>
     <string name="batch_apply">Apply to all</string>
-    <string name="batch_access_denied">Metadator wasn\'t allowed to change these files</string>
+    <string name="batch_access_denied">Metamatik wasn\'t allowed to change these files</string>
     <string name="batch_running">Saving %1$d of %2$d</string>
     <string name="batch_cancel">Stop</string>
     <string name="batch_done_title">Done</string>
@@ -51,4 +58,12 @@
     <string name="batch_reason_gone">file is gone</string>
     <string name="batch_reason_unsupported">format not supported</string>
     <string name="batch_reason_failed">write failed</string>
+    <string name="shortcuts_batch">Editing several songs</string>
+    <string name="batch_changed">Changed</string>
+    <string name="batch_cover_unchanged">Each song keeps its own cover</string>
+    <string name="batch_nothing_yet">Change a field, the cover or a tool to apply it to every song</string>
+    <plurals name="batch_will_write">
+        <item quantity="one">Will be written to %1$d song</item>
+        <item quantity="other">Will be written to %1$d songs</item>
+    </plurals>
 </resources>

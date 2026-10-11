@@ -8,20 +8,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,34 +27,37 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.bobbyesp.metadator.core.designsystem.component.GlassSurface
+import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.player.api.PlaybackState
 import com.bobbyesp.metadator.player.api.PlayerController
+import dev.chrisbanes.haze.HazeState
 
 /**
- * The player as a bar: what is playing, play and next. It is the collapsed content of
- * [PlayerSheet], which owns how it appears, opens and is dragged; the modifiers are how the sheet
- * ties the pieces it shares with the full player.
+ * The player as a bar on a phone: what is playing, play and next, on a pane of glass over the
+ * screen. It is the collapsed content of [PlayerSheet], which owns how it appears, opens and is
+ * dragged; the modifiers are how the sheet ties the pieces it shares with the full player.
  *
- * @param shadowElevation the bar's shadow; none where the sheet lifts it with a blur halo
+ * @param glass what the shell records of the screens beneath, which the bar is frosted with; null
+ *   while the bar travels into the full player, where a frosted surface would flicker
  * @param modifier applied to the bar's surface
  * @param contentModifier applied to what is on the surface, as a whole
  * @param artworkShape the cover's shape, which the sheet changes on the way to the full player
  * @param ownContentPresence how much of what only the bar has (next, the progress) is there, from 0
  *   to 1, read while drawing so that a transition does not recompose the bar
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MiniPlayerBar(
     track: Track,
@@ -67,7 +66,7 @@ internal fun MiniPlayerBar(
     onOpen: () -> Unit,
     shape: Shape,
     artworkShape: Shape,
-    shadowElevation: Dp,
+    glass: HazeState?,
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
     artworkModifier: Modifier = Modifier,
@@ -76,34 +75,35 @@ internal fun MiniPlayerBar(
     playButtonModifier: Modifier = Modifier,
     ownContentPresence: () -> Float = { 1f },
 ) {
-    val openLabel = stringResource(R.string.open_player)
-    Surface(
-        onClick = onOpen,
+    val colors = Studio.colors
+    GlassSurface(
+        backdrop = glass,
         shape = shape,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shadowElevation = shadowElevation,
-        modifier =
-            Modifier.fillMaxWidth().then(modifier).semantics {
-                onClick(label = openLabel) {
-                    onOpen()
-                    true
-                }
-            },
+        onClick = onOpen,
+        onClickLabel = stringResource(R.string.open_player),
+        modifier = Modifier.fillMaxWidth().then(modifier),
     ) {
         Column(contentModifier) {
             // The cover's corners are the bar's, less this padding: the two curves stay parallel.
             Row(
-                modifier = Modifier.padding(Spacing.medium),
+                modifier =
+                    Modifier.padding(
+                        start = Spacing.small,
+                        end = Spacing.small,
+                        top = Spacing.small,
+                        bottom = Spacing.small + 2.dp,
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TrackArtwork(track, artworkShape, Modifier.size(48.dp).then(artworkModifier))
+                TrackArtwork(track, artworkShape, Modifier.size(46.dp).then(artworkModifier))
                 // Each line as wide as its text and no wider: those are the bounds it travels from.
                 // Set as the full player sets them, only smaller, so that each grows into its own.
-                Column(Modifier.weight(1f).padding(horizontal = Spacing.large)) {
+                Column(Modifier.weight(1f).padding(horizontal = Spacing.medium)) {
                     TrackLine(track, titleModifier) { shown ->
                         Text(
                             shown.title,
                             style = TrackNameDefaults.barTitleStyle,
+                            color = colors.text,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -112,7 +112,7 @@ internal fun MiniPlayerBar(
                         Text(
                             shown.artist ?: stringResource(R.string.unknown_artist),
                             style = TrackNameDefaults.barArtistStyle,
-                            color = TrackNameDefaults.artistColor,
+                            color = colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -124,25 +124,36 @@ internal fun MiniPlayerBar(
                     // The sheet's modifier first: it is what sizes the button on the way out.
                     modifier = playButtonModifier.size(PlayPauseButtonDefaults.CompactSize),
                 )
-                IconButton(
+                StudioIconButton(
+                    icon = Icons.Rounded.SkipNext,
+                    contentDescription = stringResource(R.string.next),
                     onClick = player::skipToNext,
                     enabled = playback.hasNext,
-                    shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.dissolved(ownContentPresence),
-                ) {
-                    Icon(Icons.Rounded.SkipNext, stringResource(R.string.next))
-                }
+                    tint = colors.text,
+                    size = 44.dp,
+                    iconSize = 24.dp,
+                    modifier =
+                        Modifier.padding(start = Spacing.extraSmall).dissolved(ownContentPresence),
+                )
             }
-            val isPlaying = playback.isPlaying
-            LinearWavyProgressIndicator(
-                progress = { playback.progress },
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .padding(horizontal = Spacing.extraLarge)
-                        .padding(bottom = Spacing.medium)
-                        .dissolved(ownContentPresence),
-                amplitude = { if (isPlaying) 1f else 0f },
-            )
+            // Where the song is, as a hairline along the foot of the glass.
+            val rail = colors.lineStrong
+            val played = colors.accent
+            Canvas(
+                Modifier.fillMaxWidth()
+                    .height(2.dp)
+                    .padding(horizontal = Spacing.large)
+                    .dissolved(ownContentPresence)
+            ) {
+                val radius = CornerRadius(size.height / 2)
+                drawRoundRect(rail, cornerRadius = radius)
+                drawRoundRect(
+                    played,
+                    size = Size(size.width * playback.progress, size.height),
+                    cornerRadius = radius,
+                )
+            }
+            Spacer(Modifier.height(Spacing.small))
         }
     }
 }

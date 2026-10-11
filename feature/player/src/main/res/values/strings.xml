@@ -23,4 +23,5 @@
     <string name="lyrics_unreadable_description">The file could not be opened.</string>
     <string name="back_to_current_line">Back to the current line</string>
     <string name="queue_empty">Nothing else in the queue</string>
+    <string name="seek_position">Position in the song</string>
 </resources>
