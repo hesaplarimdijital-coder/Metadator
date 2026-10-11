@@ -1,4 +1,4 @@
-name: Metadator One APK
+name: Metamatik APK
 
 # Builds the APK of the metadator-one branch on every push and publishes it as a release asset, so
 # it can be downloaded straight to a phone. This branch lives in a repository that is not a fork of
@@ -105,10 +105,10 @@ jobs:
           } > build-report.txt || true
           notes="The latest build of the metadator-one branch ($GITHUB_SHA)."
           if gh release view metadator-one-apk >/dev/null 2>&1; then
-            gh release edit metadator-one-apk --title "Metadator One" --notes "$notes"
+            gh release edit metadator-one-apk --title "Metamatik" --notes "$notes"
           else
             gh release create metadator-one-apk --prerelease --target "$GITHUB_SHA" \
-              --title "Metadator One" --notes "$notes"
+              --title "Metamatik" --notes "$notes"
           fi
           gh release upload metadator-one-apk build-report.txt --clobber
           if [ -f metadator-one.apk ]; then

@@ -12,7 +12,7 @@
     <string name="undo_failed">Değişiklikler geri alınamadı</string>
     <string name="save_failed">Kaydedilemedi: %1$s</string>
     <string name="save_failed_restored">Kaydedilemedi, dosya olduğu gibi bırakıldı (%1$s)</string>
-    <string name="write_access_denied">Metadator\'ın bu dosyayı değiştirmesine izin verilmedi</string>
+    <string name="write_access_denied">Metamatik\'in bu dosyayı değiştirmesine izin verilmedi</string>
     <string name="format_unsupported">Bu dosyanın biçimi düzenlenemiyor</string>
     <string name="more_options">Diğer seçenekler</string>
     <string name="revert_all">Tüm değişiklikleri geri al</string>
@@ -109,9 +109,9 @@
     <string name="file_gone_title">Bu dosya artık yok</string>
     <string name="file_gone_description">Kitaplık listeledikten sonra taşınmış veya silinmiş.</string>
     <string name="access_denied_title">Bu dosya açılamıyor</string>
-    <string name="access_denied_description">Dosyayı paylaşan uygulama Metadator\'ın onu okumasına izin vermedi. Kitaplıktan veya bir dosya yöneticisinden açmayı deneyin.</string>
+    <string name="access_denied_description">Dosyayı paylaşan uygulama Metamatik\'in onu okumasına izin vermedi. Kitaplıktan veya bir dosya yöneticisinden açmayı deneyin.</string>
     <string name="unsupported_title">Biçim desteklenmiyor</string>
-    <string name="unsupported_description">Metadator bu tür dosyalardan etiket okuyamıyor.</string>
+    <string name="unsupported_description">Metamatik bu tür dosyalardan etiket okuyamıyor.</string>
     <string name="failed_title">Bu dosya açılamadı</string>
     <string name="retry">Yeniden dene</string>
     <string name="go_back">Geri dön</string>

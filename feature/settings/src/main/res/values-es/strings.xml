@@ -45,7 +45,7 @@
     <string name="warn_small_cover_description">Por debajo de 500 × 500 px</string>
     <string name="history">Historial para deshacer</string>
     <string name="clear_history">Borrar el historial para deshacer</string>
-    <string name="clear_history_description">Metadator guarda las etiquetas de tus últimos 100 guardados para poder deshacerlos</string>
+    <string name="clear_history_description">Metamatik guarda las etiquetas de tus últimos 100 guardados para poder deshacerlos</string>
     <string name="history_cleared">Historial borrado</string>
 
     <string name="lookup_sources">Fuentes</string>
@@ -57,7 +57,7 @@
 
     <string name="version">Versión %1$s</string>
     <string name="source_code">Código fuente</string>
-    <string name="source_code_description">Metadator es software libre, con licencia GPL 3.0</string>
+    <string name="source_code_description">Metamatik se basa en Metadator, software libre con licencia GPL 3.0</string>
     <string name="report_issue">Informar de un problema</string>
     <string name="report_issue_description">Abre una incidencia en GitHub</string>
     <string name="rate">Valorar Metadator</string>

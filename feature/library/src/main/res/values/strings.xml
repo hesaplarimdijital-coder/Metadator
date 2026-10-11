@@ -35,12 +35,12 @@
         <item quantity="other">%1$d songs</item>
     </plurals>
     <string name="permission_title">Your music, ready to edit</string>
-    <string name="permission_description">Metadator needs to see your music to list it. Nothing leaves your device, and no file changes until you save it.</string>
+    <string name="permission_description">Metamatik needs to see your music to list it. Nothing leaves your device, and no file changes until you save it.</string>
     <string name="permission_grant">Allow access</string>
     <string name="permission_denied_description">Access to your music was turned off. You can turn it on in the app\'s settings, or open a single file without it.</string>
     <string name="permission_open_settings">Open settings</string>
     <string name="empty_library_title">No songs yet</string>
-    <string name="empty_library_description">Metadator lists the songs Android has found on your device. Copy some music into the Music folder, or rescan if you just did.</string>
+    <string name="empty_library_description">Metamatik lists the songs Android has found on your device. Copy some music into the Music folder, or rescan if you just did.</string>
     <string name="no_results_title">Nothing matches</string>
     <string name="no_results_description">Try fewer words, or clear the filters.</string>
     <string name="clear_filters">Clear filters</string>

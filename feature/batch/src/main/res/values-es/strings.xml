@@ -35,7 +35,7 @@
     <string name="batch_pattern_invalid">Usa cada marcador una vez, y al menos uno</string>
     <string name="batch_pattern_no_match">No coincide</string>
     <string name="batch_apply">Aplicar a todas</string>
-    <string name="batch_access_denied">Metadator no tiene permiso para cambiar estos archivos</string>
+    <string name="batch_access_denied">Metamatik no tiene permiso para cambiar estos archivos</string>
     <string name="batch_running">Guardando %1$d de %2$d</string>
     <string name="batch_cancel">Detener</string>
     <string name="batch_done_title">Hecho</string>

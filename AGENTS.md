@@ -1,10 +1,10 @@
 # AGENTS.md
 
-Metadator is an Android tag editor for local music: it lists the songs on the device, edits their
-tags and covers, finds metadata, covers and lyrics online, says whether a lossless file is really
-lossless, edits many songs at once, and plays them. It is used with fingers on a phone and with a
-keyboard and a mouse on a desktop (Samsung DeX). Nothing leaves the device but a song's title,
-artist and album, when the user searches online.
+Metamatik, built on Metadator, is an Android tag editor for local music: it lists the songs on the
+device, edits their tags and covers, finds metadata, covers and lyrics online, says whether a
+lossless file is really lossless, edits many songs at once, and plays them. It is used with fingers
+on a phone and with a keyboard and a mouse on a desktop (Samsung DeX). Nothing leaves the device but
+a song's title, artist and album, when the user searches online.
 
 This file is the map and the rules. How each part works, and why, is in [`docs/`](docs/README.md).
 

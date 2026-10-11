@@ -1,7 +1,8 @@
-# Metadator documentation
+# Metamatik documentation
 
-How each part of the app works, and why it was built that way. The rules for working on the code
-are in [`AGENTS.md`](../AGENTS.md).
+Metamatik is built on [Metadator](https://github.com/BobbyESP/Metadator). How each part of the app
+works, and why it was built that way. The rules for working on the code are in
+[`AGENTS.md`](../AGENTS.md).
 
 | Document | Covers |
 |---|---|

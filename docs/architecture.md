@@ -129,8 +129,8 @@ The entry provider is remembered in `MetadatorApp`. Entries are equal only while
 the same instance, and `NavDisplay` finishes a back gesture that was let go only if the scene it
 was showing equals the one the stack ends on: otherwise the leaving screen is gone at once.
 
-"Open with Metadator" runs `ExternalEditorActivity` in its own task with only the editor, so
-closing it returns to the app that opened the file.
+"Edit tags" (a file opened with the app) runs `ExternalEditorActivity` in its own task with only
+the editor, so closing it returns to the app that opened the file.
 
 ## Theme
 

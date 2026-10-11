@@ -45,7 +45,7 @@
     <string name="warn_small_cover_description">500 × 500 px altı</string>
     <string name="history">Geri alma geçmişi</string>
     <string name="clear_history">Geri alma geçmişini temizle</string>
-    <string name="clear_history_description">Metadator, geri alınabilmeleri için son 100 kaydınızın etiketlerini saklar</string>
+    <string name="clear_history_description">Metamatik, geri alınabilmeleri için son 100 kaydınızın etiketlerini saklar</string>
     <string name="history_cleared">Geri alma geçmişi temizlendi</string>
 
     <string name="lookup_sources">Kaynaklar</string>
@@ -57,7 +57,7 @@
 
     <string name="version">Sürüm %1$s</string>
     <string name="source_code">Kaynak kodu</string>
-    <string name="source_code_description">Metadator özgür yazılımdır, GPL 3.0 ile lisanslanmıştır</string>
+    <string name="source_code_description">Metamatik, GPL 3.0 ile lisanslı özgür bir yazılım olan Metadator\'a dayanır</string>
     <string name="report_issue">Sorun bildir</string>
     <string name="report_issue_description">GitHub\'da bir kayıt açın</string>
     <string name="rate">Metadator\'ı değerlendir</string>

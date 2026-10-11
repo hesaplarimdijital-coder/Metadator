@@ -47,10 +47,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -578,8 +577,8 @@ fun BrandMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
             modifier
                 .size(size)
                 .background(
-                    Brush.linearGradient(listOf(Color(0xFF5AA2FF), Color(0xFF1E5FD8))),
-                    RoundedCornerShape(size * 0.3f),
+                    Brush.linearGradient(listOf(Color(0xFF4C9AFF), Color(0xFF3B4CF2))),
+                    RoundedCornerShape(size * 0.28f),
                 ),
         contentAlignment = Alignment.Center,
     ) {
@@ -587,38 +586,84 @@ fun BrandMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
             BrandGlyph,
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.size(size * 0.86f),
+            modifier = Modifier.size(size),
         )
     }
 }
 
-/** The launcher icon's glyph: a tag with a sound wave in it. */
+/**
+ * The launcher icon's mark, as the launcher shows it: the icon's inner 72 of 108, where a tilted
+ * tag has an M and a sparkle cut out of it. The same path as `metamatik_icon_foreground`.
+ */
 private val BrandGlyph: ImageVector by lazy {
     ImageVector.Builder(
-            name = "MetadatorGlyph",
-            defaultWidth = 48.dp,
-            defaultHeight = 48.dp,
-            viewportWidth = 48f,
-            viewportHeight = 48f,
+            name = "MetamatikMark",
+            defaultWidth = 72.dp,
+            defaultHeight = 72.dp,
+            viewportWidth = 72f,
+            viewportHeight = 72f,
+        )
+        .addGroup(
+            name = "Tilt",
+            rotate = -12f,
+            pivotX = 54f,
+            pivotY = 54f,
+            scaleX = 0.86f,
+            scaleY = 0.86f,
+            translationX = -18f,
+            translationY = -18f,
         )
         .addPath(
-            pathData =
-                addPathNodes(
-                    "M14.857,18.921L14.857,17.905C14.857,16.222 16.222,14.857 17.905,14.857" +
-                        "L30.095,14.857C31.778,14.857 33.143,16.222 33.143,17.905L33.143,18.921" +
-                        "M28.063,20.952L28.063,27.048M32.127,21.968L32.127,26.032" +
-                        "M24,19.429L24,28.571M19.937,20.952L19.937,27.048" +
-                        "M15.873,21.968L15.873,26.032M14.857,29.079L14.857,30.095" +
-                        "C14.857,31.778 16.222,33.143 17.905,33.143L30.095,33.143" +
-                        "C31.778,33.143 33.143,31.778 33.143,30.095L33.143,29.079"
-                ),
-            stroke = SolidColor(Color.White),
-            strokeLineWidth = 2.6f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round,
+            pathData = addPathNodes(MarkPath),
+            fill = SolidColor(Color.White),
+            pathFillType = PathFillType.EvenOdd,
         )
+        .clearGroup()
         .build()
 }
+
+private const val MarkPath =
+    "M32.58,35.00L32.17,35.03L31.76,35.11L31.37,35.26L31.00,35.45L30.66,35.69L30.36,35.98" +
+        "L30.11,36.31L19.16,52.31L18.96,52.65L18.80,53.02L18.69,53.40L18.64,53.80L18.64,54.20" +
+        "L18.69,54.60L18.80,54.98L18.96,55.35L19.16,55.69L30.11,71.69L30.36,72.02L30.66,72.31" +
+        "L31.00,72.55L31.37,72.74L31.76,72.89L32.17,72.97L32.58,73.00L69.93,73.00L70.07,73.00" +
+        "L70.54,72.97L70.83,72.94L71.22,72.89L71.51,72.83L71.89,72.73L72.17,72.65L72.54,72.52" +
+        "L72.81,72.40L73.17,72.24L73.43,72.10L73.76,71.90L74.01,71.73L74.32,71.50L74.55,71.31" +
+        "L74.84,71.05L75.05,70.84L75.31,70.55L75.50,70.32L75.73,70.01L75.90,69.76L76.10,69.43" +
+        "L76.24,69.17L76.40,68.81L76.52,68.54L76.65,68.17L76.73,67.89L76.83,67.51L76.89,67.22" +
+        "L76.94,66.83L76.97,66.54L77.00,66.07L77.00,65.93L77.00,42.07L77.00,41.93L76.97,41.46" +
+        "L76.94,41.17L76.89,40.78L76.83,40.49L76.73,40.11L76.65,39.83L76.52,39.46L76.40,39.19" +
+        "L76.24,38.83L76.10,38.57L75.90,38.24L75.73,37.99L75.50,37.68L75.31,37.45L75.05,37.16" +
+        "L74.84,36.95L74.55,36.69L74.32,36.50L74.01,36.27L73.76,36.10L73.43,35.90L73.17,35.76" +
+        "L72.81,35.60L72.54,35.48L72.17,35.35L71.89,35.27L71.51,35.17L71.22,35.11L70.83,35.06" +
+        "L70.54,35.03L70.08,35.00L69.94,35.00ZM31.50,48.60L31.57,49.06L31.65,49.49" +
+        "L31.74,49.89L31.83,50.27L31.94,50.63L32.05,50.96L32.18,51.27L32.31,51.55L32.46,51.82" +
+        "L32.62,52.07L32.80,52.29L33.00,52.50L33.21,52.70L33.43,52.88L33.68,53.04L33.95,53.19" +
+        "L34.23,53.32L34.54,53.45L34.87,53.56L35.23,53.67L35.61,53.76L36.01,53.85L36.44,53.93" +
+        "L36.90,54.00L36.44,54.07L36.01,54.15L35.61,54.24L35.23,54.33L34.87,54.44L34.54,54.55" +
+        "L34.23,54.68L33.95,54.81L33.68,54.96L33.43,55.12L33.21,55.30L33.00,55.50L32.80,55.71" +
+        "L32.62,55.93L32.46,56.18L32.31,56.45L32.18,56.73L32.05,57.04L31.94,57.37L31.83,57.73" +
+        "L31.74,58.11L31.65,58.51L31.57,58.94L31.50,59.40L31.43,58.94L31.35,58.51L31.26,58.11" +
+        "L31.17,57.73L31.06,57.37L30.95,57.04L30.82,56.73L30.69,56.45L30.54,56.18L30.38,55.93" +
+        "L30.20,55.71L30.00,55.50L29.79,55.30L29.57,55.12L29.32,54.96L29.05,54.81L28.77,54.68" +
+        "L28.46,54.55L28.13,54.44L27.77,54.33L27.39,54.24L26.99,54.15L26.56,54.07L26.10,54.00" +
+        "L26.56,53.93L26.99,53.85L27.39,53.76L27.77,53.67L28.13,53.56L28.46,53.45L28.77,53.32" +
+        "L29.05,53.19L29.32,53.04L29.57,52.88L29.79,52.70L30.00,52.50L30.20,52.29L30.38,52.07" +
+        "L30.54,51.82L30.69,51.55L30.82,51.27L30.95,50.96L31.06,50.63L31.17,50.27L31.26,49.89" +
+        "L31.35,49.49L31.43,49.06ZM48.38,51.53L52.90,59.67L53.10,59.97L53.35,60.24" +
+        "L53.63,60.47L53.94,60.65L54.28,60.79L54.64,60.87L55.00,60.90L55.36,60.87L55.72,60.79" +
+        "L56.06,60.65L56.37,60.47L56.65,60.24L56.90,59.97L57.10,59.67L61.62,51.53L64.67,64.07" +
+        "L64.79,64.43L64.96,64.76L65.18,65.06L65.45,65.33L65.75,65.55L66.09,65.72L66.45,65.84" +
+        "L66.82,65.89L67.20,65.89L67.57,65.83L67.93,65.71L68.26,65.54L68.56,65.32L68.83,65.05" +
+        "L69.05,64.75L69.22,64.41L69.34,64.05L69.39,63.68L69.39,63.30L69.33,62.93L64.83,44.43" +
+        "L64.71,44.07L64.54,43.73L64.31,43.42L64.03,43.15L63.72,42.93L63.38,42.77L63.01,42.65" +
+        "L62.63,42.60L62.25,42.61L61.87,42.68L61.51,42.81L61.18,43.00L60.87,43.23L60.61,43.52" +
+        "L60.40,43.83L55.00,53.56L49.60,43.83L49.39,43.52L49.13,43.23L48.82,43.00L48.49,42.81" +
+        "L48.13,42.68L47.75,42.61L47.37,42.60L46.99,42.65L46.62,42.77L46.28,42.93L45.97,43.15" +
+        "L45.69,43.42L45.46,43.73L45.29,44.07L45.17,44.43L40.67,62.93L40.61,63.30L40.61,63.68" +
+        "L40.66,64.05L40.78,64.41L40.95,64.75L41.17,65.05L41.44,65.32L41.74,65.54L42.07,65.71" +
+        "L42.43,65.83L42.80,65.89L43.18,65.89L43.55,65.84L43.91,65.72L44.25,65.55L44.55,65.33" +
+        "L44.82,65.06L45.04,64.76L45.21,64.43L45.33,64.07Z"
 
 /** A hairline between two parts of a panel. */
 @Composable

@@ -35,12 +35,12 @@
         <item quantity="other">%1$d şarkı</item>
     </plurals>
     <string name="permission_title">Müziğiniz düzenlenmeye hazır</string>
-    <string name="permission_description">Metadator\'ın müziğinizi listeleyebilmesi için onu görmesi gerekir. Cihazınızdan hiçbir şey çıkmaz ve siz kaydedene kadar hiçbir dosya değişmez.</string>
+    <string name="permission_description">Metamatik\'in müziğinizi listeleyebilmesi için onu görmesi gerekir. Cihazınızdan hiçbir şey çıkmaz ve siz kaydedene kadar hiçbir dosya değişmez.</string>
     <string name="permission_grant">Erişime izin ver</string>
     <string name="permission_denied_description">Müziğinize erişim kapatılmış. Uygulamanın ayarlarından açabilir ya da izin vermeden tek bir dosya açabilirsiniz.</string>
     <string name="permission_open_settings">Ayarları aç</string>
     <string name="empty_library_title">Henüz şarkı yok</string>
-    <string name="empty_library_description">Metadator, Android\'in cihazınızda bulduğu şarkıları listeler. Müzik klasörüne müzik kopyalayın; yeni kopyaladıysanız yeniden tarayın.</string>
+    <string name="empty_library_description">Metamatik, Android\'in cihazınızda bulduğu şarkıları listeler. Müzik klasörüne müzik kopyalayın; yeni kopyaladıysanız yeniden tarayın.</string>
     <string name="no_results_title">Eşleşen bir şey yok</string>
     <string name="no_results_description">Daha az sözcük deneyin veya filtreleri temizleyin.</string>
     <string name="clear_filters">Filtreleri temizle</string>

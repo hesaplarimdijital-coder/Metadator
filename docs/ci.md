@@ -73,7 +73,7 @@ would.
 ## A branch's own APK (`metadator-one-apk.yml`)
 
 For a branch that lives in a repository that is not a fork of Metadator, where neither workflow
-above runs: here `metadator-one`, the app in its Studio look, which installs as Metadator One. On
+above runs: here `metadator-one`, the app in its Studio look, which installs as Metamatik. On
 every push to the branch it runs the unit tests of the plain Kotlin modules and builds
 `:app:assembleFossRelease -Pmetadator.fork=one`:
 

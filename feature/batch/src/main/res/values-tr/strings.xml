@@ -35,7 +35,7 @@
     <string name="batch_pattern_invalid">Her yer tutucuyu bir kez, en az birini kullanın</string>
     <string name="batch_pattern_no_match">Eşleşmiyor</string>
     <string name="batch_apply">Hepsine uygula</string>
-    <string name="batch_access_denied">Metadator\'ın bu dosyaları değiştirmesine izin verilmedi</string>
+    <string name="batch_access_denied">Metamatik\'in bu dosyaları değiştirmesine izin verilmedi</string>
     <string name="batch_running">%2$d şarkıdan %1$d. kaydediliyor</string>
     <string name="batch_cancel">Durdur</string>
     <string name="batch_done_title">Bitti</string>
