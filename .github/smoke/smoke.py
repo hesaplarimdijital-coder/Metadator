@@ -1724,23 +1724,36 @@ def editor_field(text, timeout=40):
         time.sleep(1)
 
 
+def keyboard_state():
+    """Whether the system shows a keyboard on screen, as its input method service says, in short."""
+    said = shell("dumpsys input_method", timeout=60)
+    found = re.findall(r"(mInputShown|mIsInputViewShown|mImeWindowVis|mDecorViewVisible)=(\S+)", said)
+    return ", ".join(f"{name}={value}" for name, value in dict(found).items()) or "unknown"
+
+
 def save_and_watch(shot):
     """Taps Save and watches the song being saved. Returns what says it was saved and the Save
-    button, as they were seen together, or None if the message came and went between two reads of
-    the screen (each takes a second or two, and it shows for four)."""
+    button, as they were seen together (None if the message came and went between two reads of
+    the screen: each takes a second or two, and it shows for four), and what went wrong with the
+    tap, if nothing came of it: then Ctrl+S saves instead, so that the step can go on."""
     tap(expect("^Save$", 10))
-    seen, saved_at = None, None
-    deadline = time.time() + 60
+    tapped_at = time.time()
+    seen, saved_at, started, missed = None, None, False, None
+    deadline = tapped_at + 60
     while time.time() < deadline:
         nodes = screen()
         if not any(node.package == PACKAGE for node in nodes) and find(r"^(Allow|ALLOW)$", nodes):
             # The system asks once for each file whether the app may change it.
             tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+            started = True
             continue
+        if find("^Saving", nodes):
+            started = True
         messages = find("^Saved$", nodes)
         if len(messages) > 1:
             raise Failed(f"{len(messages)} messages say Saved at once")
         if messages and seen is None:
+            started = True
             message = messages[0]
             while message.parent is not None and not message.holds("^Undo$"):
                 message = message.parent
@@ -1750,9 +1763,16 @@ def save_and_watch(shot):
             seen = (message, buttons[0] if buttons else None)
             screenshot(shot)
         if find("^No changes$", nodes):
+            started = True
             saved_at = saved_at or time.time()
             if seen or time.time() - saved_at > 5:
-                return seen
+                return seen, missed
+        if not started and missed is None and time.time() - tapped_at > 8:
+            # Nothing came of the tap. What was in front of the button, and the keys instead.
+            missed = f"a tap on Save did nothing (keyboard: {keyboard_state()})"
+            log(f"    {missed}")
+            screenshot(f"{shot}-tap-missed")
+            key(KEY_CTRL, KEY_S)
         time.sleep(0.3)
     raise Failed(f"the song was not saved after 60 s: {said_on(screen())[:30]}")
 
@@ -1772,7 +1792,9 @@ def clear_of(seen):
 def saves_on_a_phone():
     """Saving on a phone again and again, as someone who had to wait for Save to show again would:
     what says a song was saved stays clear of the button, a newer message takes the place of the
-    one on show, and the editor goes on showing the song as it was saved."""
+    one on show, and the editor goes on showing the song as it was saved. The title is typed
+    into with its field focused, as a person does, and the keyboard that brings up must leave
+    Save in reach."""
     shell("wm size 1080x1920")
     shell("wm density 420")
     try:
@@ -1781,7 +1803,7 @@ def saves_on_a_phone():
         tap(row("Digital Love"))
         original = "Digital Love"
         edited = original
-        notes = []
+        notes, missed = [], []
         for attempt in (1, 2):
             tap(editor_field(edited))
             key(KEY_MOVE_END)
@@ -1798,7 +1820,10 @@ def saves_on_a_phone():
             if typed is None:
                 raise Failed(f"the title could not be changed: {said_on(screen())[:20]}")
             edited = typed
-            notes.append(clear_of(save_and_watch(f"phone-saved-{attempt}")))
+            seen, miss = save_and_watch(f"phone-saved-{attempt}")
+            notes.append(clear_of(seen))
+            if miss:
+                missed.append(miss)
             # Still the song as it was saved, its title in its field and nothing left to save.
             editor_field(edited, 15)
         # Back to the title it had, so that the steps after this one find the song as it was.
@@ -1806,14 +1831,23 @@ def saves_on_a_phone():
         key(KEY_CTRL, KEY_A)
         shell("input text Digital%sLove")
         editor_field(original, 15)
-        save_and_watch("phone-saved-back")
+        _, miss = save_and_watch("phone-saved-back")
+        if miss:
+            missed.append(miss)
         file_name = SONGS[original]
         after = probe(pull(file_name))
         if after["tags"] != before[file_name]["tags"]:
             raise Failed(f"{file_name} is not back as it was: {after['tags']}")
         key(KEY_CTRL, KEY_W)
         expect(LIBRARY, 20)
+        if missed:
+            raise Failed("; ".join(missed) + f". Saved with Ctrl+S instead: {'; '.join(notes)}")
     finally:
+        # Whatever happened, no song is left open with changes for the steps after this one.
+        try:
+            home()
+        except Exception as error:
+            log(f"    could not get back to the library: {error}")
         shell("wm size reset")
         shell("wm density reset")
         time.sleep(3)
@@ -1833,6 +1867,8 @@ def glass_on_a_phone():
     shell("wm density 420")
     try:
         time.sleep(4)
+        # On a phone only one screen shows: whatever was beside the library would be in front.
+        home()
         expect("One More Time", 15)
         screenshot("phone-player-glass")
         key(KEY_CTRL, KEY_A)
