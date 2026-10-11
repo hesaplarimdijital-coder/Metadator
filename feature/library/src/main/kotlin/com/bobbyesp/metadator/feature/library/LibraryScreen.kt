@@ -8,7 +8,6 @@ import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -24,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.outlined.GraphicEq
@@ -54,7 +55,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -79,8 +79,7 @@ import com.bobbyesp.metadator.core.designsystem.component.ActionChip
 import com.bobbyesp.metadator.core.designsystem.component.ActionMenu
 import com.bobbyesp.metadator.core.designsystem.component.Choice
 import com.bobbyesp.metadator.core.designsystem.component.ConnectedChoices
-import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbar
-import com.bobbyesp.metadator.core.designsystem.component.FloatingActionToolbarDefaults
+import com.bobbyesp.metadator.core.designsystem.component.GlassSurface
 import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
 import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
@@ -98,7 +97,6 @@ import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
-import com.bobbyesp.metadator.core.designsystem.theme.blurHalo
 import com.bobbyesp.metadator.core.domain.library.Storage
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
@@ -108,6 +106,7 @@ import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
 import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.core.ui.input.hasHardwareKeyboard
 import com.bobbyesp.metadator.core.ui.input.shortcutHint
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import java.text.NumberFormat
@@ -637,12 +636,6 @@ private fun PhoneLibrary(
     val onIntent = actions.onIntent
     // The lists, recorded for the selection toolbar that floats over them.
     val haze = rememberHazeState()
-    val toolbarHalo by
-        animateFloatAsState(
-            targetValue = if (state.selecting) 1f else 0f,
-            animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-            label = "SelectionToolbarHalo",
-        )
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             AnimatedContent(
@@ -699,42 +692,59 @@ private fun PhoneLibrary(
             Box(Modifier.weight(1f).fillMaxWidth().hazeSource(haze)) { content() }
         }
 
+        val motion = MaterialTheme.motionScheme
         AnimatedVisibility(
             visible = state.selecting,
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
+            enter =
+                slideInVertically(motion.defaultSpatialSpec()) { it } +
+                    fadeIn(motion.defaultEffectsSpec()),
+            exit =
+                slideOutVertically(motion.fastSpatialSpec()) { it } +
+                    fadeOut(motion.fastEffectsSpec()),
             modifier =
                 Modifier.align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    // Above the mini player when one is showing.
-                    .padding(bottom = if (state.playerActive) 104.dp else Spacing.large)
-                    // On the visibility, not inside it: its slide and fade would move and clip the
-                    // halo with the toolbar. And only while there is one to draw: the lists are
-                    // recorded for as long as something blurs them.
-                    .then(
-                        if (state.selecting || toolbarHalo > 0f) {
-                            Modifier.blurHalo(
-                                state = haze,
-                                shape = FloatingActionToolbarDefaults.HaloShape,
-                                strength = toolbarHalo,
-                            )
-                        } else Modifier
-                    ),
+                    // Above the mini player when one is showing, as far up as the shell keeps
+                    // its messages (the player's clearance, which a feature cannot see).
+                    .padding(bottom = if (state.playerActive) 96.dp else Spacing.large),
         ) {
-            FloatingActionToolbar(
-                onPrimaryAction = { actions.onEditTracks(state.selectedTracks) },
-                primaryAction = {
-                    Icon(Icons.Rounded.Edit, stringResource(R.string.edit_together))
-                },
-            ) {
-                StudioIconButton(
-                    icon = Icons.Rounded.PlayArrow,
-                    contentDescription = stringResource(R.string.play_selection),
-                    onClick = { onIntent(LibraryIntent.PlaySelection) },
-                    size = 44.dp,
-                    iconSize = 24.dp,
-                )
-            }
+            SelectionBar(state, actions, onIntent, glass = haze)
+        }
+    }
+}
+
+/**
+ * What to do with the songs selected, on a pane of glass over the list: play them, or edit them
+ * together, which is what selecting them is mostly for.
+ */
+@Composable
+private fun SelectionBar(
+    state: LibraryState,
+    actions: LibraryActions,
+    onIntent: (LibraryIntent) -> Unit,
+    glass: HazeState,
+) {
+    // The buttons' corners are the bar's, less its padding: the two curves stay parallel.
+    GlassSurface(backdrop = glass, shape = RoundedCornerShape(16.dp)) {
+        Row(
+            modifier = Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StudioButton(
+                text = stringResource(R.string.play_selection),
+                onClick = { onIntent(LibraryIntent.PlaySelection) },
+                icon = Icons.Rounded.PlayArrow,
+                style = StudioButtonStyle.Ghost,
+                modifier = Modifier.heightIn(min = 44.dp),
+            )
+            StudioButton(
+                text = stringResource(R.string.edit_together),
+                onClick = { actions.onEditTracks(state.selectedTracks) },
+                icon = Icons.Rounded.Edit,
+                style = StudioButtonStyle.Primary,
+                modifier = Modifier.heightIn(min = 44.dp),
+            )
         }
     }
 }

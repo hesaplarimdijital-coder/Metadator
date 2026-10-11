@@ -184,8 +184,8 @@ desktop vocabulary over Material's components:
 - `ToggleChip`, `ActionChip`, `LabelChip`: a filter or one option of a few, a chip that does
   something, and one that only says something. The second never looks selected, so it is not read
   as a filter that is on.
-- `FloatingActionToolbar`: the toolbar with the screen's main action beside it, on a phone (the
-  library's selection).
+- `GlassSurface`: a bar floating over a list, as glass (see Blur): the player's bar and the
+  library's selection bar on a phone.
 - `PlayingBars`: the three bars on the row of the song that is playing; still while paused.
 - `SectionHeader`, `NavigationItem`, `SwitchItem`, `RadioItem`, `PlaceholderCard`: grouped lists
   (their shapes from `GroupShapes`) and what a screen shows instead of content.
@@ -223,6 +223,14 @@ the surface applies `Modifier.frosted` with `MetadatorBlurDefaults.surfaceStyle(
 The surface's own container becomes transparent and loses its shadow. That is the wide player's
 floating controls, and the menus.
 
+**A bar floating over a list is glass** (`GlassSurface`, with
+`MetadatorBlurDefaults.glassStyle`): frosted as above, more see-through, with a hairline edge
+lighter along its top, and nothing drawn around it. The glass is what sets it apart; a halo around
+it, as it once had, read as an effect beside the bar rather than on it. That is the player's bar on
+a phone, frosted with what the shell records, and the library's selection bar, with the list the
+library records. While the player's bar travels into the full player it is solid, since nothing
+frosts during a shared element transition.
+
 - **The source is a sibling of what frosts it, never an ancestor.** A surface inside its own source
   would blur itself.
 - **Content passes beneath the surface padded, not inset**, or there is nothing there to frost.
@@ -234,9 +242,8 @@ element goes out of focus, most at its edge, and is sharp again a little further
 shadow darkens, this softens. The halo follows the element's shape, reaches a little further below
 it than above, as Material's light does, and is drawn outside the element without changing its
 layout. It takes Android 13; below it `MetadatorBlurDefaults.isHaloSupported` is false and the
-element keeps its shadow. The player's bar on a phone, the floating toolbars and the menus have
-one. The bar docked under the panels has none: it is a panel of the window, which nothing floats
-over.
+element keeps its shadow. The menus have one. The bars do not: they are glass, and the bar docked
+under the panels is a panel of the window, which nothing floats over.
 
 - **Out of the element's own enter and exit animation**, which would scale, slide and clip the halo
   with the element. Animate its `strength` instead.

@@ -142,6 +142,36 @@ object MetadatorBlurDefaults {
     internal const val SharpScrimOpacity = 0.48f
 
     /**
+     * How much of its tone veils a glass bar's blur: less than a menu's, so that what scrolls
+     * beneath reads through the bar as through glass; still enough for its text to keep its
+     * contrast over a bright cover.
+     */
+    private const val LightGlassOpacity = 0.66f
+    private const val DarkGlassOpacity = 0.72f
+
+    /**
+     * A glass [containerColor], for a bar floating over a list: [surfaceStyle], more see-through.
+     */
+    @Composable
+    @ReadOnlyComposable
+    fun glassStyle(containerColor: Color): HazeBlurStyle =
+        HazeBlurStyle.Material3(containerColor) {
+            blurRadius(SurfaceRadius)
+            noiseFactor(NoiseFactor)
+            colorEffects(
+                listOf(
+                    HazeColorEffect.tint(
+                        containerColor.copy(
+                            alpha =
+                                if (containerColor.luminance() >= 0.5f) LightGlassOpacity
+                                else DarkGlassOpacity
+                        )
+                    )
+                )
+            )
+        }
+
+    /**
      * A frosted [containerColor]: what is behind the surface, blurred, under the container color at
      * [LightContainerOpacity] or [DarkContainerOpacity]. Pass the role the surface would have used
      * as a solid color, so the frosted one sits at the same place in the color scheme.

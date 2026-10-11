@@ -74,9 +74,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorAccentTheme
-import com.bobbyesp.metadator.core.designsystem.theme.MetadatorBlurDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
-import com.bobbyesp.metadator.core.designsystem.theme.blurHalo
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
@@ -84,8 +82,11 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 object PlayerSheetDefaults {
-    /** The room the collapsed player takes at the bottom, for whatever must stay clear of it. */
-    val CollapsedClearance: Dp = 112.dp
+    /**
+     * The room the collapsed player takes at the bottom, for whatever must stay clear of it: the
+     * bar, 76 dp, the 12 dp under it, and a gap.
+     */
+    val CollapsedClearance: Dp = 96.dp
 
     /**
      * The room the docked bar takes under the panels of a wide window: the bar, and the gap between
@@ -130,8 +131,8 @@ object PlayerSheetDefaults {
  * @param docked whether the bar is a desktop's, docked under the panels of a wide window, rather
  *   than a phone's, floating over the screen
  * @param expansion told how far open the sheet is, for the shell to step back what is behind it
- * @param backdrop what is recorded of the screens under the player, which the bar is lifted off
- *   with a blur halo; without it, or where the device cannot draw one, with a shadow
+ * @param backdrop what is recorded of the screens under the player, which the phone's bar is
+ *   frosted with, as glass; without it, or where the device cannot blur, the bar is solid
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -168,19 +169,11 @@ fun PlayerSheet(
     }
 
     val motion = MaterialTheme.motionScheme
-    // The halo is the bar's alone: it goes as soon as the bar starts to open, since nothing blurs
-    // while the shared elements travel, and comes back once the bar is at rest again.
-    // A docked bar is a panel of the window, which nothing floats over.
-    val haloed = !docked && backdrop != null && MetadatorBlurDefaults.isHaloSupported
     val barCorner = if (docked) DockedBarCorner else BarCorner
     val barArtworkCorner = if (docked) DockedArtworkCorner else BarArtworkCorner
+    // The phone's bar is glass, frosted with the screens beneath it while it is at rest: not while
+    // it travels into the full player, since nothing frosts during a shared element transition.
     val barAtRest by remember(sheet) { derivedStateOf { sheet.fraction == 0f } }
-    val haloStrength by
-        animateFloatAsState(
-            targetValue = if (available && barAtRest) 1f else 0f,
-            animationSpec = motion.defaultEffectsSpec(),
-            label = "MiniPlayerHalo",
-        )
     // The cover steps back while the music is paused, in the full player only. Both covers do it
     // by as much as the sheet is open: a shared element draws one of the two from the first frame,
     // and if only the screen's stepped back, the cover would jump to its size there.
@@ -324,34 +317,19 @@ fun PlayerSheet(
                 when (value) {
                     PlayerSheetValue.Collapsed ->
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                            // The bar's place, which the halo is drawn around: outside the bar's
-                            // own way in and out, which would slide and fade the halo with it.
                             Box(
                                 (if (docked) {
-                                        // Under the panels, in the same gap as they are.
-                                        Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
-                                            .padding(StudioDefaults.PanelGap)
-                                            .fillMaxWidth()
-                                    } else {
-                                        Modifier.navigationBarsPadding()
-                                            .padding(bottom = Spacing.medium)
-                                            .widthIn(max = BarMaxWidth)
-                                            .fillMaxWidth()
-                                            .padding(horizontal = Spacing.medium)
-                                    })
-                                    .then(
-                                        // Only while there is a halo to draw: the screens are
-                                        // recorded for as long as something blurs them.
-                                        // A halo is drawn only with a backdrop to blur:
-                                        // haloed says there is one.
-                                        if (haloed && (available || haloStrength > 0f)) {
-                                            Modifier.blurHalo(
-                                                state = backdrop,
-                                                shape = RoundedCornerShape(barCorner),
-                                                strength = haloStrength,
-                                            )
-                                        } else Modifier
-                                    )
+                                    // Under the panels, in the same gap as they are.
+                                    Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                                        .padding(StudioDefaults.PanelGap)
+                                        .fillMaxWidth()
+                                } else {
+                                    Modifier.navigationBarsPadding()
+                                        .padding(bottom = Spacing.medium)
+                                        .widthIn(max = BarMaxWidth)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = Spacing.medium)
+                                })
                             ) {
                                 AnimatedVisibility(
                                     visible = available,
@@ -387,7 +365,7 @@ fun PlayerSheet(
                                             onOpen = sheet::open,
                                             shape = shape,
                                             artworkShape = RoundedCornerShape(artworkCorner),
-                                            shadowElevation = if (haloed) 0.dp else BarShadow,
+                                            glass = if (barAtRest) backdrop else null,
                                             modifier = container.then(dragToMove),
                                             // Laid out as a bar throughout, at the top of the
                                             // surface as it grows.
@@ -591,15 +569,14 @@ private const val PAUSED_COVER_SCALE = 0.86f
 private const val EXPANDED_SWELL = 0.35f
 private const val COLLAPSED_DIP = 0.12f
 
-private val BarCorner = 28.dp
+private val BarCorner = 24.dp
 private val BarMaxWidth = 560.dp
 
 /** The docked bar's corners: a panel's, as the panels above it have. */
 private val DockedBarCorner = 14.dp
 private val DockedArtworkCorner = 8.dp
 
-/** The bar's shadow where no halo lifts it. */
-private val BarShadow = 6.dp
+/** The cover's corners in the phone's bar: the bar's, less the padding around the cover. */
 private val BarArtworkCorner = 16.dp
 private val ScreenArtworkCorner = 28.dp
 private val FlingThreshold = 125.dp
