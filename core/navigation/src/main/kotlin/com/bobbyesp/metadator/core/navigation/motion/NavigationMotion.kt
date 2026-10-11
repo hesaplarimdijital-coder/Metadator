@@ -36,27 +36,42 @@ object NavigationMotion {
     private val Peek = CubicBezierEasing(0f, 0f, 0f, 1f)
     private val Leave = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 
-    /** Forward: the new screen springs in from the end, over the old one as it steps back. */
-    fun AnimatedContentTransitionScope<*>.forward(motion: MotionScheme): ContentTransform {
+    /**
+     * Forward: the new screen fades up from a little way towards the end, as the old one fades away
+     * a little way towards the start. A short shift through a fade, as a desktop tool changes what
+     * it shows: a whole screen sliding over another, which steps back under it, is a phone's way,
+     * and in the Studio look it put two screens in sight at once.
+     *
+     * @param shift how far each screen moves, in pixels: a set distance, not a share of a window
+     *   that may be as wide as a monitor
+     */
+    fun AnimatedContentTransitionScope<*>.forward(
+        motion: MotionScheme,
+        shift: Int,
+    ): ContentTransform {
         val travel = motion.defaultSpatialSpec<IntOffset>().toThePixel()
         val arriving =
-            slideIntoContainer(SlideDirection.Start, travel) + fadeIn(motion.fastEffectsSpec())
-        val steppingBack =
-            slideOutOfContainer(SlideDirection.Start, travel) { it / 4 } +
-                scaleOut(motion.defaultSpatialSpec(), targetScale = BEHIND_SCALE) +
-                fadeOut(motion.defaultEffectsSpec())
-        return arriving togetherWith steppingBack
+            slideIntoContainer(SlideDirection.Start, travel) { shift } +
+                fadeIn(motion.defaultEffectsSpec())
+        val leaving =
+            slideOutOfContainer(SlideDirection.Start, travel) { shift } +
+                fadeOut(motion.fastEffectsSpec())
+        return arriving togetherWith leaving
     }
 
-    /** Backward: the screen leaves to where it came from, and the one behind steps up. */
-    fun AnimatedContentTransitionScope<*>.backward(motion: MotionScheme): ContentTransform {
+    /** Backward: [forward] the other way round. */
+    fun AnimatedContentTransitionScope<*>.backward(
+        motion: MotionScheme,
+        shift: Int,
+    ): ContentTransform {
         val travel = motion.defaultSpatialSpec<IntOffset>().toThePixel()
-        val steppingUp =
-            slideIntoContainer(SlideDirection.End, travel) { it / 4 } +
-                scaleIn(motion.defaultSpatialSpec(), initialScale = BEHIND_SCALE) +
-                fadeIn(motion.fastEffectsSpec())
-        val leaving = slideOutOfContainer(SlideDirection.End, travel)
-        return steppingUp togetherWith leaving
+        val arriving =
+            slideIntoContainer(SlideDirection.End, travel) { shift } +
+                fadeIn(motion.defaultEffectsSpec())
+        val leaving =
+            slideOutOfContainer(SlideDirection.End, travel) { shift } +
+                fadeOut(motion.fastEffectsSpec())
+        return arriving togetherWith leaving
     }
 
     /**

@@ -106,12 +106,17 @@ and stays under the next one instead.
 
 Every transition between screens is in `NavigationMotion`:
 
-- **Forward**: the new screen springs in from the end, over the old one, which moves a quarter of
-  the way, shrinks a little and fades. **Backward** is the reverse. Both run on the theme's motion
-  scheme: the default spatial spring for what moves and the effects springs for the fades. Not the
-  slow spring Material suggests for a full screen: a screen is changed too often to wait for it.
-  The springs are given a threshold of one pixel, or the transition, with both screens composed,
-  would outlast the motion.
+- **Forward**: the new screen fades up from 32 dp towards the end as the old one fades away
+  towards the start: a short shift through a fade, as a desktop tool changes what it shows. A set
+  distance, not a share of the window, which may be as wide as a monitor. **Backward** is the
+  reverse. Both run on the theme's motion scheme: the default spatial spring for what moves, the
+  default effects spring for the screen arriving and the fast one for the screen leaving, so that
+  little of the two shows at once. The springs are given a threshold of one pixel, or the
+  transition, with both screens composed, would outlast the motion.
+- **Every destination is drawn on the ground** (`Ground`, an entry decorator): the screens draw
+  their panels, or their content on a phone, and nothing under it, so without it a screen fading
+  over another showed the other through it. Overlays are left without one, to keep in sight what
+  they open over.
 - **Predictive back**: the screen shrinks under the finger and shows the one behind, then leaves
   the way the finger goes. `NavDisplay` seeks this transition by the gesture's progress and plays
   what is left of it once released, so it is tweens of one length: each spring would run through
