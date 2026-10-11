@@ -352,7 +352,7 @@ private fun PhoneEditor(
             onFindMetadata = parts.onFindMetadata,
             onFindLyrics = { parts.onIntent(EditorIntent.FindLyrics) },
             findingLyrics = parts.state.findingLyrics,
-            height = 44.dp,
+            stacked = true,
         )
         LosslessCheckCard(parts.state.lossless)
         Fields(parts, draft)

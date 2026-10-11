@@ -5,15 +5,19 @@ package com.bobbyesp.metadator.feature.editor.components
 
 import android.view.KeyEvent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,6 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -307,7 +314,9 @@ private fun Cover(
  * What the editor finds online, as three buttons of the same width: a cover, the rest of the tags,
  * the lyrics.
  *
- * @param height taller on a phone, where they are pressed with a finger
+ * @param stacked each button's icon over its name, on a phone: a third of its width is too little
+ *   for an icon and a name side by side in every language and at every size of text ("Kapak bul"
+ *   was cut short)
  */
 @Composable
 fun EditorActions(
@@ -316,28 +325,94 @@ fun EditorActions(
     onFindLyrics: () -> Unit,
     findingLyrics: Boolean,
     modifier: Modifier = Modifier,
-    height: Dp = 34.dp,
+    stacked: Boolean = false,
 ) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        StudioButton(
+    Row(
+        modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(if (stacked) 8.dp else 6.dp),
+    ) {
+        EditorAction(
             text = stringResource(R.string.action_find_cover),
-            onClick = onFindCover,
             icon = Icons.Rounded.AutoAwesome,
+            onClick = onFindCover,
+            stacked = stacked,
             iconTint = Studio.colors.accent,
-            modifier = Modifier.weight(1f).heightIn(min = height),
+            modifier = Modifier.weight(1f),
         )
-        StudioButton(
+        EditorAction(
             text = stringResource(R.string.action_metadata),
-            onClick = onFindMetadata,
             icon = Icons.Outlined.Sell,
-            modifier = Modifier.weight(1f).heightIn(min = height),
+            onClick = onFindMetadata,
+            stacked = stacked,
+            modifier = Modifier.weight(1f),
         )
-        StudioButton(
+        EditorAction(
             text = stringResource(R.string.action_lyrics),
-            onClick = onFindLyrics,
             icon = Icons.Outlined.Lyrics,
+            onClick = onFindLyrics,
+            stacked = stacked,
             busy = findingLyrics,
-            modifier = Modifier.weight(1f).heightIn(min = height),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun EditorAction(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    stacked: Boolean,
+    modifier: Modifier = Modifier,
+    iconTint: Color = Color.Unspecified,
+    busy: Boolean = false,
+) {
+    if (!stacked) {
+        StudioButton(
+            text = text,
+            onClick = onClick,
+            icon = icon,
+            iconTint = iconTint,
+            busy = busy,
+            modifier = modifier.fillMaxHeight().heightIn(min = 34.dp),
+        )
+        return
+    }
+    val colors = Studio.colors
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier =
+            modifier
+                .fillMaxHeight()
+                .clip(shape)
+                .background(colors.field, shape)
+                .border(1.dp, colors.fieldLine, shape)
+                .clickable(enabled = !busy, role = Role.Button, onClick = onClick)
+                .padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = colors.accent,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (iconTint.isSpecified) iconTint else colors.text,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+            color = colors.text,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
