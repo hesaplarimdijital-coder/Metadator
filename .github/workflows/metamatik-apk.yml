@@ -115,6 +115,81 @@ jobs:
             gh release upload metamatik-apk metamatik.apk --clobber
           fi
 
+  # Where Metamatik was built, ci.yml does not run (it runs on master, v2 and pull requests): this
+  # does there what it does besides the unit tests and a build, so that master in the fork, where
+  # it does run, keeps passing. What each check said is published as checks-report.txt. After the
+  # APK, which makes the release this goes to.
+  checks:
+    name: Format, lint and the debug builds
+    needs: apk
+    if: ${{ !cancelled() && github.ref_name == 'metadator-one' && needs.apk.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-build
+
+      - name: Format
+        id: format
+        run: |
+          set -o pipefail
+          ./gradlew spotlessCheck 2>&1 | tee format.log
+
+      - name: Lint
+        id: lint
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          ./gradlew lint --continue 2>&1 | tee lint.log
+
+      - name: Debug builds of both flavors
+        id: debug
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleFossDebug :app:assemblePlaystoreDebug 2>&1 | tee debug.log
+
+      - name: Publish what they said
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "commit $GITHUB_SHA"
+            echo "format: ${{ steps.format.outcome }}, lint: ${{ steps.lint.outcome }}," \
+              "debug builds: ${{ steps.debug.outcome }}"
+            echo
+            echo "--- what the formatter would change ---"
+            grep -E "violations|\.kts?\b" format.log 2>/dev/null | head -n 60
+            echo
+            echo "--- what lint found, the errors first ---"
+            python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ElementTree
+
+          order = {"Fatal": 0, "Error": 1, "Warning": 2}
+          issues = set()
+          for path in glob.glob("**/build/reports/lint-results-*.xml", recursive=True):
+              for issue in ElementTree.parse(path).getroot().iter("issue"):
+                  location = issue.find("location")
+                  where = "?"
+                  if location is not None:
+                      where = f"{location.get('file')}:{location.get('line', '?')}"
+                  issues.add((issue.get("severity"), issue.get("id"), where, issue.get("message")))
+          for severity, name, where, message in sorted(
+              issues, key=lambda issue: (order.get(issue[0], 3), issue[1], issue[2])
+          )[:400]:
+              print(f"{severity} [{name}] {where}: {message}")
+          PY
+            grep -E "Lint found|What went wrong|^> " lint.log 2>/dev/null | sort -u | head -n 40
+            echo
+            echo "--- the debug builds ---"
+            grep -E "^(e|w): |FAILED|What went wrong" debug.log 2>/dev/null | sort -u | head -n 100
+            tail -n 30 debug.log 2>/dev/null
+          } > checks-report.txt || true
+          gh release upload metamatik-apk checks-report.txt --clobber
+
   # Nothing above has run the app. This does: on an emulator as wide as a monitor, with a keyboard
   # and a mouse, through adb, so that what is tried is the very APK that was published. It is a
   # report, not a gate: the APK is out already, and the online sources the cover finder asks are

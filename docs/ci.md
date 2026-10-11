@@ -87,6 +87,10 @@ builds `:app:assembleFossRelease -Pmetadator.fork=one`:
 - **The APK is published as `metamatik.apk`, an asset of the `metamatik-apk` release**, with a
   `build-report.txt` of the errors, the warnings and the end of each step's output. A release
   asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
+- **Where `ci.yml` does not run** (`metadator-one`), a job after the APK does what it does
+  besides the unit tests: `spotlessCheck`, `lint` and the debug builds of both flavors, and
+  publishes what they said, lint's findings errors first, as `checks-report.txt`. So master in
+  the fork, where `ci.yml` runs, keeps passing.
 - **A fork runs no workflow until it is allowed to.** GitHub turns off the workflows a repository
   was forked with: the fork's Actions tab has the button that turns them on, after which this one
   and `ci.yml` run on every push to `master`, and this one can be started by hand.
