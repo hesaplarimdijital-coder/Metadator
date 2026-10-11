@@ -17,10 +17,10 @@ Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.
 
 ## On an emulator, by a script
 
-The APK of the `metadator-one` branch is used on an emulator after each build
-(`.github/smoke/smoke.py`, see [ci.md](ci.md#the-apk-is-then-used-githubsmoke)). The script goes
-through the app as a person would, and stops at nothing: each step is tried whatever became of
-the one before, and the report says which held.
+Metamatik's APK is used on an emulator after each build (`.github/smoke/smoke.py`, see
+[ci.md](ci.md#the-apk-is-then-used-githubsmoke)). The script goes through the app as a person
+would, and stops at nothing: each step is tried whatever became of the one before, and the report
+says which held.
 
 | What is tried | How it is told |
 |---|---|

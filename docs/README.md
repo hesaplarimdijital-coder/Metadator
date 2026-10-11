@@ -21,6 +21,6 @@ works, and why it was built that way. The rules for working on the code are in
 |---|---|
 | Domain (save, undo, lookup, batch, library queries, lossless check and the check of the whole library, cover finder) | Done. Unit tested on the JVM. |
 | Online sources (MusicBrainz, Deezer, iTunes, LRCLIB) | Done. Unit tested with a mock HTTP engine. |
-| Android layers and UI | The Studio look: panels on a ground, a sidebar, a table of songs, the editor as an inspector and the player docked under them ([architecture.md](architecture.md#navigation)). Built and used on an Android 17 emulator after every build of the `metadator-one` branch (see [testing.md](testing.md#on-an-emulator-by-a-script)); still to be checked on phones and tablets ([testing.md](testing.md#not-yet-verified)). |
+| Android layers and UI | The Studio look: panels on a ground, a sidebar, a table of songs, the editor as an inspector and the player docked under them ([architecture.md](architecture.md#navigation)). Built and used on an Android 17 emulator after every build of Metamatik (see [testing.md](testing.md#on-an-emulator-by-a-script)); still to be checked on phones and tablets ([testing.md](testing.md#not-yet-verified)). |
 | Desktop use (windows, keyboard, mouse) | Tried on the emulator as a desktop; still to be checked on Samsung DeX (see [desktop.md](desktop.md#how-far-it-has-been-tried)). |
 | Lyrics sync editor | Not started (planned for 2.1). |

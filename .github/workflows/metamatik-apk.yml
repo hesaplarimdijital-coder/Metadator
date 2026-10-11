@@ -1,16 +1,16 @@
 name: Metamatik APK
 
-# Builds the APK of the metadator-one branch on every push and publishes it as a release asset, so
-# it can be downloaded straight to a phone. This branch lives in a repository that is not a fork of
-# Metadator; the upstream CI workflow only runs on master, v2 and pull requests, so it never fires
-# here.
+# Builds Metamatik's APK on every push and publishes it as a release asset, so it can be downloaded
+# straight to a phone. It runs where Metamatik is kept: the master branch of the Metadator fork it
+# lives in, and the metadator-one branch of a repository that is not a fork, where it was built and
+# where the upstream CI workflow, which runs only on master, v2 and pull requests, never fires.
 #
 # The APK is then used on an emulator (see .github/smoke), and what happened there is published
 # next to it. A push that only changes how the APK is tried says so in its message, with
 # [smoke-only], and the APK already published is tried again without being built again.
 on:
   push:
-    branches: [metadator-one]
+    branches: [master, metadator-one]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +18,7 @@ permissions:
 
 # A new push replaces the build still running: only the latest APK matters.
 concurrency:
-  group: metadator-one-apk
+  group: metamatik-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -68,15 +68,15 @@ jobs:
           case "$apk" in
             *-unsigned.apk) echo "::error::Unsigned APK: $apk"; exit 1 ;;
           esac
-          cp "$apk" metadator-one.apk
-          ls -l metadator-one.apk
+          cp "$apk" metamatik.apk
+          ls -l metamatik.apk
 
       - name: Upload the APK
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: metadator-one
-          path: metadator-one.apk
+          name: metamatik
+          path: metamatik.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -103,16 +103,16 @@ jobs:
             echo "--- the end of the build ---"
             tail -n 120 build.log 2>/dev/null
           } > build-report.txt || true
-          notes="The latest build of the metadator-one branch ($GITHUB_SHA)."
-          if gh release view metadator-one-apk >/dev/null 2>&1; then
-            gh release edit metadator-one-apk --title "Metamatik" --notes "$notes"
+          notes="The latest build of Metamatik, from $GITHUB_REF_NAME ($GITHUB_SHA)."
+          if gh release view metamatik-apk >/dev/null 2>&1; then
+            gh release edit metamatik-apk --title "Metamatik" --notes "$notes"
           else
-            gh release create metadator-one-apk --prerelease --target "$GITHUB_SHA" \
+            gh release create metamatik-apk --prerelease --target "$GITHUB_SHA" \
               --title "Metamatik" --notes "$notes"
           fi
-          gh release upload metadator-one-apk build-report.txt --clobber
-          if [ -f metadator-one.apk ]; then
-            gh release upload metadator-one-apk metadator-one.apk --clobber
+          gh release upload metamatik-apk build-report.txt --clobber
+          if [ -f metamatik.apk ]; then
+            gh release upload metamatik-apk metamatik.apk --clobber
           fi
 
   # Nothing above has run the app. This does: on an emulator as wide as a monitor, with a keyboard
@@ -132,7 +132,7 @@ jobs:
       - name: Take the APK that was published
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download metadator-one-apk --pattern metadator-one.apk --dir .
+        run: gh release download metamatik-apk --pattern metamatik.apk --dir .
 
       - name: Make the songs to try it on
         run: |
@@ -168,7 +168,7 @@ jobs:
         id: use
         run: |
           set -o pipefail
-          python3 .github/smoke/smoke.py metadator-one.apk smoke-songs smoke-out 2>&1 | tee smoke.log
+          python3 .github/smoke/smoke.py metamatik.apk smoke-songs smoke-out 2>&1 | tee smoke.log
 
       # As with the build, the log of a run cannot be downloaded: what happened goes to the
       # release, as a report to read and the pictures taken along the way.
@@ -186,5 +186,5 @@ jobs:
             cat smoke-out/report.txt 2>/dev/null || tail -n 80 emulator-start.log 2>/dev/null
           } > smoke-report.txt || true
           (cd smoke-out && zip -q -r ../smoke.zip . -x 'pulled/*')
-          gh release upload metadator-one-apk smoke-report.txt smoke.zip --clobber
+          gh release upload metamatik-apk smoke-report.txt smoke.zip --clobber
 

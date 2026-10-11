@@ -137,8 +137,10 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   `spotless/copyright.txt`. Run it before every commit.
 - CI (`.github/workflows/ci.yml`) runs `spotlessCheck`, `test`, `lint` and the debug build of both
   flavors on every pull request and on every push to `master` and `v2`. `release.yml` is started by
-  hand and builds the signed release APKs. `metadator-one-apk.yml` builds the APK of a branch kept
-  in another repository, under an application id of its own. See [docs/ci.md](docs/ci.md).
+  hand and builds the signed release APKs. `metamatik-apk.yml` builds Metamatik's APK, under an
+  application id of its own, on every push to `master` (and to `metadator-one`, the branch kept in
+  another repository where it was built), and tries it on an emulator. See
+  [docs/ci.md](docs/ci.md).
 - The `playstore` flavor adds Firebase Crashlytics and Play in-app review. Firebase is only applied
   when `app/google-services.json` exists, so forks and the FOSS flavor build without it.
 
