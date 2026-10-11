@@ -793,6 +793,30 @@ def save_song():
     return check_written(["01 - One More Time.flac"])
 
 
+def same_cover_again():
+    """The cover finder puts the file's own picture first. Chosen, it is no change; and whatever a
+    source gives, a save leaves the foot saying nothing is changed, never a change it can't write."""
+    if not cover_search_worked:
+        raise Skipped("no cover was found to save")
+    expect("^No changes$", 30)
+    key(KEY_CTRL, KEY_K)
+    use, _ = read_cover_sheet(timeout=60)
+    tap(use)
+    expect_gone("Other covers|Use this cover", 20)
+    # The picture is downloaded before the draft has it: wait for the foot to settle.
+    time.sleep(6)
+    nodes = screen()
+    screenshot("the-same-cover-again")
+    if find("^No changes$", nodes):
+        return "the picture the file already has is no change"
+    if not find(r"^\d+ changes?$", nodes):
+        raise Failed(f"the foot says neither: {said_on(nodes)[:30]}")
+    key(KEY_CTRL, KEY_S)
+    allow_system_dialog(40)
+    expect("^No changes$", 60)
+    return "the source gave another copy of the picture; saving it left nothing changed"
+
+
 def check_written(file_names, folder=MUSIC):
     """Each file has a cover now, and everything else it had is as it was."""
     notes = []
@@ -1993,6 +2017,9 @@ def main():
     step("An MP3 gets no verdict", no_verdict_for_mp3)
     step("Ctrl+K finds a cover for a song (network)", find_cover_for_song, required=False)
     step("Ctrl+S saves it, and only it", save_song, required=cover_search_worked)
+    step(
+        "The same cover again leaves nothing to save", same_cover_again, required=cover_search_worked
+    )
     step("Choosing another song shows it in place of the last", choosing_replaces)
     step("A song with unsaved changes stays under the next", unsaved_stays)
     step("Ctrl+A and Ctrl+E edit the songs together", edit_together)

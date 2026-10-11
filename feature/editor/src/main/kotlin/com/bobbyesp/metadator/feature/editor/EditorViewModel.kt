@@ -366,7 +366,14 @@ class EditorViewModel(
                     )
                 )
             }
-            SaveOutcome.NothingToSave -> setState { copy(saving = false) }
+            SaveOutcome.NothingToSave -> {
+                // The file already holds what the draft asks for: values the chosen multi-value
+                // style writes as they are, or tags changed elsewhere to the same. Saving in
+                // silence kept the change on screen, and going back asked to discard it.
+                clearPendingFields()
+                reloadAfterWrite()
+                showMessage(UiMessage(strings.get(R.string.save_nothing_to_write)))
+            }
             SaveOutcome.NeedsAccess -> {
                 setState { copy(saving = false) }
                 showMessage(UiMessage(strings.get(R.string.write_access_denied), long = true))

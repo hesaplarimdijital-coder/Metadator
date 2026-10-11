@@ -6,6 +6,7 @@
     <string name="saving">Kaydediliyor…</string>
     <string name="saved">Kaydedildi</string>
     <string name="saved_some_unsupported">Kaydedildi. Bu biçim şunları saklayamıyor: %1$s</string>
+    <string name="save_nothing_to_write">Kaydedilecek bir şey yok: dosyada zaten bu etiketler var</string>
     <string name="undo">Geri al</string>
     <string name="undone">Değişiklikler geri alındı</string>
     <string name="undo_unavailable">Özgün etiketler artık mevcut değil</string>

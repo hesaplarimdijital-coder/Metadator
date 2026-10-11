@@ -6,6 +6,7 @@
     <string name="saving">Guardando…</string>
     <string name="saved">Guardado</string>
     <string name="saved_some_unsupported">Guardado. Este formato no admite: %1$s</string>
+    <string name="save_nothing_to_write">Nada que guardar: el archivo ya tiene estas etiquetas</string>
     <string name="undo">Deshacer</string>
     <string name="undone">Cambios deshechos</string>
     <string name="undo_unavailable">Las etiquetas originales ya no están disponibles</string>

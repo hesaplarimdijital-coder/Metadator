@@ -6,6 +6,7 @@
     <string name="saving">Saving…</string>
     <string name="saved">Saved</string>
     <string name="saved_some_unsupported">Saved. This format can\'t store: %1$s</string>
+    <string name="save_nothing_to_write">Nothing to save: the file already has these tags</string>
     <string name="undo">Undo</string>
     <string name="undone">Changes undone</string>
     <string name="undo_unavailable">The original tags are no longer available</string>
