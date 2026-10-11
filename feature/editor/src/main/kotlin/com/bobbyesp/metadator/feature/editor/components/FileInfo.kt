@@ -221,7 +221,7 @@ private fun fileStats(loaded: LoadedTrack): List<FileStat> {
                 add(
                     FileStat(
                         stringResource(R.string.file_sample_rate),
-                        kiloHertz(it),
+                        sampleRate(it),
                     )
                 )
             }
@@ -248,7 +248,7 @@ private fun fileStats(loaded: LoadedTrack): List<FileStat> {
  * in its own language, so the decimal mark is the one of the language the app is shown in.
  */
 @Composable
-internal fun kiloHertz(hertz: Int): String {
+internal fun sampleRate(hertz: Int): String {
     val tenths = (hertz / 100.0).roundToInt()
     return if (tenths % 10 == 0) stringResource(R.string.file_sample_rate_whole, tenths / 10)
     else stringResource(R.string.file_sample_rate_tenths, tenths / 10.0)

@@ -114,7 +114,7 @@ import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
 import com.bobbyesp.metadator.feature.editor.components.TagChipsField
 import com.bobbyesp.metadator.feature.editor.components.TagTextField
-import com.bobbyesp.metadator.feature.editor.components.kiloHertz
+import com.bobbyesp.metadator.feature.editor.components.sampleRate
 import com.bobbyesp.metadator.lyrics.api.Lrc
 import com.bobbyesp.metadator.tags.api.FieldKind
 import com.bobbyesp.metadator.tags.api.TagField
@@ -452,7 +452,7 @@ private fun fileFacts(state: EditorState): List<String> {
     return listOfNotNull(
         loaded.fileExtension?.uppercase(Locale.ROOT),
         bits?.let { stringResource(R.string.fact_bits, it) },
-        audio?.sampleRateHz?.takeIf { it > 0 }?.let { kiloHertz(it) },
+        audio?.sampleRateHz?.takeIf { it > 0 }?.let { sampleRate(it) },
         audio
             ?.bitrateKbps
             ?.takeIf { it > 0 && bits == null }
