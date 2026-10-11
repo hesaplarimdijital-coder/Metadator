@@ -71,9 +71,10 @@ not supported, offline) is a sealed result the UI can explain.
 - `messages`: snackbars; buffered until shown, since losing one is a silent failure. A newer one
   takes the place of the one on show, and one with an action (Undo) is as short as one without:
   kept for ten seconds, "Saved, Undo" stood over the next button to press, and a tap meant for
-  that undid the save. The shell keeps them above an editor's foot, where Save is, and above the
-  keyboard. The editors pad their whole column for the keyboard, not only what scrolls, so their
-  foot rides above it while a field is typed in.
+  that undid the save. A press anywhere but on the message dismisses it, and goes on to what it
+  was meant for (`dismissesMessages`). The shell keeps them above an editor's foot, where Save is,
+  and above the keyboard. The editors pad their whole column for the keyboard, not only what
+  scrolls, so their foot rides above it while a field is typed in.
 
 ViewModels never hold a `Context`. `StringProvider` gives them text; ports give them Android work.
 System prompts (permissions, MediaStore's write request) are shown by `ActivityResultHost`, to
