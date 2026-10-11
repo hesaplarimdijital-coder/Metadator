@@ -72,6 +72,8 @@ What it found is in the library: the Quality column of the table of songs (`Qual
 lossless, fake, probably fake, upscaled, unclear; a dash for a lossy format, where there is nothing
 to find), and the Fake FLAC list in the sidebar, of the songs that have surely or most likely been
 through a lossy encoder (`TrackQuality.isFake`), with how far the check has got while it runs.
+Where there is no sidebar (a phone, a narrow window), the list is a quick filter, first among them
+with Needs attention: they are what is looked for there, and a format only narrows the songs down.
 
 ## How it was tuned, and how far that goes
 

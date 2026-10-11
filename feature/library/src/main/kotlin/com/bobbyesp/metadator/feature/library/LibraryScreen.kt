@@ -303,22 +303,17 @@ private fun PanelToolbar(
     }
 }
 
-/** The filters: by format, and the lists of songs where nothing else offers them. */
+/**
+ * The filters: the lists of songs that ask for something to be done, where nothing else offers
+ * them, then the formats. The lists come first: they are what is looked for here, a format is a way
+ * to narrow down.
+ */
 @Composable
 private fun FilterChips(
     state: LibraryState,
     onIntent: (LibraryIntent) -> Unit,
     smartLists: Boolean,
 ) {
-    if (state.formats.size > 1) {
-        state.formats.forEach { format ->
-            ToggleChip(
-                selected = format in state.filter.formats,
-                onClick = { onIntent(LibraryIntent.ToggleFormat(format)) },
-                label = format.uppercase(),
-            )
-        }
-    }
     if (smartLists) {
         if (state.needsAttentionCount > 0 || state.filter.needsAttention) {
             ToggleChip(
@@ -336,6 +331,15 @@ private fun FilterChips(
                 label = stringResource(R.string.fake_lossless_filter, state.fakeCount),
                 icon = Icons.Outlined.GraphicEq,
                 iconTint = Studio.colors.danger,
+            )
+        }
+    }
+    if (state.formats.size > 1) {
+        state.formats.forEach { format ->
+            ToggleChip(
+                selected = format in state.filter.formats,
+                onClick = { onIntent(LibraryIntent.ToggleFormat(format)) },
+                label = format.uppercase(),
             )
         }
     }
