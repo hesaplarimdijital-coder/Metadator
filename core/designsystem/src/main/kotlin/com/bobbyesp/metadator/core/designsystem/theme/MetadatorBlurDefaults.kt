@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurDefaults
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.blur.hazeBlur
@@ -37,11 +36,11 @@ import dev.chrisbanes.haze.blur.material3.Material3
  * tells the two apart better than a shadow, and keeps the content's colors in view. The surface
  * keeps its Material color role, only translucent.
  *
- * Three kinds of blur, for three jobs:
- * - **Frosted surfaces** ([surfaceStyle] and [frosted], on Haze): a bar or a menu over content
- *   recorded with `Modifier.hazeSource`.
- * - **Halos** ([blurHalo], on Haze): the content around a floating element out of focus, where a
- *   shadow would darken it.
+ * Two kinds of blur, for two jobs:
+ * - **Frosted surfaces** ([surfaceStyle], [glassStyle] and [frosted], on Haze): a bar, a menu or
+ *   the wide player's controls over content recorded with `Modifier.hazeSource`. The blur is on the
+ *   surface, never around it: a halo of blur around a floating element read as an effect beside it
+ *   rather than as depth.
  * - **Content out of focus** ([outOfFocus], on `Modifier.blur`): the screen behind something that
  *   opens over it. And [dissolved], for what comes and goes as one surface turns into another.
  *
@@ -70,55 +69,6 @@ object MetadatorBlurDefaults {
 
     /** Whether the device can blur at all; where it cannot, a dim does the job. */
     val isBlurSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    /**
-     * How far a [blurHalo] reaches past its element. Wider than the shadow it replaces: a shadow
-     * shows over any background, a blur only over detail, so it needs the room to be seen.
-     */
-    val HaloSpread: Dp = 32.dp
-
-    /**
-     * A menu's halo: wider than [HaloSpread], because a menu opens over more of the content, and
-     * its halo is all that separates the two.
-     */
-    val MenuHaloSpread: Dp = 36.dp
-
-    /**
-     * The halo's blur at the element's edge, easing to none at the end of its spread. Enough to
-     * soften what is beside the element, not to smear it: past this the halo stops reading as depth
-     * and starts reading as an effect.
-     */
-    val HaloRadius: Dp = 12.dp
-
-    /**
-     * How much further below its element the halo reaches than above it, as a fraction of its
-     * spread: Material's key light casts its shadows downwards, and the halo keeps that direction.
-     */
-    private const val HaloDropFraction = 0.25f
-
-    /** How far down a halo of [spread] is moved; see [HaloDropFraction]. */
-    fun haloDrop(spread: Dp): Dp = spread * HaloDropFraction
-
-    /** The room a halo of [spread] needs on every side of its element. */
-    fun haloMargin(spread: Dp = HaloSpread): Dp = spread + haloDrop(spread)
-
-    /**
-     * A breath of the surface color over the halo's blur, fading with it: over a flat area, where
-     * blur alone changes nothing, the element still has a faint rim around it. Kept low, or the rim
-     * reads as a band with an edge of its own.
-     */
-    internal const val HaloVeilOpacity = 0.18f
-
-    /** The halo's grain: the same reason as [NoiseFactor], over a narrower blur. */
-    internal const val HaloNoiseFactor = 0.04f
-
-    /**
-     * Whether [blurHalo] draws: its radius varies with distance, which Haze does from Android 13.
-     * Where it does not, an element keeps the shadow the halo replaces.
-     */
-    val isHaloSupported: Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            HazeBlurDefaults.isBlurEnabledByDefault()
 
     /**
      * How much of the container color covers the blur. Enough for the content colors on it to keep

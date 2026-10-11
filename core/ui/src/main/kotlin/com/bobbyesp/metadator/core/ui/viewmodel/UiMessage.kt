@@ -3,12 +3,22 @@
  */
 package com.bobbyesp.metadator.core.ui.viewmodel
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -54,6 +64,43 @@ fun ShowMessages(messages: Flow<UiMessage>) {
         }
     }
 }
+
+/**
+ * Where the message on show is, so that a press on it (its Undo) can be told from a press
+ * elsewhere, which dismisses it. See [dismissesMessages].
+ */
+@Stable
+class MessageArea internal constructor() {
+    internal var holder: LayoutCoordinates? = null
+    internal var message: LayoutCoordinates? = null
+
+    internal fun contains(position: Offset): Boolean {
+        val holder = holder?.takeIf { it.isAttached } ?: return false
+        val message = message?.takeIf { it.isAttached } ?: return false
+        return holder.localBoundingBoxOf(message).contains(position)
+    }
+}
+
+@Composable fun rememberMessageArea(): MessageArea = remember { MessageArea() }
+
+/**
+ * On what holds the screens and the snackbar host: the first press anywhere but on the message on
+ * show dismisses it. It only informs, and stood in the way of what was pressed next until its time
+ * was up. The press is not taken: it goes on to whatever it was meant for.
+ */
+fun Modifier.dismissesMessages(host: SnackbarHostState, area: MessageArea): Modifier {
+    val placed = onPlaced { area.holder = it }
+    return placed.pointerInput(host, area) {
+        awaitEachGesture {
+            val press = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val shown = host.currentSnackbarData ?: return@awaitEachGesture
+            if (!area.contains(press.position)) shown.dismiss()
+        }
+    }
+}
+
+/** On the snackbar host, last: where its message is. */
+fun Modifier.messageArea(area: MessageArea): Modifier = onPlaced { area.message = it }
 
 /** Collects one-off effects while the screen is started. */
 @Composable

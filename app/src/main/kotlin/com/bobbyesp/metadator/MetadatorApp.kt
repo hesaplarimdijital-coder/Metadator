@@ -57,6 +57,9 @@ import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.core.ui.input.ShortcutsHelp
 import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
+import com.bobbyesp.metadator.core.ui.viewmodel.dismissesMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.messageArea
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberMessageArea
 import com.bobbyesp.metadator.feature.batch.batchSection
 import com.bobbyesp.metadator.feature.editor.editorSection
 import com.bobbyesp.metadator.feature.library.librarySection
@@ -197,12 +200,13 @@ fun MetadatorApp(onExit: () -> Unit) {
     val behindPlayer =
         remember(playerExpansion) { { playerExpansion.fraction.let { if (it < 1f) it else 0f } } }
     val shownDetail = top?.takeIf { it is Editor || it is BatchEditor }
+    val messageArea = rememberMessageArea()
     Surface(color = MaterialTheme.colorScheme.background) {
         CompositionLocalProvider(
             LocalPanels provides panels,
             LocalShownDetail provides shownDetail,
         ) {
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().dismissesMessages(snackbarHostState, messageArea)) {
                 // Everything the player opens over goes out of focus as it does.
                 Box(
                     Modifier.fillMaxSize().outOfFocus(behindPlayer, MaterialTheme.colorScheme.scrim)
@@ -236,7 +240,8 @@ fun MetadatorApp(onExit: () -> Unit) {
                                 .windowInsetsPadding(
                                     WindowInsets.navigationBars.union(WindowInsets.ime)
                                 )
-                                .padding(bottom = snackbarClearance),
+                                .padding(bottom = snackbarClearance)
+                                .messageArea(messageArea),
                     )
                 }
                 // Last, so that opened it covers everything, the snackbar included.

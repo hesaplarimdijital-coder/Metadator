@@ -34,7 +34,9 @@ Undo (`RestoreBackupUseCase`) writes a backup back and rescans.
 
 Multi-value fields are lists from the file to the chips in the editor and back. The only place
 values are joined is the user's choice in Settings ("Join them into one value"), applied to the
-fields they changed, just before writing.
+fields they changed, just before writing. What is typed into a field of chips becomes a value on
+Enter, on the separator, or when the field lets go of the focus; so Save lets go of the focus
+before it saves, or it would write the field without the value being typed, or being edited.
 
 Track and disc totals follow the format: `3/12` in one field for ID3 and MP4, a separate
 `TRACKTOTAL` for Vorbis comments (FLAC, Ogg, Opus), or whatever key the file already uses

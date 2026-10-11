@@ -109,16 +109,14 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   `StudioButton`/`StudioIconButton`, menus are `ActionMenu`/`PopupMenu`, exclusive options are
   `ConnectedChoices`, text fields are `TonalTextField` (no outlined fields; input a screen refuses
   is refused with an `inputTransformation`), a toolbar's search is `StudioSearchField`, chips are
-  `ToggleChip`/`ActionChip`/`LabelChip`, a bar floating over a list is a `GlassSurface`, a sheet
+  `ToggleChip`/`ActionChip`/`LabelChip`, what floats over the screen is a `GlassSurface`, a sheet
   that searches online is made of `SheetQueryField`/`SheetButton`/`SheetMessage`, and what scrolls
   says where it is with `Modifier.scrollbar`.
 - Blur comes from `MetadatorBlurDefaults`, and stands in for shadows: `Modifier.frosted` (Haze)
-  for a surface floating over content (`GlassSurface` for a bar, with nothing drawn around it),
-  `Modifier.blurHalo` to lift a menu (it keeps its shadow only where `isHaloSupported` is false),
-  `Modifier.outOfFocus` for what something opens over, `Modifier.dissolved` for what comes and
-  goes as one surface turns into another. A `hazeSource` is a sibling of what it blurs, never an
-  ancestor, and nothing is frosted while a shared element transition runs. A halo stays out of its
-  element's enter and exit animation.
+  for a surface floating over content (`GlassSurface` for a bar or a menu), `Modifier.outOfFocus`
+  for what something opens over, `Modifier.dissolved` for what comes and goes as one surface turns
+  into another. The blur is on what floats, never around it. A `hazeSource` is a sibling of what it
+  blurs, never an ancestor, and nothing is frosted while a shared element transition runs.
 - No deprecated API: the build has no deprecation warnings, keep it so. Animate with the theme's
   `motionScheme`, not hand-written tweens. The player sheet and predictive back are the
   exceptions, and say why.

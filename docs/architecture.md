@@ -71,9 +71,10 @@ not supported, offline) is a sealed result the UI can explain.
 - `messages`: snackbars; buffered until shown, since losing one is a silent failure. A newer one
   takes the place of the one on show, and one with an action (Undo) is as short as one without:
   kept for ten seconds, "Saved, Undo" stood over the next button to press, and a tap meant for
-  that undid the save. The shell keeps them above an editor's foot, where Save is, and above the
-  keyboard. The editors pad their whole column for the keyboard, not only what scrolls, so their
-  foot rides above it while a field is typed in.
+  that undid the save. A press anywhere but on the message dismisses it, and goes on to what it
+  was meant for (`dismissesMessages`). The shell keeps them above an editor's foot, where Save is,
+  and above the keyboard. The editors pad their whole column for the keyboard, not only what
+  scrolls, so their foot rides above it while a field is typed in.
 
 ViewModels never hold a `Context`. `StringProvider` gives them text; ports give them Android work.
 System prompts (permissions, MediaStore's write request) are shown by `ActivityResultHost`, to
@@ -175,7 +176,7 @@ desktop vocabulary over Material's components:
 - `ActionMenu`, `PopupMenu`, `PopupMenuGroup`, `StudioMenuItem`: menus as a desktop's, a raised
   surface with a hairline edge and rows short enough to read as one, each with its shortcut at the
   end. `ActionMenu` takes a list of `MenuAction`s and closes itself before running one. Over a
-  screen they are frosted and lifted by a blur halo (see Blur).
+  screen they are glass (see Blur).
 - `TonalTextField`: the app's text field, its label above it as a desktop form has them, over a
   well with a hairline edge. The field with the focus takes the accent on its edge, with a soft
   ring; an `emphasized` one too, quieter, and its label says why (the editor: what will be written
@@ -191,8 +192,8 @@ desktop vocabulary over Material's components:
 - `ToggleChip`, `ActionChip`, `LabelChip`: a filter or one option of a few, a chip that does
   something, and one that only says something. The second never looks selected, so it is not read
   as a filter that is on.
-- `GlassSurface`: a bar floating over a list, as glass (see Blur): the player's bar and the
-  library's selection bar on a phone.
+- `GlassSurface`: what floats over the screen, as glass (see Blur): the player's bar and the
+  library's selection bar on a phone, and the menus.
 - `PlayingBars`: the three bars on the row of the song that is playing; still while paused.
 - `SectionHeader`, `NavigationItem`, `SwitchItem`, `RadioItem`, `PlaceholderCard`: grouped lists
   (their shapes from `GroupShapes`) and what a screen shows instead of content.
@@ -220,42 +221,31 @@ or should notice: a selection, a song starting or pausing, a tab switching.
 
 Material has no blur tokens; `MetadatorBlurDefaults` (`:core:designsystem`) is where the app decides
 where it blurs, and by how much. Blur stands in for elevation: where Material would cast a shadow
-under something that floats over content, the app blurs instead. There are three kinds of blur, for
-three jobs.
+under something that floats over content, the app blurs instead. There are two kinds of blur, for
+two jobs.
 
 **A surface floating over content that moves beneath it is frosted, not shadowed.** What is behind
 it shows through, blurred, under its Material container color made translucent. It is
 [Haze](https://github.com/chrisbanes/haze): the content is recorded with `Modifier.hazeSource`, and
 the surface applies `Modifier.frosted` with `MetadatorBlurDefaults.surfaceStyle(containerRole)`.
 The surface's own container becomes transparent and loses its shadow. That is the wide player's
-floating controls, and the menus.
+floating controls.
 
-**A bar floating over a list is glass** (`GlassSurface`, with
+**What floats over the screen is glass** (`GlassSurface`, with
 `MetadatorBlurDefaults.glassStyle`): frosted as above, more see-through, with a hairline edge
-lighter along its top, and nothing drawn around it. The glass is what sets it apart; a halo around
-it, as it once had, read as an effect beside the bar rather than on it. That is the player's bar on
-a phone, frosted with what the shell records, and the library's selection bar, with the list the
-library records. While the player's bar travels into the full player it is solid, since nothing
-frosts during a shared element transition.
+lighter along its top, and nothing drawn around it. The blur is on the surface, never around it:
+the bars and the menus were once lifted by a halo, the content around them out of focus, which read
+as an effect beside them rather than as depth. That is the player's bar on a phone, frosted with
+what the shell records, the library's selection bar, with the list the library records, and every
+menu's groups. While the player's bar travels into the full player it is solid, since nothing
+frosts during a shared element transition. The bar docked under the panels is not glass: it is a
+panel of the window, which nothing floats over.
 
 - **The source is a sibling of what frosts it, never an ancestor.** A surface inside its own source
   would blur itself.
 - **Content passes beneath the surface padded, not inset**, or there is nothing there to frost.
 - **Not while a shared element transition runs.** What travels is drawn in the transition's
   overlay, where a frosted surface flickers: it is its solid color until the transition settles.
-
-**What floats is lifted by a halo, not a shadow** (`Modifier.blurHalo`): the content around the
-element goes out of focus, most at its edge, and is sharp again a little further out. Where a
-shadow darkens, this softens. The halo follows the element's shape, reaches a little further below
-it than above, as Material's light does, and is drawn outside the element without changing its
-layout. It takes Android 13; below it `MetadatorBlurDefaults.isHaloSupported` is false and the
-element keeps its shadow. The menus have one. The bars do not: they are glass, and the bar docked
-under the panels is a panel of the window, which nothing floats over.
-
-- **Out of the element's own enter and exit animation**, which would scale, slide and clip the halo
-  with the element. Animate its `strength` instead.
-- **Only while there is one to draw.** A source records its content only while something blurs it,
-  so a halo that is not showing is taken off the chain rather than left at strength zero.
 
 Two things are recorded. The shell records every screen (`LocalBackdropHaze`) for what floats over
 all of them: the player's bar, which is its sibling there, and the menus, which are windows of

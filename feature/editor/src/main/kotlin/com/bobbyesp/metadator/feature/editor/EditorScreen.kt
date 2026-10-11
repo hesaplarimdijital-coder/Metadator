@@ -65,6 +65,7 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.mimeTypes
 import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
@@ -571,9 +572,10 @@ private fun EditorFooter(state: EditorState, onIntent: (EditorIntent) -> Unit, p
                 onClick = { onIntent(EditorIntent.RevertAll) },
                 enabled = state.isDirty && !state.saving,
             )
+            val focusManager = LocalFocusManager.current
             StudioButton(
                 text = stringResource(if (state.saving) R.string.saving else R.string.save),
-                onClick = { onIntent(EditorIntent.Save) },
+                onClick = { saveFromScreen(focusManager, onIntent) },
                 style = StudioButtonStyle.Primary,
                 enabled = state.isDirty,
                 busy = state.saving,
@@ -581,6 +583,18 @@ private fun EditorFooter(state: EditorState, onIntent: (EditorIntent) -> Unit, p
             )
         }
     }
+}
+
+/**
+ * Saves what the screen shows. A field of several values (artists, genres) makes a value of what
+ * was typed into it only once it lets go of the focus, or on Enter: so the focus is let go first.
+ * Without that, Save wrote the field without the value being typed (and without the one being
+ * edited, which editing takes out of the list), and the field added it after the save, leaving the
+ * song with a change nobody had made since.
+ */
+private fun saveFromScreen(focusManager: FocusManager, onIntent: (EditorIntent) -> Unit) {
+    focusManager.clearFocus()
+    onIntent(EditorIntent.Save)
 }
 
 /** What the editor does from the keyboard, whatever has the focus. */
@@ -596,6 +610,7 @@ private fun EditorShortcuts(
 ) {
     val ready = state.status == EditorStatus.Ready
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     val page = { scroll.viewportSize * PAGE_SHARE }
     KeyboardShortcuts(
         title = stringResource(R.string.shortcuts_editor),
@@ -607,7 +622,7 @@ private fun EditorShortcuts(
                     ctrl = true,
                     enabled = ready,
                 ) {
-                    onIntent(EditorIntent.Save)
+                    saveFromScreen(focusManager, onIntent)
                 },
                 Shortcut(
                     KeyEvent.KEYCODE_L,

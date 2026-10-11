@@ -17,9 +17,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +44,9 @@ import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
 import com.bobbyesp.metadator.core.ui.input.ShortcutDispatcher
 import com.bobbyesp.metadator.core.ui.input.ShortcutsHelp
 import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
+import com.bobbyesp.metadator.core.ui.viewmodel.dismissesMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.messageArea
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberMessageArea
 import com.bobbyesp.metadator.feature.editor.EditorDestination
 import com.bobbyesp.metadator.library.mediastore.ActivityResultHost
 import org.koin.android.ext.android.inject
@@ -72,6 +77,7 @@ class ExternalEditorActivity : ComponentActivity() {
                 settingsRepository.settings.collectAsStateWithLifecycle(initialValue = null)
             val settings = loaded ?: return@setContent
             val snackbar = remember { SnackbarHostState() }
+            val messageArea = rememberMessageArea()
             CompositionLocalProvider(
                 LocalSnackbarHostState provides snackbar,
                 LocalShortcutDispatcher provides shortcuts,
@@ -83,7 +89,7 @@ class ExternalEditorActivity : ComponentActivity() {
                     val panels =
                         with(LocalDensity.current) { window.width.toDp() } >= PanelWindowWidth
                     Surface(color = MaterialTheme.colorScheme.background) {
-                        Box(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().dismissesMessages(snackbar, messageArea)) {
                             ShortcutsHelp()
                             CompositionLocalProvider(LocalPanels provides panels) {
                                 Box(
@@ -98,8 +104,12 @@ class ExternalEditorActivity : ComponentActivity() {
                             SnackbarHost(
                                 snackbar,
                                 Modifier.align(Alignment.BottomCenter)
-                                    .navigationBarsPadding()
-                                    .padding(bottom = 96.dp),
+                                    // Over the keyboard, as the editor's foot is.
+                                    .windowInsetsPadding(
+                                        WindowInsets.navigationBars.union(WindowInsets.ime)
+                                    )
+                                    .padding(bottom = 96.dp)
+                                    .messageArea(messageArea),
                             )
                         }
                     }
