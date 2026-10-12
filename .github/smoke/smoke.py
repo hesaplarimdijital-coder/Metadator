@@ -2074,6 +2074,37 @@ def glass_on_a_phone():
     return "pictures of the player's bar, the selection's bar and a menu over the list"
 
 
+def ui_thread_times():
+    """How long the app's own thread worked on each of its last frames (composing, laying out,
+    recording what to draw), in ms: the median and the 90th percentile. The emulator draws without
+    a graphics card, so its whole frames are slow whatever the app does; this is the part the app
+    decides."""
+    out = shell(f"dumpsys gfxinfo {PACKAGE} framestats")
+    lines = out.split("---PROFILEDATA---")
+    if len(lines) < 2:
+        return None
+    rows = [line.strip().rstrip(",") for line in lines[1].strip().splitlines() if line.strip()]
+    if len(rows) < 2:
+        return None
+    header = rows[0].split(",")
+    try:
+        flags, start, sync = (header.index(name) for name in ("Flags", "HandleInputStart", "SyncStart"))
+    except ValueError:
+        return None
+    spans = []
+    for row in rows[1:]:
+        cells = row.split(",")
+        if len(cells) <= max(flags, start, sync) or cells[flags] != "0":
+            continue
+        span = (int(cells[sync]) - int(cells[start])) / 1_000_000
+        if 0 < span < 5000:
+            spans.append(span)
+    if not spans:
+        return None
+    spans.sort()
+    return spans[len(spans) // 2], spans[min(len(spans) - 1, len(spans) * 9 // 10)], len(spans)
+
+
 def frame_stats():
     """What the system counted of the app's frames since they were last reset."""
     out = shell(f"dumpsys gfxinfo {PACKAGE}")
@@ -2101,14 +2132,20 @@ def scrolled(name, x, top, bottom, flings=12):
         shell(f"input swipe {x} {top} {x} {bottom} 180")
         time.sleep(0.35)
     time.sleep(1)
+    return f"{name}: " + frames_said()
+
+
+def frames_said():
+    """The frames since the last reset, as the system counted them, and the app's own share."""
     stats = frame_stats()
-    with open(os.path.join(out_dir, f"gfxinfo-{slug(name)}.txt"), "w", encoding="utf-8") as file:
-        file.write(shell(f"dumpsys gfxinfo {PACKAGE}"))
-    return (
-        f"{name}: {stats.get('frames', '?')} frames, {stats.get('janky', '?')}% janky, "
-        f"p50 {stats.get('p50', '?')} ms, p90 {stats.get('p90', '?')} ms, "
-        f"p99 {stats.get('p99', '?')} ms"
+    ui = ui_thread_times()
+    said = (
+        f"{stats.get('frames', '?')} frames, {stats.get('janky', '?')}% janky, "
+        f"p50 {stats.get('p50', '?')} ms, p90 {stats.get('p90', '?')} ms"
     )
+    if ui:
+        said += f"; the app's thread p50 {ui[0]:.1f} ms, p90 {ui[1]:.1f} ms (last {ui[2]} frames)"
+    return said
 
 
 def typed_in_editor():
@@ -2133,16 +2170,10 @@ def typed_in_editor():
     for _ in range(3):
         shell("input text abcdefghijklmnopqrst")
     time.sleep(2)
-    stats = frame_stats()
-    with open(os.path.join(out_dir, "gfxinfo-typing.txt"), "w", encoding="utf-8") as file:
-        file.write(shell(f"dumpsys gfxinfo {PACKAGE}"))
+    said = frames_said()
     key(KEY_CTRL, KEY_W)
     tap(expect("^Discard$", 15))
-    return (
-        f"typing 60 letters in the editor: {stats.get('frames', '?')} frames, "
-        f"{stats.get('janky', '?')}% janky, p50 {stats.get('p50', '?')} ms, "
-        f"p90 {stats.get('p90', '?')} ms, p99 {stats.get('p99', '?')} ms"
-    )
+    return "typing 60 letters in the editor: " + said
 
 
 # How many copies of a song make a library long enough to scroll through.
