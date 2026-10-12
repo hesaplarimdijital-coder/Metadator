@@ -75,6 +75,8 @@
     <string name="cover_finder_title">Buscar una portada</string>
     <string name="cover_finder_search">Buscar</string>
     <string name="cover_finder_searching">Buscando portadas y comparándolas…</string>
+    <string name="cover_finder_asking">Consultando las fuentes…</string>
+    <string name="cover_finder_looking">Mirando %1$d de %2$d portadas…</string>
     <string name="cover_finder_no_results">No se encontraron portadas. Prueba con menos palabras.</string>
     <string name="cover_finder_no_sources">Todas las fuentes están desactivadas. Activa alguna en Ajustes.</string>
     <string name="cover_finder_offline">No tienes conexión</string>

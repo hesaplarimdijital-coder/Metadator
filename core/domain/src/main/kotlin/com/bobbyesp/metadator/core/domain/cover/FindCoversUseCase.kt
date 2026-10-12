@@ -9,6 +9,7 @@ import com.bobbyesp.metadator.core.domain.lookup.LookupService
 import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
 import com.bobbyesp.metadator.lookup.api.LookupCandidate
 import com.bobbyesp.metadator.lookup.api.LookupQuery
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -37,8 +38,13 @@ class FindCoversUseCase(
     private val sampler: ImageSampler,
     private val dispatchers: AppDispatchers,
 ) {
-    suspend operator fun invoke(request: CoverRequest): CoverSearchOutcome =
+    /** @param onProgress told how far the search has got, as it goes, on no particular thread */
+    suspend operator fun invoke(
+        request: CoverRequest,
+        onProgress: (CoverSearchProgress) -> Unit = {},
+    ): CoverSearchOutcome =
         withContext(dispatchers.default) {
+            onProgress(CoverSearchProgress.Asking)
             val direct =
                 lookup.artworkFor(request.identifiers).map { (provider, artwork) ->
                     Proposed(
@@ -93,7 +99,7 @@ class FindCoversUseCase(
                     .map { Proposed(it, isDirect = false) }
 
             val current = request.currentCover?.let { sampler.sample(it) }
-            val seen = lookAt(direct + searched)
+            val seen = lookAt(direct + searched, onProgress)
             val suggestions =
                 samePictures(seen)
                     .map { copies -> suggestion(request, copies, current) }
@@ -117,8 +123,13 @@ class FindCoversUseCase(
      * be had is left out: a catalogue names covers it does not have. So is one that is a flat
      * color, which is what some show in place of a missing one.
      */
-    private suspend fun lookAt(proposed: List<Proposed>): List<Seen> = coroutineScope {
+    private suspend fun lookAt(
+        proposed: List<Proposed>,
+        onProgress: (CoverSearchProgress) -> Unit,
+    ): List<Seen> = coroutineScope {
         val gate = Semaphore(PARALLEL_DOWNLOADS)
+        val seen = AtomicInteger()
+        onProgress(CoverSearchProgress.Looking(0, proposed.size))
         proposed
             .map { cover ->
                 async {
@@ -135,7 +146,11 @@ class FindCoversUseCase(
                                 downloader.peek(url, HEADER_BYTES)?.let(::imageDimensions)
                             }
                         }
-                        Seen(cover, dimensions.await(), sample.await())
+                        Seen(cover, dimensions.await(), sample.await()).also {
+                            onProgress(
+                                CoverSearchProgress.Looking(seen.incrementAndGet(), proposed.size)
+                            )
+                        }
                     }
                 }
             }

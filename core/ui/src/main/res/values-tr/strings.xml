@@ -75,6 +75,8 @@
     <string name="cover_finder_title">Kapak bul</string>
     <string name="cover_finder_search">Ara</string>
     <string name="cover_finder_searching">Kapaklar aranıyor ve karşılaştırılıyor…</string>
+    <string name="cover_finder_asking">Kaynaklara soruluyor…</string>
+    <string name="cover_finder_looking">%2$d kapağın %1$d tanesine bakıldı…</string>
     <string name="cover_finder_no_results">Kapak bulunamadı. Daha az sözcük deneyin.</string>
     <string name="cover_finder_no_sources">Tüm kaynaklar kapalı. Ayarlar\'dan birini açın.</string>
     <string name="cover_finder_offline">Çevrimdışısınız</string>

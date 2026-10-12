@@ -993,11 +993,16 @@ def find_cover_for_album():
 BATCH_NEWLY_COVERED = ["Aerodynamic", "Digital Love", "Harder, Better, Faster, Stronger"]
 
 
+# The first song's picture before the batch, by its size: the batch may give it another.
+first_picture_before = []
+
+
 def apply_to_all():
     if not cover_search_worked:
         raise Skipped("no cover was found to apply")
-    for title in BATCH_NEWLY_COVERED:
+    for title in BATCH_NEWLY_COVERED + ["One More Time"]:
         covers_before[title] = cover_shown(title)
+    first_picture_before[:] = probe(pull("01 - One More Time.flac"))["pictures"]
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
     expect("^Done$", 180)
@@ -1018,6 +1023,21 @@ def library_shows_batch_covers():
     if not all(title in covers_before for title in BATCH_NEWLY_COVERED):
         raise Skipped("the batch was not applied")
     return rows_show_new_covers(BATCH_NEWLY_COVERED, covers_before)
+
+
+def library_shows_replaced_cover():
+    """The song that had a cover before the batch shows the one the batch gave it instead, when
+    that is another picture: the thumbnail MediaStore keeps of a file is renewed when the file is
+    written, and the list asks for it afresh."""
+    if "One More Time" not in covers_before:
+        raise Skipped("the batch was not applied")
+    after = probe(pull("01 - One More Time.flac"))["pictures"]
+    if after == first_picture_before:
+        raise Skipped(f"the batch gave the first song the picture it had: {after}")
+    return (
+        f"{first_picture_before} became {after}; "
+        + rows_show_new_covers(["One More Time"], covers_before)
+    )
 
 
 def leave_batch():
@@ -2119,6 +2139,11 @@ def main():
     step(
         "The library shows the covers written to all",
         library_shows_batch_covers,
+        required=cover_search_worked,
+    )
+    step(
+        "A cover replaced by the batch is the one the library shows",
+        library_shows_replaced_cover,
         required=cover_search_worked,
     )
     step("Back in the library", leave_batch)

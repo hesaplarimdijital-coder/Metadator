@@ -40,6 +40,9 @@ that say which of the picture's coarsest frequencies are above their median. Res
 again or brightening a picture changes a few of them; another picture changes about half. Covers
 whose fingerprints are within 10 bits are copies of one picture.
 
+While it works, the sheet says how far it has got (`CoverSearchProgress`: asking the sources, then
+how many of the covers named have been looked at): a wait of some seconds is at least a moving one.
+
 That is used twice:
 
 - **Copies from several sources become one suggestion**, its largest copy, and count for it. Two

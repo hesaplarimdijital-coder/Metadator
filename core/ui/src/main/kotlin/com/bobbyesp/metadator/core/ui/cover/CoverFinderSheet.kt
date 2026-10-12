@@ -62,6 +62,7 @@ import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.cover.CoverReason
+import com.bobbyesp.metadator.core.domain.cover.CoverSearchProgress
 import com.bobbyesp.metadator.core.domain.cover.CoverSuggestion
 import com.bobbyesp.metadator.core.ui.R
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
@@ -159,14 +160,14 @@ private fun CoverFinderContent(
                     text = stringResource(R.string.cover_finder_search),
                     icon = Icons.Rounded.Search,
                     onClick = onSearch,
-                    enabled = state.status != CoverFinderStatus.Searching,
+                    enabled = state.status !is CoverFinderStatus.Searching,
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.small),
                 )
             }
         }
         when (val status = state.status) {
             CoverFinderStatus.Idle -> Unit
-            CoverFinderStatus.Searching ->
+            is CoverFinderStatus.Searching ->
                 item(key = "searching") {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(Spacing.huge).animateItem(),
@@ -177,6 +178,12 @@ private fun CoverFinderContent(
                         Text(
                             stringResource(R.string.cover_finder_searching),
                             style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            progressText(status.progress),
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
@@ -496,3 +503,12 @@ private val MatchConfidence.icon: ImageVector
             MatchConfidence.Medium -> Icons.AutoMirrored.Rounded.HelpOutline
             MatchConfidence.Low -> Icons.Rounded.WarningAmber
         }
+
+/** How far the search has got, in a line under the wait: a long one is at least a moving one. */
+@Composable
+internal fun progressText(progress: CoverSearchProgress): String =
+    when (progress) {
+        CoverSearchProgress.Asking -> stringResource(R.string.cover_finder_asking)
+        is CoverSearchProgress.Looking ->
+            stringResource(R.string.cover_finder_looking, progress.seen, progress.of)
+    }

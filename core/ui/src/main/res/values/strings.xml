@@ -75,6 +75,8 @@
     <string name="cover_finder_title">Find a cover</string>
     <string name="cover_finder_search">Search</string>
     <string name="cover_finder_searching">Looking for covers and comparing them…</string>
+    <string name="cover_finder_asking">Asking the sources…</string>
+    <string name="cover_finder_looking">Looking at %1$d of %2$d covers…</string>
     <string name="cover_finder_no_results">No covers found. Try fewer words.</string>
     <string name="cover_finder_no_sources">Every source is turned off. Turn one on in Settings.</string>
     <string name="cover_finder_offline">You\'re offline</string>
