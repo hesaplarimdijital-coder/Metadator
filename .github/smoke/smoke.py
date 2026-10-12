@@ -2074,6 +2074,64 @@ def glass_on_a_phone():
     return "pictures of the player's bar, the selection's bar and a menu over the list"
 
 
+def crash_report():
+    """The app's last crash as the system logged it: the exception, what caused it, and the first
+    of the app's own frames it went through. Saved whole beside the report."""
+    crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
+    with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
+        file.write(crashes)
+    lines = [line.split(": ", 1)[-1] for line in crashes.splitlines() if "AndroidRuntime" in line]
+    said = [
+        line
+        for line in lines
+        if not line.startswith("\tat ") or "bobbyesp" in line or "compose" in line
+    ]
+    return " | ".join(said[:14]) or "nothing in the crash log"
+
+
+# The library's places, as its sidebar and its tabs name them.
+PLACES = ["Albums", "Artists", "Folders", "Songs"]
+
+
+def every_place_opens():
+    """Each of the library's places opens: on a wide window, from its sidebar; on one with no room
+    for a sidebar, from the tabs over the panel; on a phone, from its tabs. A place is a list, or a
+    grid, of its own, and one with less in it than fills the window is a case of its own."""
+    layouts = [
+        ("a wide window", None),
+        ("a window with no room for the sidebar", ("1920x1080", 360)),
+        ("a phone", ("1080x2340", 420)),
+    ]
+    opened = []
+    try:
+        for name, layout in layouts:
+            if layout:
+                shell(f"wm size {layout[0]}")
+                shell(f"wm density {layout[1]}")
+                time.sleep(4)
+            for place in PLACES:
+                # The sidebar's item or the tab: what says the place and takes a click, not the
+                # title over the list that says the same.
+                names = [
+                    node.pressed_as()
+                    for node in find(f"^{place}$")
+                    if not node.is_field and node.pressed_as().takes_click
+                ]
+                if not names:
+                    raise Failed(f"nothing opens {place!r} on {name}: {said_on(screen())[:30]}")
+                tap(min(names, key=lambda node: (node.left, node.top)))
+                time.sleep(2.5)
+                if not shell(f"pidof {PACKAGE}").strip():
+                    raise Failed(f"the app closed on {place}, on {name}: {crash_report()}")
+                screenshot(f"{slug(name)}-{place.lower()}")
+            opened.append(name)
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    return "every place opened on " + ", ".join(opened)
+
+
 def no_crash():
     crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
     with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
@@ -2083,7 +2141,7 @@ def no_crash():
         file.write("\n".join(everything.splitlines()[-6000:]))
     ours = [line for line in crashes.splitlines() if PACKAGE in line or "metadator" in line]
     if ours:
-        raise Failed(f"the app crashed: {ours[:6]}")
+        raise Failed(f"the app crashed: {crash_report()}")
     if not shell(f"pidof {PACKAGE}").strip():
         raise Failed("the app is not running any more")
     return "no crash in the log, and the app is still running"
@@ -2103,6 +2161,7 @@ def main():
         return
     global restore_after_failure
     restore_after_failure = True
+    step("Every place of the library opens, wide, narrower and on a phone", every_place_opens)
     step("On a wide window the editor has its place beside the library", two_panes)
     step("The library checks its lossless songs, and lists the fake ones", quality_scan)
     step("F1 lists the keyboard shortcuts", shortcut_list)
