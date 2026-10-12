@@ -6,6 +6,7 @@
     <string name="more_options">Diğer seçenekler</string>
     <string name="open_file">Dosya aç</string>
     <string name="rescan_library">Müzik klasörlerini yeniden tara</string>
+    <string name="library_rescanned">Müzik klasörleri yeniden tarandı</string>
     <string name="tab_songs">Şarkılar</string>
     <string name="tab_albums">Albümler</string>
     <string name="tab_artists">Sanatçılar</string>

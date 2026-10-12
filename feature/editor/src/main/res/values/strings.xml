@@ -51,6 +51,7 @@
     <string name="lyrics_synced">Synced</string>
     <string name="lyrics_found_synced">Synced lyrics added</string>
     <string name="lyrics_found_plain">Lyrics added</string>
+    <string name="lyrics_already_there">The file already has these lyrics</string>
     <string name="lyrics_not_found">No lyrics found for this song</string>
     <string name="lyrics_instrumental">This song is instrumental</string>
     <string name="lyrics_failed">Couldn\'t look for lyrics</string>

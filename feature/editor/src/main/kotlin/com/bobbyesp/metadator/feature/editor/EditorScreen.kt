@@ -8,6 +8,10 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -217,27 +221,51 @@ internal fun EditorScreen(
             .imePadding()
     ) {
         if (!panels) PhoneTopBar(parts, title = stringResource(R.string.edit_tags))
-        val draft = state.draft
-        val loaded = state.loaded
-        when {
-            state.status == EditorStatus.Loading -> LoadingScreen(Modifier.weight(1f))
-            state.status != EditorStatus.Ready || draft == null || loaded == null ->
-                EditorProblem(
-                    state.status,
-                    onRetry = { onIntent(EditorIntent.Reload) },
-                    onClose = onClose,
-                    modifier = Modifier.weight(1f),
-                )
-            else -> {
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                    val columns = panels && !showClose && maxWidth >= TwoColumnWidth
-                    when {
-                        columns -> TwoColumnEditor(parts, draft, loaded, scroll)
-                        panels -> InspectorEditor(parts, draft, loaded, scroll, showClose)
-                        else -> PhoneEditor(parts, draft, loaded, scroll)
+        val phase =
+            when {
+                state.status == EditorStatus.Loading -> EditorPhase.Loading
+                state.status != EditorStatus.Ready || state.draft == null || state.loaded == null ->
+                    EditorPhase.Problem
+                else -> EditorPhase.Ready
+            }
+        // The song fades in as it is read, over the moment of nothing before it: it is usually
+        // there before the screen has finished arriving, and dropped into place mid-way.
+        val motion = MaterialTheme.motionScheme
+        AnimatedContent(
+            targetState = phase,
+            transitionSpec = {
+                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            label = "EditorPhase",
+        ) { shown ->
+            when (shown) {
+                EditorPhase.Loading -> LoadingScreen(Modifier.fillMaxSize())
+                EditorPhase.Problem ->
+                    EditorProblem(
+                        state.status,
+                        onRetry = { onIntent(EditorIntent.Reload) },
+                        onClose = onClose,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                EditorPhase.Ready -> {
+                    val draft = state.draft
+                    val loaded = state.loaded
+                    if (draft != null && loaded != null) {
+                        Column(Modifier.fillMaxSize()) {
+                            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                                val columns = panels && !showClose && maxWidth >= TwoColumnWidth
+                                when {
+                                    columns -> TwoColumnEditor(parts, draft, loaded, scroll)
+                                    panels ->
+                                        InspectorEditor(parts, draft, loaded, scroll, showClose)
+                                    else -> PhoneEditor(parts, draft, loaded, scroll)
+                                }
+                            }
+                            EditorFooter(state, onIntent, phone = !panels)
+                        }
                     }
                 }
-                EditorFooter(state, onIntent, phone = !panels)
             }
         }
     }
@@ -266,6 +294,13 @@ internal fun EditorScreen(
             },
         )
     }
+}
+
+/** What the editor shows: the song, or what stands in for it. */
+private enum class EditorPhase {
+    Loading,
+    Problem,
+    Ready,
 }
 
 /** What the pieces of the editor are asked to do, handed down to them. */
@@ -409,6 +444,7 @@ private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
         cover =
             CoverModel(
                 cover = draft.cover?.data,
+                preview = state.coverPreview,
                 info = state.coverInfo,
                 changed = draft.isCoverChanged,
                 hasOriginal = draft.original.frontCover != null,
@@ -447,7 +483,12 @@ private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
 @Composable
 private fun fileFacts(state: EditorState): List<String> {
     val loaded = state.loaded ?: return emptyList()
-    val bits = (state.lossless as? LosslessCheckState.Done)?.report?.bitsPerSample
+    val bits =
+        when (val lossless = state.lossless) {
+            is LosslessCheckState.Checking -> lossless.bitsPerSample
+            is LosslessCheckState.Done -> lossless.report.bitsPerSample
+            else -> null
+        }
     val audio = loaded.audio
     // One chip each, so that the head wraps them where it is narrow rather than cutting one short.
     return listOfNotNull(

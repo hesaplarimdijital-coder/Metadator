@@ -51,6 +51,7 @@
     <string name="lyrics_synced">Eşzamanlı</string>
     <string name="lyrics_found_synced">Eşzamanlı şarkı sözleri eklendi</string>
     <string name="lyrics_found_plain">Şarkı sözleri eklendi</string>
+    <string name="lyrics_already_there">Dosyada zaten bu şarkı sözleri var</string>
     <string name="lyrics_not_found">Bu şarkı için söz bulunamadı</string>
     <string name="lyrics_instrumental">Bu şarkı enstrümantal</string>
     <string name="lyrics_failed">Şarkı sözleri aranamadı</string>

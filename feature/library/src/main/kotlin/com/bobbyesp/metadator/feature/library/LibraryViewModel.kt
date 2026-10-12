@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.library.LibraryFilter
 import com.bobbyesp.metadator.core.domain.library.Storage
 import com.bobbyesp.metadator.core.domain.library.albums
@@ -26,7 +27,10 @@ import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
 import com.bobbyesp.metadator.library.api.AudioLibrary
 import com.bobbyesp.metadator.player.api.PlayerController
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -58,14 +62,26 @@ sealed interface LibrarySection {
     data class OnStorage(val storage: Storage) : LibrarySection
 }
 
-data class LibraryState(
-    val loading: Boolean = true,
-    val totalTracks: Int = 0,
+/**
+ * What the library lists, with the filter and order it was listed by. A change of the query is a
+ * new list taking the place of the old; the same query lists the songs as they change, each row
+ * keeping its place. The screen tells the two apart by this.
+ */
+data class Listing(
+    val filter: LibraryFilter = LibraryFilter(),
+    val sort: SortOrder = SortOrder(),
     val tracks: List<Track> = emptyList(),
     val albums: List<TrackCollection.Album> = emptyList(),
     val artists: List<TrackCollection.Artist> = emptyList(),
     val folders: List<TrackCollection.Folder> = emptyList(),
+)
+
+data class LibraryState(
+    val loading: Boolean = true,
+    val totalTracks: Int = 0,
+    val listing: Listing = Listing(),
     val tab: LibraryTab = LibraryTab.Songs,
+    /** The filter as chosen, which the list follows a moment later ([listing]). */
     val filter: LibraryFilter = LibraryFilter(),
     val sort: SortOrder = SortOrder(),
     val formats: List<String> = emptyList(),
@@ -82,6 +98,18 @@ data class LibraryState(
     /** How many songs each volume holds. */
     val storages: List<Pair<Storage, Int>> = emptyList(),
 ) {
+    val tracks: List<Track>
+        get() = listing.tracks
+
+    val albums: List<TrackCollection.Album>
+        get() = listing.albums
+
+    val artists: List<TrackCollection.Artist>
+        get() = listing.artists
+
+    val folders: List<TrackCollection.Folder>
+        get() = listing.folders
+
     val selecting: Boolean
         get() = selection.isNotEmpty()
 
@@ -145,6 +173,7 @@ class LibraryViewModel(
     private val library: AudioLibrary,
     private val player: PlayerController,
     private val quality: LibraryQualityScanner,
+    private val batches: BatchRunner,
     private val strings: StringProvider,
     private val dispatchers: AppDispatchers,
     private val savedState: SavedStateHandle,
@@ -187,6 +216,13 @@ class LibraryViewModel(
                     )
                 }
             }
+            .launchIn(viewModelScope)
+        // Selecting songs is mostly for editing them together. Once that is done, the selection
+        // has served: left standing, it was the first thing to deal with on coming back.
+        batches.progress
+            .map { it != null && !it.isRunning && it.saved.isNotEmpty() }
+            .distinctUntilChanged()
+            .onEach { done -> if (done) handleIntent(LibraryIntent.ClearSelection) }
             .launchIn(viewModelScope)
     }
 
@@ -336,10 +372,15 @@ class LibraryViewModel(
             copy(
                 loading = false,
                 totalTracks = all.size,
-                tracks = visible,
-                albums = albums,
-                artists = artists,
-                folders = folders,
+                listing =
+                    Listing(
+                        filter = query.filter,
+                        sort = query.sort,
+                        tracks = visible,
+                        albums = albums,
+                        artists = artists,
+                        folders = folders,
+                    ),
                 formats = formats,
                 needsAttentionCount = needsAttention,
                 storages = storages,
@@ -348,19 +389,28 @@ class LibraryViewModel(
         }
     }
 
+    /**
+     * The scan of a library with little new in it is over in a moment: the indicator stays long
+     * enough to be seen, and what it was for is said once it is done. Asked for with nothing to
+     * show for it, a rescan looked as if it had not happened.
+     */
     private fun refresh() {
         launch {
             setState { copy(refreshing = true) }
+            val started = TimeSource.Monotonic.markNow()
             try {
                 library.refresh()
+                delay(MIN_REFRESH - started.elapsedNow())
             } finally {
                 setState { copy(refreshing = false) }
             }
+            showMessage(UiMessage(strings.get(R.string.library_rescanned)))
         }
     }
 
     private companion object {
         const val KEY_TAB = "tab"
         const val KEY_SEARCH = "search"
+        val MIN_REFRESH = 900.milliseconds
     }
 }

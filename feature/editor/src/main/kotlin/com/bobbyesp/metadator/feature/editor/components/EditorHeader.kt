@@ -70,9 +70,14 @@ import com.bobbyesp.metadator.core.ui.input.shortcutHint
 import com.bobbyesp.metadator.feature.editor.ImageInfo
 import com.bobbyesp.metadator.feature.editor.R
 
-/** The cover and what it is: the picture, and what can be done with it from its menu. */
+/**
+ * The cover and what it is: the picture, and what can be done with it from its menu.
+ *
+ * @param preview a small copy of a cover on its way, shown in its place while [loading]
+ */
 class CoverModel(
     val cover: ByteArray?,
+    val preview: String? = null,
     val info: ImageInfo?,
     val changed: Boolean,
     val hasOriginal: Boolean,
@@ -229,7 +234,7 @@ private fun Cover(
     Box(modifier.size(size)) {
         Tooltip(stringResource(R.string.cover)) {
             ArtworkImage(
-                model = cover.cover,
+                model = if (cover.loading) cover.preview ?: cover.cover else cover.cover,
                 contentDescription = stringResource(R.string.cover),
                 modifier =
                     Modifier.size(size)

@@ -159,7 +159,12 @@ fun EditorDestination(
                 onQueryChange = covers::setQuery,
                 onSearch = covers::search,
                 onUse = { suggestion ->
-                    viewModel.onIntent(EditorIntent.SetCoverFromUrl(suggestion.url))
+                    viewModel.onIntent(
+                        EditorIntent.SetCoverFromUrl(
+                            suggestion.url,
+                            preview = suggestion.thumbnailUrl ?: suggestion.url,
+                        )
+                    )
                     showCovers = false
                 },
                 onDismiss = { showCovers = false },

@@ -56,7 +56,7 @@ internal class NowPlayingViewModel(
         loading =
             launch(onError = { setState { copy(lyrics = TrackLyrics.Unreadable) } }) {
                 this.launch {
-                    val color = track.artworkRef?.let { accents.fromUri(it.uri) }
+                    val color = accents.fromArtwork(track.artwork)
                     setState { copy(accent = color) }
                 }
                 val lyrics = loadLyrics(track.ref)

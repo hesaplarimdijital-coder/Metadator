@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
@@ -201,6 +202,21 @@ fun PopupMenuGroup(content: @Composable ColumnScope.() -> Unit) {
 
 private val MenuGroupPadding = PaddingValues(6.dp)
 
+/**
+ * What a menu shows as it closes: what it showed open. Choosing an item changes the state the menu
+ * is built from (removing the cover takes "Remove cover" out of it, sorting moves the check), and a
+ * menu that followed the change changed as it faded, in the user's eye. Built from what this gives,
+ * a menu keeps its items until it is gone.
+ */
+@Composable
+fun <T> heldWhileClosing(expanded: Boolean, value: T): T {
+    val held = remember { Held(value) }
+    if (expanded) held.value = value
+    return held.value
+}
+
+private class Held<T>(var value: T)
+
 /** A menu of plain actions. Choosing one closes the menu first, so it never outlives its screen. */
 @Composable
 fun ActionMenu(
@@ -209,9 +225,10 @@ fun ActionMenu(
     actions: List<MenuAction>,
     modifier: Modifier = Modifier,
 ) {
+    val shown = heldWhileClosing(expanded, actions)
     PopupMenu(expanded, onDismissRequest, modifier) {
         PopupMenuGroup {
-            actions.forEach { action ->
+            shown.forEach { action ->
                 StudioMenuItem(
                     text = action.text,
                     onClick = {

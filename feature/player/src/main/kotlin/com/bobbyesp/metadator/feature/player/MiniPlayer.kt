@@ -162,8 +162,8 @@ internal fun MiniPlayerBar(
  * The key the cover is cached under. The bar and the full player ask for it at different sizes;
  * sharing the key lets the one arriving start from the picture the other already has.
  */
-internal val Track.artworkCacheKey: String?
-    get() = artworkRef?.uri?.let { "artwork:$it" }
+internal val Track.artworkCacheKey: String
+    get() = artwork.let { "artwork:${it.ref.uri}#${it.version}" }
 
 /**
  * Android 13 needs permission to show the media notification. It is asked the first time something

@@ -30,6 +30,7 @@ says which held.
 | The check of the whole library: the same four songs in the table, and the Fake FLAC list | Each row's quality, a dash for the MP3, and only the fake one in the list |
 | The cover finder, for one song and for the four together, against the real sources | The sheet's best match and its reasons. Not required: the sources are not ours |
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
+| The library's rows after each save | The pixels of each saved song's cover in its row, before and after: a different picture, not the one cached before the save |
 | The same cover chosen again, once the song has it | The editor's foot says nothing is changed, at once or after a save |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
 | A narrow window | One pane at a time |

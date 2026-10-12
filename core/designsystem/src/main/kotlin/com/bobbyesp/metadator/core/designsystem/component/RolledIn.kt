@@ -4,12 +4,16 @@
 package com.bobbyesp.metadator.core.designsystem.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -18,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 
 /**
@@ -45,6 +50,31 @@ object ThroughFocus {
     private const val ARRIVE_MS = 440
     private const val ARRIVE_AFTER_MS = 160
 }
+
+/**
+ * One list taking the place of another, as the songs re-sorted or another tab's: the old fades out,
+ * and only once it is gone does the new fade in, from a little way off if [shift] says where it
+ * comes from. A crossfade showed the two at once, the rows of each through the other's; here
+ * nothing is ever seen through anything.
+ *
+ * Tweens, as [ThroughFocus]: the one arriving waits for the other to be gone, which a spring, which
+ * starts at once, cannot do. The timing is Material's fade through.
+ *
+ * @param shift where the new content comes from, in pixels: a short way, as a hint of direction
+ */
+fun fadeThrough(shift: IntOffset = IntOffset.Zero): ContentTransform {
+    var arriving = fadeIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS, easing = Decelerate))
+    if (shift != IntOffset.Zero) {
+        arriving +=
+            slideIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS, easing = Decelerate)) { shift }
+    }
+    return arriving togetherWith fadeOut(tween(FADE_OUT_MS, easing = Accelerate))
+}
+
+private val Accelerate = CubicBezierEasing(0.4f, 0f, 1f, 1f)
+private val Decelerate = CubicBezierEasing(0f, 0f, 0.2f, 1f)
+private const val FADE_OUT_MS = 90
+private const val FADE_IN_MS = 210
 
 /**
  * Something that turns up like a figure on a counter: it rolls in from under its place, out of

@@ -388,8 +388,7 @@ private fun FloatingControls(
 @Composable
 private fun PlayerBackdrop(track: Track, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val artwork = track.artworkRef?.uri
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || artwork == null) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         Box(
             modifier.background(
                 Brush.verticalGradient(listOf(colors.primaryContainer, colors.surface))
@@ -409,7 +408,7 @@ private fun PlayerBackdrop(track: Track, modifier: Modifier = Modifier) {
             // at full size, for a fraction of the work on every frame the lyrics move. Stretched
             // past the edges, where a blur fades out.
             ArtworkImage(
-                model = shown.artworkRef?.uri,
+                model = shown.artwork,
                 contentDescription = null,
                 modifier =
                     Modifier.size(BackdropSample)

@@ -47,6 +47,18 @@ for has its tags read once, and what was read is cached in Room (`track_tags`) a
 modification date and size. MediaStore's values always win; the file only fills the gaps, so
 "Needs attention" means the file itself lacks the field.
 
+**A list shows each song's own cover** (`TrackArtwork`, `Track.artwork`): MediaStore's thumbnail
+of the picture in the song's file (`ContentResolver.loadThumbnail`, which reads it out of the file
+once and keeps it), asked for at the size it is shown, through a Coil fetcher of the app's
+(`TrackArtworkFetcher`, in the image loader the application builds). MediaStore's album art, one
+picture for the whole album from whichever song it read first, is only used before Android 10,
+where there is no such thumbnail. The cover is cached under the song and the version of its file
+(when it was last written): a cover saved to a song is a new picture under a new key, where the
+one it replaced was cached under the old. Without that the lists kept showing the cover a song had
+before it was saved, for as long as the app ran. A song whose file holds no picture, and whose
+folder has none, shows the note in its place, as the editor shows none. A group (an album, an
+artist) shows its first song's.
+
 **SD cards and USB drives are part of the library.** MediaStore lists the songs of every mounted
 volume in one collection, and a song on a card is read, checked and written through the same
 `content://` URIs as one on the device. What differs is where it is (`StorageVolumes`):
@@ -109,13 +121,24 @@ and stays under the next one instead.
 
 Every transition between screens is in `NavigationMotion`:
 
-- **Forward**: the new screen fades up from 32 dp towards the end as the old one fades away
-  towards the start: a short shift through a fade, as a desktop tool changes what it shows. A set
-  distance, not a share of the window, which may be as wide as a monitor. **Backward** is the
-  reverse. Both run on the theme's motion scheme: the default spatial spring for what moves, the
-  default effects spring for the screen arriving and the fast one for the screen leaving, so that
-  little of the two shows at once. The springs are given a threshold of one pixel, or the
-  transition, with both screens composed, would outlast the motion.
+- **Forward, between panels** (a window of 600 dp or more): the new screen fades up from 32 dp
+  towards the end as the old one fades away towards the start: a short shift through a fade, as a
+  desktop tool changes what it shows. A set distance, not a share of the window, which may be as
+  wide as a monitor. **Backward** is the reverse. Both run on the theme's motion scheme: the
+  default spatial spring for what moves, the default effects spring for the screen arriving and
+  the fast one for the screen leaving, so that little of the two shows at once. The springs are
+  given a threshold of one pixel, or the transition, with both screens composed, would outlast the
+  motion.
+- **Forward, on a phone** (`push`): the new screen comes in over the old one from the end of the
+  window, and the old one steps back under it, a little smaller and dimmed, the way the back
+  gesture finds it. **Backward** (`pop`) is the reverse, and ends as the gesture ends. The slide is
+  the theme's spatial spring without its bounce: the width of the window past its place and back
+  is a screen that lands and rebounds. The shift through a fade, on a phone, was over in 80 ms: a
+  flash, not a move.
+- **A screen's content fades in as it is read** (the editor, the batch editor): it is usually
+  there before the screen has finished arriving, and dropped into place mid-way. `LoadingScreen`
+  shows its indicator only after 400 ms: an indicator for the moment before the content was a
+  flash before it, not a sign of waiting.
 - **Every destination is drawn on the ground** (`Ground`, an entry decorator): the screens draw
   their panels, or their content on a phone, and nothing under it, so without it a screen fading
   over another showed the other through it. Overlays are left without one, to keep in sight what
@@ -176,7 +199,9 @@ desktop vocabulary over Material's components:
 - `ActionMenu`, `PopupMenu`, `PopupMenuGroup`, `StudioMenuItem`: menus as a desktop's, a raised
   surface with a hairline edge and rows short enough to read as one, each with its shortcut at the
   end. `ActionMenu` takes a list of `MenuAction`s and closes itself before running one. Over a
-  screen they are glass (see Blur).
+  screen they are glass (see Blur). A menu shows, as it closes, what it showed open
+  (`heldWhileClosing`): choosing an item changes the state the menu is built from, and a menu that
+  followed the change changed as it faded.
 - `TonalTextField`: the app's text field, its label above it as a desktop form has them, over a
   well with a hairline edge. The field with the focus takes the accent on its edge, with a soft
   ring; an `emphasized` one too, quieter, and its label says why (the editor: what will be written
@@ -198,7 +223,17 @@ desktop vocabulary over Material's components:
 - `SectionHeader`, `NavigationItem`, `SwitchItem`, `RadioItem`, `PlaceholderCard`: grouped lists
   (their shapes from `GroupShapes`) and what a screen shows instead of content.
 - `RolledIn`: something that turns up by rolling into its place through focus, and leaves the same
-  way, at the pace of `ThroughFocus`: the album's chip in the player.
+  way, at the pace of `ThroughFocus`: the album's chip in the player. `fadeThrough` is one thing
+  taking the place of another, the old gone before the new fades in, so that neither is seen
+  through the other: the library's list re-sorted or filtered, or another tab's; the lossless
+  check's verdict in place of its wait; the batch's dialog done in place of running. Material's
+  fade through, in tweens for the same reason as `ThroughFocus`: the one arriving waits.
+- `ClosesOnEscape`, `SheetQueryField`, `SheetButton`, `SheetMessage`, `rememberSheetClosing`: what
+  the sheets that search online are made of. A choice made in a sheet closes it the way a tap
+  beside it does, sliding it away, and then is acted on: taken out of the composition on the
+  choice, a sheet was there one frame and gone the next.
+- `LoadingScreen`: a screen still loading, which shows its indicator only once the wait has gone on
+  for 400 ms.
 - `Tooltip`, `ContextMenuArea`, `HeldKeys`: what a mouse adds. The name of a button that is only an
   icon, a menu on the second button, and the keys held during a click
   ([desktop.md](desktop.md#mouse)).
@@ -206,8 +241,12 @@ desktop vocabulary over Material's components:
 `:core:ui` holds what two features show alike: `TrackTableHeader` and `TrackTableRow`, the table of
 songs, whose columns drop out as its panel narrows (`TrackColumns`: the year, then the format, then
 the album; the title, the artist, the quality and the length stay); `TrackRow`, a song on a phone;
-`CollectionCard`, an album, an artist or a folder; and `QualityBadge`, what the lossless check found
-in a song ([lossless-check.md](lossless-check.md#the-whole-library)).
+`CollectionCard`, an album, an artist or a folder; `QualityBadge`, what the lossless check found in
+a song ([lossless-check.md](lossless-check.md#the-whole-library)); and `ArtworkImage`, a cover of
+any kind (a picture's bytes, a URI, a URL, a song's own), with the note in its place while there is
+none. A picture comes and goes through a fade over the note, and one taking the place of another
+starts from the other (Coil's placeholder, under the key of the last picture shown), so that a
+song just saved shows the cover it had until the new one is decoded.
 
 Keys are not handled by screens with `Modifier.onKeyEvent`: a screen offers shortcuts with
 `KeyboardShortcuts` (`core:ui`), and the activity's `ShortcutDispatcher` gives them the keys no

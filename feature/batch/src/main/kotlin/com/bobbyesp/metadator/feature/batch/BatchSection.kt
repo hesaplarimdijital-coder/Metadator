@@ -19,6 +19,7 @@ import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -39,7 +40,12 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
         ShowMessages(viewModel.messages)
         viewModel.effects.CollectEffects { effect ->
             when (effect) {
-                BatchEffect.Close -> navigator.removeDestination(key)
+                // Asked from the dialog that says the batch is done: the dialog goes first, then
+                // the screen. Leaving together, the dialog's last frames stood over the library.
+                BatchEffect.Close -> {
+                    delay(DialogLeaveMillis)
+                    navigator.removeDestination(key)
+                }
                 is BatchEffect.FindCover -> {
                     covers.start(effect.request)
                     showCovers = true
@@ -73,3 +79,6 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
         }
     }
 }
+
+/** How long Material's dialog takes to go: its fade, with a frame to spare. */
+private const val DialogLeaveMillis = 180L

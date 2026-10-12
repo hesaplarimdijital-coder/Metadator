@@ -212,7 +212,7 @@ private fun TrackCover(track: Track, selected: Boolean, size: Dp, corner: Dp) {
         )
     Box(contentAlignment = Alignment.Center) {
         ArtworkImage(
-            model = track.artworkRef?.uri,
+            model = track.artwork,
             contentDescription = null,
             modifier = Modifier.size(size),
             shape = RoundedCornerShape(radius),
@@ -454,7 +454,7 @@ fun TrackTableRow(
         },
         title = {
             ArtworkImage(
-                model = track.artworkRef?.uri,
+                model = track.artwork,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 shape = RoundedCornerShape(6.dp),

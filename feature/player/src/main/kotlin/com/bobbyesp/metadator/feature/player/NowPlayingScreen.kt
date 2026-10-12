@@ -257,7 +257,7 @@ internal fun LazyListScope.upNextItems(
                 ListItemDefaults.segmentedColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 ),
-            leadingContent = { ArtworkImage(next.artworkRef?.uri, null, Modifier.size(44.dp)) },
+            leadingContent = { ArtworkImage(next.artwork, null, Modifier.size(44.dp)) },
             supportingContent = {
                 Text(next.artist ?: stringResource(R.string.unknown_artist), maxLines = 1)
             },
@@ -300,7 +300,7 @@ internal fun TrackArtwork(track: Track, shape: Shape, modifier: Modifier = Modif
         val blur = remember(focus) { { 1f - focus.value } }
         val leaving = transition.targetState == EnterExitState.PostExit
         ArtworkImage(
-            model = shown.artworkRef?.uri,
+            model = shown.artwork,
             contentDescription = null,
             modifier =
                 Modifier.fillMaxSize().defocused(blur, bounded = true).graphicsLayer {

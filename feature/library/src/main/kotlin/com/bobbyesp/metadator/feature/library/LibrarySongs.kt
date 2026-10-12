@@ -93,7 +93,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
+internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
     val listState = rememberLazyListState()
     SongListShortcuts(state, listState)
     val onIntent = actions.onIntent
@@ -101,10 +101,10 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
     val heldKeys = remember { HeldKeys() }
     val menu = rememberSongMenu(state, actions)
     val activeUri = (LocalShownDetail.current as? Editor)?.uri
-    val allSelected = state.selection.size == state.tracks.size
+    val allSelected = state.selection.size == tracks.size
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxWidth < TrackColumns.MinWidth) {
-            SongRows(state, actions, listState, heldKeys, inCard = false)
+            SongRows(tracks, state, actions, listState, heldKeys, inCard = false)
             return@BoxWithConstraints
         }
         val columns = TrackColumns.forWidth(maxWidth - 16.dp)
@@ -136,7 +136,7 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
                 state = listState,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 8.dp),
             ) {
-                items(state.tracks, key = { it.id.value }, contentType = { "track" }) { track ->
+                items(tracks, key = { it.id.value }, contentType = { "track" }) { track ->
                     val selected = track.id in state.selection
                     ContextMenuArea(
                         actions = { menu(track, selected) },
@@ -163,11 +163,11 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
 
 /** The songs on a phone: rows on a card, below the filters. */
 @Composable
-internal fun SongCards(state: LibraryState, actions: LibraryActions) {
+internal fun SongCards(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
     val listState = rememberLazyListState()
     SongListShortcuts(state, listState)
     val heldKeys = remember { HeldKeys() }
-    SongRows(state, actions, listState, heldKeys, inCard = true)
+    SongRows(tracks, state, actions, listState, heldKeys, inCard = true)
 }
 
 /**
@@ -177,6 +177,7 @@ internal fun SongCards(state: LibraryState, actions: LibraryActions) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SongRows(
+    tracks: List<Track>,
     state: LibraryState,
     actions: LibraryActions,
     listState: LazyListState,
@@ -186,7 +187,7 @@ private fun SongRows(
     val onIntent = actions.onIntent
     val menu = rememberSongMenu(state, actions)
     val activeUri = (LocalShownDetail.current as? Editor)?.uri
-    val count = state.tracks.size
+    val count = tracks.size
     LazyColumn(
         modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(listState),
         state = listState,
@@ -199,7 +200,7 @@ private fun SongRows(
                 )
             } else PaddingValues(vertical = 4.dp),
     ) {
-        itemsIndexed(state.tracks, key = { _, track -> track.id.value }) { index, track ->
+        itemsIndexed(tracks, key = { _, track -> track.id.value }) { index, track ->
             val selected = track.id in state.selection
             ContextMenuArea(
                 actions = { menu(track, selected) },
@@ -375,7 +376,7 @@ internal fun AlbumGrid(
                     listOfNotNull(album.artist, album.year?.toString())
                         .joinToString(" · ")
                         .ifEmpty { null },
-                artwork = album.artworkRef?.uri,
+                artwork = album.artwork,
                 onClick = { onOpen(album) },
                 modifier = Modifier.animateItem(),
             )
@@ -450,9 +451,9 @@ private fun CollectionRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (collection.artworkRef != null && collection !is TrackCollection.Folder) {
+            if (collection.artwork != null && collection !is TrackCollection.Folder) {
                 ArtworkImage(
-                    model = collection.artworkRef?.uri,
+                    model = collection.artwork,
                     contentDescription = null,
                     modifier = Modifier.size(42.dp),
                     shape =

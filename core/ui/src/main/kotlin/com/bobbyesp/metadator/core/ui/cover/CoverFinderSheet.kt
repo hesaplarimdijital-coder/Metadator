@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.core.ui.cover
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -56,6 +57,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
 import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
+import com.bobbyesp.metadator.core.designsystem.component.rememberSheetClosing
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -94,9 +96,16 @@ fun CoverFinderSheet(
         CoverFinderDialog(state, onQueryChange, onSearch, onUse, onDismiss, useLabel)
         return
     }
+    val closing = rememberSheetClosing(sheetState)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         ClosesOnEscape(sheetState, onDismiss) {
-            CoverFinderContent(state, onQueryChange, onSearch, onUse, useLabel)
+            CoverFinderContent(
+                state,
+                onQueryChange,
+                onSearch,
+                onUse = { suggestion -> closing { onUse(suggestion) } },
+                useLabel,
+            )
         }
     }
 }
@@ -112,7 +121,12 @@ private fun CoverFinderContent(
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
+        modifier =
+            Modifier.fillMaxWidth()
+                // The sheet grows to what it finds rather than jumping to it.
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())
+                .heightIn(min = 400.dp)
+                .scrollbar(listState),
         state = listState,
         contentPadding =
             PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),

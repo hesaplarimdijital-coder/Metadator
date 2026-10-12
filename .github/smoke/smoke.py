@@ -437,6 +437,66 @@ def pull(file_name, folder=MUSIC):
     return local
 
 
+def cover_shown(title):
+    """The cover at the start of the song's row, as pixels: a square out of the middle of the
+    picture just before the title, which the row keeps at its height's middle and a little way off
+    the title in either of its layouts. The picture is not a thing the screen's tree knows; its
+    place beside the title is."""
+    nodes = screen()
+    titles = [node for node in find(re.escape(title), nodes) if not node.is_field]
+    if not titles:
+        raise Failed(f"no row says {title!r}")
+    label = min(titles, key=lambda node: (node.left, node.top))
+    line = label.pressed_as()
+    height = line.bottom - line.top
+    side = max(12, min(20, height // 2))
+    left = label.left - 14 - side
+    top = line.top + (height - side) // 2
+    if left < line.left or height <= 0:
+        raise Failed(f"no room for a cover before {title!r}: {label} in {line}")
+    picture = adb("exec-out", "screencap", "-p", binary=True, timeout=60)
+    cropped = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-vf", f"crop={side}:{side}:{left}:{top}",
+         "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"],
+        input=picture,
+        capture_output=True,
+        check=True,
+    ).stdout
+    return cropped
+
+
+def pictures_differ(before, after):
+    """How much two covers differ, on a scale of 0 to 255; None when they cannot be compared."""
+    if not before or len(before) != len(after):
+        return None
+    return sum(abs(a - b) for a, b in zip(before, after)) / len(before)
+
+
+def rows_show_new_covers(titles, shown_before, timeout=20):
+    """Waits for each song's row to show a cover other than the one it showed before the save."""
+    deadline = time.time() + timeout
+    changes = {}
+    while time.time() < deadline:
+        for title in titles:
+            if title in changes:
+                continue
+            difference = pictures_differ(shown_before[title], cover_shown(title))
+            if difference is not None and difference >= NEW_PICTURE:
+                changes[title] = difference
+        if len(changes) == len(titles):
+            break
+        time.sleep(2)
+    still = [title for title in titles if title not in changes]
+    if still:
+        raise Failed(f"the rows of {still} still show the cover they had before the save")
+    return ", ".join(f"{title}: {difference:.0f}" for title, difference in changes.items())
+
+
+# Rows of a list are small and a cover is most of one; a different picture moves the mean of its
+# pixels by far more than the ripple of a tap or the badge of a verdict does.
+NEW_PICTURE = 8
+
+
 def listed_songs():
     """The songs MediaStore has indexed: [(id, title, path)]."""
     rows = shell(
@@ -782,15 +842,28 @@ def find_cover_for_song():
     return f"Esc closed the sheet, and the best cover is in the editor. It said: {reasons[:10]}"
 
 
+# What each song's row showed as its cover before a save, to see it change after.
+covers_before = {}
+
+
 def save_song():
     if not cover_search_worked:
         raise Skipped("no cover was found to save")
+    covers_before["One More Time"] = cover_shown("One More Time")
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
     # "Saved" shows for four seconds, which a screen read every two may miss; the foot saying
     # nothing is changed any more says the same, and stays.
     expect("^Saved|^No changes$", 60)
     return check_written(["01 - One More Time.flac"])
+
+
+def library_shows_saved_cover():
+    """The row of the song just saved shows the cover written to it, not the one it had: the
+    picture a list caches under a song is the picture the file had when it was read."""
+    if "One More Time" not in covers_before:
+        raise Skipped("nothing was saved to show")
+    return rows_show_new_covers(["One More Time"], covers_before)
 
 
 def same_cover_again():
@@ -916,9 +989,15 @@ def find_cover_for_album():
     return f"the cover is set for the four. The sheet said: {reasons[:10]}"
 
 
+# The songs of the batch that had no cover before it.
+BATCH_NEWLY_COVERED = ["Aerodynamic", "Digital Love", "Harder, Better, Faster, Stronger"]
+
+
 def apply_to_all():
     if not cover_search_worked:
         raise Skipped("no cover was found to apply")
+    for title in BATCH_NEWLY_COVERED:
+        covers_before[title] = cover_shown(title)
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
     expect("^Done$", 180)
@@ -932,6 +1011,13 @@ def apply_to_all():
     tap(expect("^Finish$", 10))
     expect("One More Time", 30)
     return f"{saved}. " + check_written(list(SONGS.values()))
+
+
+def library_shows_batch_covers():
+    """Every song the batch gave a cover shows it in its row, where it showed none."""
+    if not all(title in covers_before for title in BATCH_NEWLY_COVERED):
+        raise Skipped("the batch was not applied")
+    return rows_show_new_covers(BATCH_NEWLY_COVERED, covers_before)
 
 
 def leave_batch():
@@ -2018,6 +2104,11 @@ def main():
     step("Ctrl+K finds a cover for a song (network)", find_cover_for_song, required=False)
     step("Ctrl+S saves it, and only it", save_song, required=cover_search_worked)
     step(
+        "The library shows the cover just written",
+        library_shows_saved_cover,
+        required=cover_search_worked,
+    )
+    step(
         "The same cover again leaves nothing to save", same_cover_again, required=cover_search_worked
     )
     step("Choosing another song shows it in place of the last", choosing_replaces)
@@ -2025,6 +2116,11 @@ def main():
     step("Ctrl+A and Ctrl+E edit the songs together", edit_together)
     step("Ctrl+K finds a cover for the album (network)", find_cover_for_album, required=False)
     step("Ctrl+S applies it to all, and only it", apply_to_all, required=cover_search_worked)
+    step(
+        "The library shows the covers written to all",
+        library_shows_batch_covers,
+        required=cover_search_worked,
+    )
     step("Back in the library", leave_batch)
     step("The activity follows its display without being recreated", follows_the_display)
     step("A narrow window shows one pane at a time", compact_layout)

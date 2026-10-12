@@ -6,6 +6,7 @@
     <string name="more_options">More options</string>
     <string name="open_file">Open a file</string>
     <string name="rescan_library">Rescan music folders</string>
+    <string name="library_rescanned">Music folders rescanned</string>
     <string name="tab_songs">Songs</string>
     <string name="tab_albums">Albums</string>
     <string name="tab_artists">Artists</string>

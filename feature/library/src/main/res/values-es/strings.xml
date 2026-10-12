@@ -6,6 +6,7 @@
     <string name="more_options">Más opciones</string>
     <string name="open_file">Abrir un archivo</string>
     <string name="rescan_library">Volver a escanear la música</string>
+    <string name="library_rescanned">Música escaneada de nuevo</string>
     <string name="tab_songs">Canciones</string>
     <string name="tab_albums">Álbumes</string>
     <string name="tab_artists">Artistas</string>

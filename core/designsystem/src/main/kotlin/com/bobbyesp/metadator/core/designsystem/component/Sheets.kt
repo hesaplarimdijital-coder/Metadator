@@ -110,6 +110,20 @@ fun ClosesOnEscape(
 }
 
 /**
+ * The way a choice made in a sheet closes it: the sheet slides away first, as it does for a tap
+ * beside it, and then what was chosen is done. Taken out of the composition on the choice, a sheet
+ * was there one frame and gone the next.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberSheetClosing(sheetState: SheetState): (then: () -> Unit) -> Unit {
+    val scope = rememberCoroutineScope()
+    return remember(sheetState, scope) {
+        { then -> scope.launch { sheetState.hide() }.invokeOnCompletion { then() } }
+    }
+}
+
+/**
  * One of the fields a search is made with. The last one searches from the keyboard ([onSearch]);
  * the others move on to the next.
  */

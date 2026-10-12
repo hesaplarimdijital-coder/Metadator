@@ -55,6 +55,8 @@ data class BatchFile(val item: BatchItem, val title: String, val tags: TagMap)
 
 data class BatchState(
     val loading: Boolean = true,
+    /** How many songs were handed over: what the head says while they are read. */
+    val expected: Int = 0,
     val files: List<BatchFile> = emptyList(),
     val common: Map<String, CommonValue> = emptyMap(),
     /** The fields the user set, and to what. Untouched fields keep each file's own value. */
@@ -68,6 +70,10 @@ data class BatchState(
     val progress: BatchProgress? = null,
     val separator: String = "; ",
 ) {
+    /** How many songs are being edited: the ones read, or until then the ones to read. */
+    val count: Int
+        get() = if (loading) expected else files.size
+
     val fileNamePattern: FileNamePattern?
         get() = FileNamePattern(pattern).takeIf { usePattern && it.isValid }
 
@@ -162,7 +168,7 @@ class BatchViewModel(
     private val images: CoverReader,
     private val artwork: ArtworkDownloader,
     private val strings: StringProvider,
-) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState()) {
+) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState(expected = refs.size)) {
 
     init {
         runner.clear()
