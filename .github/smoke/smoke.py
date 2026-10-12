@@ -2310,6 +2310,22 @@ def make_covered_albums():
              "-disposition:v", "attached_pic", song],
             check=True,
         )
+    # And one album as compilations often are: the same title on songs by two artists, with no
+    # album artist to say they are one. MediaStore gives both songs one album; the library tells
+    # them apart by their artists.
+    for artist in ("First Artist", "Second Artist"):
+        cover = os.path.join(folder, "cover-00.jpg")
+        song = os.path.join(folder, f"Shared - {artist}.mp3")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=220:duration=3",
+             "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "64k",
+             "-c:v", "copy", "-id3v2_version", "3",
+             "-metadata", f"title=Shared by {artist}", "-metadata", "album=Shared Album",
+             "-metadata", f"artist={artist}",
+             "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)",
+             "-disposition:v", "attached_pic", song],
+            check=True,
+        )
     home()
     before = listed_count()
     shell("mkdir -p /sdcard/Music/Covered")
@@ -2319,7 +2335,7 @@ def make_covered_albums():
     key(KEY_CTRL, KEY_R)
     deadline = time.time() + 90
     while time.time() < deadline:
-        if listed_count() >= before + COVERED_ALBUMS:
+        if listed_count() >= before + COVERED_ALBUMS + 2:
             return
         time.sleep(3)
     raise Failed(f"the albums made for the run were not listed: {said_on(screen())[:20]}")
