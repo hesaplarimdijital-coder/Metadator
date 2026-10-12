@@ -40,6 +40,8 @@ import com.bobbyesp.metadator.core.designsystem.component.heldWhileClosing
  * @param cacheKey a key shared by the places that show this same picture at different sizes. One
  *   that appears while another is on screen (a shared element) then starts from the picture already
  *   loaded instead of from nothing.
+ * @param placeholderKey where a picture of the same thing may be cached already, to start from
+ *   while this one loads: the editor's cover starts from the row's thumbnail of it.
  */
 @Composable
 fun ArtworkImage(
@@ -49,6 +51,7 @@ fun ArtworkImage(
     shape: Shape = MaterialTheme.shapes.medium,
     placeholderIconFraction: Float = 0.45f,
     cacheKey: String? = null,
+    placeholderKey: String? = null,
 ) {
     var failed by remember(model) { mutableStateOf(false) }
     // Where the last picture was cached: the next request starts from it.
@@ -80,7 +83,9 @@ fun ArtworkImage(
                         .crossfade(true)
                         .memoryCacheKey(cacheKey)
                         .placeholderMemoryCacheKey(
-                            cacheKey?.let { MemoryCache.Key(it) } ?: lastShown.key
+                            cacheKey?.let { MemoryCache.Key(it) }
+                                ?: lastShown.key
+                                ?: placeholderKey?.let { MemoryCache.Key(it) }
                         )
                         .build(),
                 contentDescription = contentDescription,

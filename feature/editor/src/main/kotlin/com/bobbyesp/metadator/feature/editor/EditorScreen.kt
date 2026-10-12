@@ -105,6 +105,7 @@ import com.bobbyesp.metadator.core.domain.editor.LoadedTrack
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
+import com.bobbyesp.metadator.core.ui.component.cacheKey
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.Shortcut
@@ -445,6 +446,8 @@ private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
             CoverModel(
                 cover = draft.cover?.data,
                 preview = state.coverPreview,
+                // The row's thumbnail of the song, until the picture itself is decoded.
+                placeholderKey = state.loaded?.track?.artwork?.cacheKey,
                 info = state.coverInfo,
                 changed = draft.isCoverChanged,
                 hasOriginal = draft.original.frontCover != null,

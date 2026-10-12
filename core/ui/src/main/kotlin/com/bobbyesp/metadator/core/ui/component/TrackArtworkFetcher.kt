@@ -86,9 +86,12 @@ class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options
  * it had before a save is not what a list shows after it.
  */
 class TrackArtworkKeyer : Keyer<TrackArtwork> {
-    override fun key(data: TrackArtwork, options: Options): String =
-        "track-artwork:${data.ref.uri}#${data.version}"
+    override fun key(data: TrackArtwork, options: Options): String = data.cacheKey
 }
+
+/** The key a song's cover is cached under, for whatever shows the same cover another way. */
+val TrackArtwork.cacheKey: String
+    get() = "track-artwork:${ref.uri}#$version"
 
 /**
  * The image loader the app shows its pictures with: Coil's, which knows a song's cover. The

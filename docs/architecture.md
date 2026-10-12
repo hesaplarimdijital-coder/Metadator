@@ -246,7 +246,9 @@ a song ([lossless-check.md](lossless-check.md#the-whole-library)); and `ArtworkI
 any kind (a picture's bytes, a URI, a URL, a song's own), with the note in its place while there is
 none. A picture comes and goes through a fade over the note, and one taking the place of another
 starts from the other (Coil's placeholder, under the key of the last picture shown), so that a
-song just saved shows the cover it had until the new one is decoded.
+song just saved shows the cover it had until the new one is decoded. The editor's cover and the
+player's start from the library's thumbnail of the same song (`TrackArtwork.cacheKey`), so the
+cover is there as the screen opens and sharpens.
 
 Keys are not handled by screens with `Modifier.onKeyEvent`: a screen offers shortcuts with
 `KeyboardShortcuts` (`core:ui`), and the activity's `ShortcutDispatcher` gives them the keys no

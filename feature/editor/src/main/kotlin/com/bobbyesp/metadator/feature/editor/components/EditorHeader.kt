@@ -74,10 +74,12 @@ import com.bobbyesp.metadator.feature.editor.R
  * The cover and what it is: the picture, and what can be done with it from its menu.
  *
  * @param preview a small copy of a cover on its way, shown in its place while [loading]
+ * @param placeholderKey where the library's thumbnail of this cover is cached, to start from
  */
 class CoverModel(
     val cover: ByteArray?,
     val preview: String? = null,
+    val placeholderKey: String? = null,
     val info: ImageInfo?,
     val changed: Boolean,
     val hasOriginal: Boolean,
@@ -236,6 +238,7 @@ private fun Cover(
             ArtworkImage(
                 model = if (cover.loading) cover.preview ?: cover.cover else cover.cover,
                 contentDescription = stringResource(R.string.cover),
+                placeholderKey = cover.placeholderKey,
                 modifier =
                     Modifier.size(size)
                         .shadow(10.dp, shape, ambientColor = Studio.colors.ground)

@@ -41,6 +41,7 @@ import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 import com.bobbyesp.metadator.core.model.Track
+import com.bobbyesp.metadator.core.ui.component.cacheKey
 import com.bobbyesp.metadator.player.api.PlaybackState
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
@@ -159,11 +160,12 @@ internal fun MiniPlayerBar(
 }
 
 /**
- * The key the cover is cached under. The bar and the full player ask for it at different sizes;
- * sharing the key lets the one arriving start from the picture the other already has.
+ * The key the cover is cached under: the library's, so that the bar, the full player and the
+ * library's rows, which ask for it at different sizes, each start from the picture another already
+ * has.
  */
 internal val Track.artworkCacheKey: String
-    get() = artwork.let { "artwork:${it.ref.uri}#${it.version}" }
+    get() = artwork.cacheKey
 
 /**
  * Android 13 needs permission to show the media notification. It is asked the first time something
