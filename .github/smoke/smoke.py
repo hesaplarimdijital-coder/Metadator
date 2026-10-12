@@ -2074,6 +2074,104 @@ def glass_on_a_phone():
     return "pictures of the player's bar, the selection's bar and a menu over the list"
 
 
+def frame_stats():
+    """What the system counted of the app's frames since they were last reset."""
+    out = shell(f"dumpsys gfxinfo {PACKAGE}")
+    stats = {}
+    for name, pattern in (
+        ("frames", r"Total frames rendered: (\d+)"),
+        ("janky", r"Janky frames: \d+ \(([\d.]+)%\)"),
+        ("p50", r"50th percentile: (\d+)ms"),
+        ("p90", r"90th percentile: (\d+)ms"),
+        ("p99", r"99th percentile: (\d+)ms"),
+    ):
+        match = re.search(pattern, out)
+        if match:
+            stats[name] = match.group(1)
+    return stats
+
+
+def scrolled(name, x, top, bottom, flings=12):
+    """Flings the list under [x] down and back up, and says how its frames went."""
+    shell(f"dumpsys gfxinfo {PACKAGE} reset")
+    for _ in range(flings):
+        shell(f"input swipe {x} {bottom} {x} {top} 180")
+        time.sleep(0.35)
+    for _ in range(flings):
+        shell(f"input swipe {x} {top} {x} {bottom} 180")
+        time.sleep(0.35)
+    time.sleep(1)
+    stats = frame_stats()
+    with open(os.path.join(out_dir, f"gfxinfo-{slug(name)}.txt"), "w", encoding="utf-8") as file:
+        file.write(shell(f"dumpsys gfxinfo {PACKAGE}"))
+    return (
+        f"{name}: {stats.get('frames', '?')} frames, {stats.get('janky', '?')}% janky, "
+        f"p50 {stats.get('p50', '?')} ms, p90 {stats.get('p90', '?')} ms, "
+        f"p99 {stats.get('p99', '?')} ms"
+    )
+
+
+# How many copies of a song make a library long enough to scroll through.
+LONG_LIBRARY = 300
+
+
+def performance():
+    """How fast it starts, how smoothly a long library scrolls on a wide window and on a phone, and
+    how much memory it holds then: numbers to compare between builds, not a pass or a fail. The
+    emulator draws without a graphics card of its own, so its frames are slower than a phone's;
+    what counts is how the numbers move from one build to the next."""
+    notes = []
+    starts = []
+    for _ in range(3):
+        shell(f"am force-stop {PACKAGE}")
+        time.sleep(2)
+        match = re.search(r"TotalTime: (\d+)", shell(f"am start -W -n {PACKAGE}/{MAIN}"))
+        if match:
+            starts.append(int(match.group(1)))
+        time.sleep(5)
+    if starts:
+        notes.append(f"cold start {sorted(starts)[len(starts) // 2]} ms (of {starts})")
+    home()
+    # A long library: a song with a cover, copied over and over, then found by a rescan.
+    shell(
+        "mkdir -p /sdcard/Music/Long && for i in $(seq 1 "
+        + str(LONG_LIBRARY)
+        + "); do cp '/sdcard/Music/Discovery/03 - Digital Love.mp3' /sdcard/Music/Long/$i.mp3; done"
+    )
+    key(KEY_CTRL, KEY_R)
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        counted = [
+            int(match.group(1))
+            for node in screen()
+            for match in [re.match(r"^(\d[\d,]*) songs", node.text.replace(",", ""))]
+            if match
+        ]
+        if counted and max(counted) >= LONG_LIBRARY:
+            break
+        time.sleep(3)
+    else:
+        raise Failed(f"the long library was not listed: {said_on(screen())[:20]}")
+    time.sleep(4)
+    notes.append(scrolled("the table on a wide window", 1100, 330, 960))
+    try:
+        shell("wm size 1080x2340")
+        shell("wm density 420")
+        time.sleep(5)
+        notes.append(scrolled("the rows on a phone", 540, 900, 2050))
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    memory = shell(f"dumpsys meminfo {PACKAGE}")
+    with open(os.path.join(out_dir, "meminfo.txt"), "w", encoding="utf-8") as file:
+        file.write(memory)
+    match = re.search(r"TOTAL PSS:\s+(\d+)", memory) or re.search(r"\n\s*TOTAL\s+(\d+)", memory)
+    if match:
+        notes.append(f"memory {int(match.group(1)) // 1024} MB (PSS)")
+    return "; ".join(notes)
+
+
 def crash_report():
     """The app's last crash as the system logged it: the exception, what caused it, and the first
     of the app's own frames it went through. Saved whole beside the report."""
@@ -2238,6 +2336,7 @@ def main():
     )
     step("On a phone, saving again and again keeps the editor whole", saves_on_a_phone, required=False)
     step("On a phone the bars float as glass", glass_on_a_phone, required=False)
+    step("How fast it is: starting, scrolling, memory", performance, required=False)
     step("Nothing crashed", no_crash)
 
 
