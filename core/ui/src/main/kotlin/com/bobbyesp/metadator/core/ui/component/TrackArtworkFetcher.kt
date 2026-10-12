@@ -5,6 +5,7 @@ package com.bobbyesp.metadator.core.ui.component
 
 import android.content.ContentResolver
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -50,6 +51,7 @@ class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options
         )
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun ownPicture(resolver: ContentResolver): FetchResult {
         // What is asked for is the size on screen; a list asks for rows, the editor for a cover.
         val size = options.size
