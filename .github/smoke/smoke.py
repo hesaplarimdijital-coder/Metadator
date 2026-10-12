@@ -2111,6 +2111,40 @@ def scrolled(name, x, top, bottom, flings=12):
     )
 
 
+def typed_in_editor():
+    """Types into a song's title in the editor, letter after letter as fast as the system sends
+    them, and says how the frames went: each letter is a change of the song in the editor, and
+    everything that shows the song is asked whether it changed."""
+    tap(row("One More Time"))
+    deadline = time.time() + 40
+    title = None
+    while title is None:
+        fields = [node for node in screen() if node.is_field and node.text == "One More Time"]
+        if fields:
+            title = fields[0]
+        elif time.time() > deadline:
+            raise Failed("One More Time did not open in the editor")
+        else:
+            time.sleep(1)
+    tap(title)
+    key(KEY_MOVE_END)
+    time.sleep(1)
+    shell(f"dumpsys gfxinfo {PACKAGE} reset")
+    for _ in range(3):
+        shell("input text abcdefghijklmnopqrst")
+    time.sleep(2)
+    stats = frame_stats()
+    with open(os.path.join(out_dir, "gfxinfo-typing.txt"), "w", encoding="utf-8") as file:
+        file.write(shell(f"dumpsys gfxinfo {PACKAGE}"))
+    key(KEY_CTRL, KEY_W)
+    tap(expect("^Discard$", 15))
+    return (
+        f"typing 60 letters in the editor: {stats.get('frames', '?')} frames, "
+        f"{stats.get('janky', '?')}% janky, p50 {stats.get('p50', '?')} ms, "
+        f"p90 {stats.get('p90', '?')} ms, p99 {stats.get('p99', '?')} ms"
+    )
+
+
 # How many copies of a song make a library long enough to scroll through.
 LONG_LIBRARY = 300
 
@@ -2131,6 +2165,8 @@ def performance():
         time.sleep(5)
     if starts:
         notes.append(f"cold start {sorted(starts)[len(starts) // 2]} ms (of {starts})")
+    home()
+    notes.append(typed_in_editor())
     home()
     # A long library: a song with a cover, copied over and over, then found by a rescan.
     shell(
@@ -2190,44 +2226,148 @@ def crash_report():
 # The library's places, as its sidebar and its tabs name them.
 PLACES = ["Albums", "Artists", "Folders", "Songs"]
 
+LAYOUTS = [
+    ("a wide window", None),
+    ("a window with no room for the sidebar", ("1920x1080", 360)),
+    ("a phone", ("1080x2340", 420)),
+]
 
-def every_place_opens():
-    """Each of the library's places opens: on a wide window, from its sidebar; on one with no room
-    for a sidebar, from the tabs over the panel; on a phone, from its tabs. A place is a list, or a
-    grid, of its own, and one with less in it than fills the window is a case of its own."""
-    layouts = [
-        ("a wide window", None),
-        ("a window with no room for the sidebar", ("1920x1080", 360)),
-        ("a phone", ("1080x2340", 420)),
+
+def open_place(place, layout):
+    """Opens [place] from the sidebar's item or the tab, not the title over the list that says the
+    same, and fails with what the crash log says if the app closes."""
+    names = [
+        node.pressed_as()
+        for node in find(f"^{place}$")
+        if not node.is_field and node.pressed_as().takes_click
     ]
+    if not names:
+        raise Failed(f"nothing opens {place!r} on {layout}: {said_on(screen())[:30]}")
+    tap(min(names, key=lambda node: (node.left, node.top)))
+    time.sleep(2.5)
+    if not shell(f"pidof {PACKAGE}").strip():
+        raise Failed(f"the app closed on {place}, on {layout}: {crash_report()}")
+
+
+def visit_places(tag, while_there=None):
+    """Each of the library's places opens: on a wide window, from its sidebar; on one with no room
+    for a sidebar, from the tabs over the panel; on a phone, from its tabs. [while_there] is done in
+    each, with the place and the layout's name."""
     opened = []
     try:
-        for name, layout in layouts:
-            if layout:
-                shell(f"wm size {layout[0]}")
-                shell(f"wm density {layout[1]}")
+        for name, size in LAYOUTS:
+            if size:
+                shell(f"wm size {size[0]}")
+                shell(f"wm density {size[1]}")
                 time.sleep(4)
             for place in PLACES:
-                # The sidebar's item or the tab: what says the place and takes a click, not the
-                # title over the list that says the same.
-                names = [
-                    node.pressed_as()
-                    for node in find(f"^{place}$")
-                    if not node.is_field and node.pressed_as().takes_click
-                ]
-                if not names:
-                    raise Failed(f"nothing opens {place!r} on {name}: {said_on(screen())[:30]}")
-                tap(min(names, key=lambda node: (node.left, node.top)))
-                time.sleep(2.5)
-                if not shell(f"pidof {PACKAGE}").strip():
-                    raise Failed(f"the app closed on {place}, on {name}: {crash_report()}")
-                screenshot(f"{slug(name)}-{place.lower()}")
+                open_place(place, name)
+                if while_there:
+                    while_there(place, name)
+                    if not shell(f"pidof {PACKAGE}").strip():
+                        raise Failed(f"the app closed in {place}, on {name}: {crash_report()}")
+                screenshot(f"{tag}-{slug(name)}-{place.lower()}")
             opened.append(name)
     finally:
         shell("wm size reset")
         shell("wm density reset")
         time.sleep(3)
-    return "every place opened on " + ", ".join(opened)
+    return opened
+
+
+def every_place_opens():
+    """A place is a list, or a grid, of its own, and one with less in it than fills the window is a
+    case of its own."""
+    return "every place opened on " + ", ".join(visit_places("places"))
+
+
+# Albums made for the run, each with a cover of its own, as a library of albums has.
+COVERED_ALBUMS = 16
+
+
+def make_covered_albums():
+    """Songs of as many albums, each with a picture embedded as its front cover, put on the device
+    and found by a rescan."""
+    folder = os.path.join(out_dir, "covered-albums")
+    os.makedirs(folder, exist_ok=True)
+    for index in range(COVERED_ALBUMS):
+        cover = os.path.join(folder, f"cover-{index:02d}.jpg")
+        color = (index * 0x3A5F1D + 0x204060) & 0xFFFFFF
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+             f"color=c=0x{color:06x}:s=900x900,drawbox=x=150:y=150:w=600:h=600:color=white@0.6:t=40",
+             "-frames:v", "1", cover],
+            check=True,
+        )
+        song = os.path.join(folder, f"{index:02d} - Song {index}.mp3")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=330:duration=3",
+             "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "64k",
+             "-c:v", "copy", "-id3v2_version", "3",
+             "-metadata", f"title=Song {index}", "-metadata", f"album=Album {index:02d}",
+             "-metadata", f"artist=Artist {index % 5}", "-metadata", "date=2020",
+             "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)",
+             "-disposition:v", "attached_pic", song],
+            check=True,
+        )
+    home()
+    before = listed_count()
+    shell("mkdir -p /sdcard/Music/Covered")
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".mp3"):
+            adb("push", os.path.join(folder, name), f"/sdcard/Music/Covered/{name}", timeout=60)
+    key(KEY_CTRL, KEY_R)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        if listed_count() >= before + COVERED_ALBUMS:
+            return
+        time.sleep(3)
+    raise Failed(f"the albums made for the run were not listed: {said_on(screen())[:20]}")
+
+
+def listed_count():
+    """How many songs the library's head says it has."""
+    counted = [
+        int(match.group(1))
+        for node in screen()
+        for match in [re.match(r"^(\d+) songs", node.text.replace(",", ""))]
+        if match
+    ]
+    return max(counted, default=0)
+
+
+def flung(place, layout):
+    """Flings what the place lists, down and back up: a grid of covers loads them as it goes."""
+    width, height = (1920, 1080)
+    if "phone" in layout:
+        width, height = (1080, 2340)
+    x = width * 2 // 3 if "wide" in layout else width // 2
+    for start, end in ((height * 4 // 5, height // 3), (height // 3, height * 4 // 5)):
+        shell(f"input swipe {x} {start} {x} {end} 150")
+        time.sleep(0.8)
+
+
+def places_with_covers():
+    """The places again, with a library of albums that have covers: a grid of pictures is what a
+    library with covers shows, and what the first visit, on songs without any, could not try."""
+    make_covered_albums()
+    hovered = []
+
+    def while_there(place, layout):
+        flung(place, layout)
+        if place == "Albums" and layout == "a wide window" and mouse_works:
+            cards = [node.pressed_as() for node in find(r"^Album \d\d$")][:4]
+            with LiveMouse() as mouse:
+                for card in cards:
+                    hovered.append(mouse.go_to(*aim(card)))
+                    time.sleep(0.6)
+
+    opened = visit_places("covered", while_there)
+    return (
+        f"{COVERED_ALBUMS} albums with covers; every place opened, flung through, on "
+        + ", ".join(opened)
+        + (f"; the pointer rested on {len(hovered)} albums" if hovered else "")
+    )
 
 
 def no_crash():
@@ -2336,6 +2476,7 @@ def main():
     )
     step("On a phone, saving again and again keeps the editor whole", saves_on_a_phone, required=False)
     step("On a phone the bars float as glass", glass_on_a_phone, required=False)
+    step("Every place opens again, with albums that have covers", places_with_covers)
     step("How fast it is: starting, scrolling, memory", performance, required=False)
     step("Nothing crashed", no_crash)
 
