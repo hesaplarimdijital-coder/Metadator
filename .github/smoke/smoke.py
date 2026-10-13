@@ -523,10 +523,17 @@ def activity_instance(activity=MAIN):
 
 
 def allow_system_dialog(timeout=30):
-    """Says yes to the system: the permission to list music, or to change a file."""
+    """Says yes to the system: the permission to list music, or to change a file. Pressed again
+    while it is still asked: on a slow emulator a press as the dialog comes in is lost, and a run
+    once waited a minute on a dialog it had pressed."""
     button = expect(r"^(Allow|ALLOW)$", timeout)
-    tap(button)
-    time.sleep(1.5)
+    for _ in range(4):
+        tap(button)
+        time.sleep(1.5)
+        still = find(r"^(Allow|ALLOW)$")
+        if not still:
+            return
+        button = still[0]
 
 
 def row(title, nodes=None):
