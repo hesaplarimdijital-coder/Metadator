@@ -1844,6 +1844,9 @@ def keeps_playing_in_background():
     docked bar follows the song: where it is reaches only the line and its times, apart from the
     rest of what plays, and nothing else would tell if it stopped reaching them."""
     home()
+    # The first song played asks to show its notification, as a dialog over the app, and nothing of
+    # the app's can be read from under it. Granted beforehand, as by someone who had answered it.
+    shell(f"pm grant {PACKAGE} android.permission.POST_NOTIFICATIONS")
     tap(expect("^Play all$", 15))
     deadline = time.time() + 20
     while playback_state() != 3:
@@ -1851,10 +1854,14 @@ def keeps_playing_in_background():
             raise Skipped(f"nothing played on this emulator: {playback_state()}")
         time.sleep(1)
     time.sleep(2)
-    screenshot("the-player-docked-under-the-panels")
+    # Read twice while the song plays: the songs here last 16 s, and the next one starts again from
+    # nothing, so any change says the time moved on, not only a later one.
     first = played_so_far()
-    time.sleep(4)
+    # What was there instead, should the bar not have been.
+    instead = None if first is not None else said_on(screen())[-12:]
+    time.sleep(3)
     then = played_so_far()
+    screenshot("the-player-docked-under-the-panels")
     key(3)  # Home: the app goes to the background.
     time.sleep(10)
     state = playback_state()
@@ -1870,10 +1877,13 @@ def keeps_playing_in_background():
     shell("input keyevent 127")  # Pause, as a headset's button does.
     if state != 3:
         raise Failed(f"in the background the session is in state {state}: {hardening[:6]}")
-    if first is None or then is None or then <= first:
-        raise Failed(f"the docked bar said {first} s, then {then} s, while the song played")
+    if first is None or then is None or then == first:
+        raise Failed(
+            f"the docked bar said {first} s, then {then} s, while the song played"
+            + (f"; the screen said {instead}" if instead else "")
+        )
     return (
-        f"the docked bar went from {first} s to {then} s; still playing ten seconds into the"
+        f"the docked bar said {first} s, then {then} s; still playing ten seconds into the"
         f" background. The audio service says: {hardening[:4]}"
     )
 
