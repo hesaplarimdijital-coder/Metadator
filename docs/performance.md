@@ -44,8 +44,10 @@ Most of the work here is making sure that a change touches only what shows it.
   taken for a change, and every row of the library was drawn again each time a song was checked.
 - **What changes often is followed on its own.** The player reports the position twice a second.
   The library and the editor follow only which song plays and whether it does
-  (`map { … }.distinctUntilChanged()` in their ViewModels), and the window only whether anything
-  plays (`derivedStateOf` in `MetadatorApp`). Before, the whole window was composed again twice a
+  (`map { … }.distinctUntilChanged()` in their ViewModels), the window only whether anything plays
+  (`derivedStateOf` in `MetadatorApp`), and the player's own bars and screens what plays without
+  where it is: only the slider, the line under the bar and the lyrics read the position
+  (`PlaybackPosition`). Before, the whole window and the whole player were composed again twice a
   second while music played.
 - **What moves is drawn, not composed.** A switch's thumb is placed in the layout phase
   (`Modifier.offset { }`) and its track drawn behind it (`drawBehind`), so its animation recomposes

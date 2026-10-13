@@ -146,7 +146,11 @@ fun PlayerSheet(
     backdrop: HazeState? = null,
 ) {
     val player: PlayerController = koinInject()
-    val playback by player.state.collectAsStateWithLifecycle()
+    val reported = player.state.collectAsStateWithLifecycle()
+    // What plays, without where in the song it is: that changes twice a second while it plays, and
+    // the bar and the screen would be composed again each time. What shows it reads it alone.
+    val playback by remember(reported) { derivedStateOf { reported.value.copy(positionMs = 0) } }
+    val position = remember(reported) { PlaybackPosition(reported) }
     val track = playback.current
     RequestNotificationsOnFirstPlay(active = playback.isActive)
 
@@ -358,6 +362,7 @@ fun PlayerSheet(
                                         DockedPlayerBar(
                                             track = track,
                                             playback = playback,
+                                            position = position,
                                             player = player,
                                             onOpen = sheet::open,
                                             shape = shape,
@@ -374,6 +379,7 @@ fun PlayerSheet(
                                         MiniPlayerBar(
                                             track = track,
                                             playback = playback,
+                                            position = position,
                                             player = player,
                                             onOpen = sheet::open,
                                             shape = shape,
@@ -408,6 +414,7 @@ fun PlayerSheet(
                         if (track == null || layout == PlayerLayout.Stacked) {
                             NowPlayingContent(
                                 playback = playback,
+                                position = position,
                                 player = player,
                                 settled = sheet.isSettledExpanded,
                                 onClose = sheet::collapse,
@@ -425,6 +432,7 @@ fun PlayerSheet(
                             NowPlayingWideContent(
                                 track = track,
                                 playback = playback,
+                                position = position,
                                 player = player,
                                 // Not the last song's, for the moment before this one's are asked
                                 // for.

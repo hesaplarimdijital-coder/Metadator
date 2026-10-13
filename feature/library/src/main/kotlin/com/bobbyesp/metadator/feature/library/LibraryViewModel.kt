@@ -368,6 +368,7 @@ class LibraryViewModel(
         val formats = all.map { it.fileExtension }.filter { it.isNotEmpty() }.distinct().sorted()
         val needsAttention = all.count { it.needsAttention }
         val storages = all.countByStorage()
+        val totalBytes = visible.sumOf { it.sizeBytes }
         val visibleIds = visible.mapTo(mutableSetOf()) { it.id }
         return {
             copy(
@@ -381,7 +382,7 @@ class LibraryViewModel(
                         albums = albums,
                         artists = artists,
                         folders = folders,
-                        totalBytes = visible.sumOf { it.sizeBytes },
+                        totalBytes = totalBytes,
                     ),
                 formats = formats,
                 needsAttentionCount = needsAttention,

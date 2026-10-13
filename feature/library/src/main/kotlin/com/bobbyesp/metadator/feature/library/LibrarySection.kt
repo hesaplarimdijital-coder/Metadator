@@ -111,6 +111,10 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
                 }.locate(key.key, shown.ids)
             }
         SideEffect { collection?.let { found -> shown.ids = found.tracks.map { it.id } } }
+        // None of its songs left where they were (moved by another app, say): it goes, rather than
+        // stay a screen that loads forever.
+        val gone = !state.loading && collection == null
+        LaunchedEffect(gone) { if (gone) navigator.removeDestination(key) }
 
         CollectionScreen(
             title = collection?.title ?: key.title,

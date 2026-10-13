@@ -51,6 +51,7 @@ import dev.chrisbanes.haze.HazeState
  * screen. It is the collapsed content of [PlayerSheet], which owns how it appears, opens and is
  * dragged; the modifiers are how the sheet ties the pieces it shares with the full player.
  *
+ * @param position where the song is, read while drawing the line along the bar's foot
  * @param glass what the shell records of the screens beneath, which the bar is frosted with; null
  *   while the bar travels into the full player, where a frosted surface would flicker
  * @param modifier applied to the bar's surface
@@ -63,6 +64,7 @@ import dev.chrisbanes.haze.HazeState
 internal fun MiniPlayerBar(
     track: Track,
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     onOpen: () -> Unit,
     shape: Shape,
@@ -150,7 +152,7 @@ internal fun MiniPlayerBar(
                 drawRoundRect(rail, cornerRadius = radius)
                 drawRoundRect(
                     played,
-                    size = Size(size.width * playback.progress, size.height),
+                    size = Size(size.width * position.progress, size.height),
                     cornerRadius = radius,
                 )
             }

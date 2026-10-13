@@ -22,6 +22,7 @@ import coil3.size.pxOrElse
 import com.bobbyesp.metadator.core.model.TrackArtwork
 import java.io.FileNotFoundException
 import java.io.IOException
+import kotlin.time.Duration.Companion.minutes
 import okio.buffer
 import okio.source
 
@@ -97,19 +98,31 @@ class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options
  * with none was asked for again each time its row came back in sight, and MediaStore looked in its
  * file again to say so: a library without covers read its files as it scrolled. A song saved with a
  * cover is another version, under another key, and is asked for again.
+ *
+ * For a while only: a file that could not be read for a moment (a card being mounted, a file being
+ * written by another app) says it has no picture too.
  */
 private object Missing {
     private const val MOST = 4096
-    private val keys =
-        object : LinkedHashMap<String, Unit>(MOST, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) =
+    private val FOR_NANOS = 5.minutes.inWholeNanoseconds
+
+    /** When each was found to have none, by [System.nanoTime]. */
+    private val since =
+        object : LinkedHashMap<String, Long>(MOST, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) =
                 size > MOST
         }
 
-    fun contains(key: String): Boolean = synchronized(keys) { keys.containsKey(key) }
+    fun contains(key: String): Boolean =
+        synchronized(since) {
+            val found = since[key]
+            val fresh = found != null && System.nanoTime() - found < FOR_NANOS
+            if (found != null && !fresh) since.remove(key)
+            fresh
+        }
 
     fun add(key: String) {
-        synchronized(keys) { keys[key] = Unit }
+        synchronized(since) { since[key] = System.nanoTime() }
     }
 }
 
