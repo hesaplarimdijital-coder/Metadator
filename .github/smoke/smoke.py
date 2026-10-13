@@ -2216,12 +2216,27 @@ def typed_in_editor():
 LONG_LIBRARY = 300
 
 
+def host_speed():
+    """How fast the emulator is on this run, told by something the app has no part in: the time its
+    shell takes to count to 100,000, the best of three. The machines the runs get are not all as
+    fast: one run was slower than another in everything, copying files included, by up to four
+    times, and its app with it."""
+    best = None
+    for _ in range(3):
+        started = time.time()
+        shell("i=0; while [ $i -lt 100000 ]; do i=$((i+1)); done", timeout=120)
+        took = time.time() - started
+        best = took if best is None else min(best, took)
+    return f"the emulator's shell counts to 100,000 in {best * 1000:.0f} ms"
+
+
 def performance():
     """How fast it starts, how smoothly a long library scrolls on a wide window and on a phone, and
     how much memory it holds then: numbers to compare between builds, not a pass or a fail. The
     emulator draws without a graphics card of its own, so its frames are slower than a phone's;
-    what counts is how the numbers move from one build to the next."""
-    notes = []
+    what counts is how the numbers move from one build to the next, on machines as fast as each
+    other: how fast this one is comes first."""
+    notes = [host_speed()]
     starts = []
     for _ in range(3):
         shell(f"am force-stop {PACKAGE}")

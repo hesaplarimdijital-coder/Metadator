@@ -324,6 +324,11 @@ paused, as its slider's track; the bar on a phone, as a hairline along the foot 
 bar docked on a wide window, as a desktop player does, a thin line between the times, which a
 click, a drag or the arrow keys move.
 
+The position is reported twice a second while a song plays, and is read apart from the rest
+(`PlaybackPosition`): the sheet hands its bars and screens what plays without it, which stays the
+same object while only the position moves, and only those lines, the sliders and the clock of the
+lyrics read where the song is. Read with the rest, it composed the whole player again each time.
+
 ### One surface, two sizes
 
 The player is not a destination. `PlayerSheet` sits in the app shell over the navigation display

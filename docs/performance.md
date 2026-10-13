@@ -64,11 +64,15 @@ Most of the work here is making sure that a change touches only what shows it.
   by what makes them the album they are, not by MediaStore's album id, which a compilation without
   album artists shares between several albums ([architecture.md](architecture.md)).
 
-## Measured
+## Reading the numbers
 
-Each build's report has its own numbers. These are the ones of the build before the work above
-and of the first one with it.
+Each build's report has its own. They compare only between runs on machines about as fast as each
+other, and the runs do not all get one: of two runs within the hour, the second took four times
+as long to copy the songs to the device, a step the app has no part in, and its app started in
+3500 ms where the first one's had started in 1676 ms, though nothing in the build had changed how
+it starts. So the step begins by saying how fast the emulator is: the time its shell takes to
+count to 100,000.
 
-| Build | Starting cold | Memory |
-|---|---|---|
-| Before this work (`1dfa53d`) | 2763 ms | 78 MB |
+The last build before the work above, on a fast run: started cold in 1676 ms; the app's thread
+took 79 ms a frame while typing (the middle frame; 137 ms for the slowest tenth), 52 ms (79 ms)
+scrolling the table, 43 ms (74 ms) scrolling a phone's rows; 76 MB held.
