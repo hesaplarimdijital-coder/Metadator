@@ -104,6 +104,10 @@ class FindCoversUseCase(
                 samePictures(seen)
                     .map { copies -> suggestion(request, copies, current) }
                     .sortedByDescending { it.score }
+                    // One address once, the best of it: a cover the file names and the search
+                    // finds again is one, even where it could not be looked at to say so, and a
+                    // list cannot show one item twice.
+                    .distinctBy { it.url }
             CoverSearchOutcome.Results(
                 suggestions = suggestions,
                 failedProviders = (outcome as? LookupOutcome.Results)?.failedProviders.orEmpty(),
