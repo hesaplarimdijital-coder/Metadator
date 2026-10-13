@@ -30,15 +30,19 @@ says which held.
 | The check of the whole library: the same four songs in the table, and the Fake FLAC list | Each row's quality, a dash for the MP3, and only the fake one in the list |
 | The cover finder, for one song and for the four together, against the real sources | The sheet's best match and its reasons. Not required: the sources are not ours |
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
+| The library's rows after each save | The pixels of each saved song's cover in its row, before and after: a different picture, not the one cached before the save |
+| The same cover chosen again, once the song has it | The editor's foot says nothing is changed, at once or after a save |
+| Every place of the library (albums, artists, folders, songs) on a wide window, on one with no room for the sidebar, and on a phone; then again with sixteen albums that have covers and a compilation of two artists without album artists, flung through, the pointer resting on albums | The app is still running after each, and what the crash log says if not |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
 | A narrow window | One pane at a time |
 | A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and steered by where the input system says its pointer is |
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | Turkish | What the screen says |
 | How it looks: the library by day and by night, the editor beside it, a phone's screen | Screenshots, for a person to look at. Not required |
-| The music goes on with the app in the background | The media session's state ten seconds after Home. Not required |
+| A song played from the library, then the app in the background | The time beside the docked bar's line, read twice while it plays; the media session's state ten seconds after Home. Not required |
 | A song saved twice in a row on a phone, an artist typed back in and saved without Enter, then the song put back | What says it was saved stands clear of Save, above the keyboard, one at a time; the title stays in its field; the artist is still in the file and nothing is left to save; the file read back with FFprobe is as it was. Not required |
 | The player's bar, the selection's bar and a menu on a phone | Screenshots of the glass, for a person to look at. Not required |
+| How fast it is: starting cold, typing in the editor, scrolling a library of 300 songs on a wide window and on a phone, and the memory held then ([performance.md](performance.md)) | Numbers in the report, to compare between builds. Not required |
 | Nothing crashed | The device's crash log |
 
 It is one pass on one emulator (Android 17, x86-64), with the files it makes itself and an SD card

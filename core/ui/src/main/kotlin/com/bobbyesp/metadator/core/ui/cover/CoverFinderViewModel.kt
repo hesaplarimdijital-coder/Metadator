@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bobbyesp.metadator.core.domain.cover.CoverRequest
 import com.bobbyesp.metadator.core.domain.cover.CoverSearchOutcome
+import com.bobbyesp.metadator.core.domain.cover.CoverSearchProgress
 import com.bobbyesp.metadator.core.domain.cover.CoverSuggestion
 import com.bobbyesp.metadator.core.domain.cover.FindCoversUseCase
 import kotlin.coroutines.cancellation.CancellationException
@@ -20,7 +21,8 @@ import kotlinx.coroutines.launch
 sealed interface CoverFinderStatus {
     data object Idle : CoverFinderStatus
 
-    data object Searching : CoverFinderStatus
+    data class Searching(val progress: CoverSearchProgress = CoverSearchProgress.Asking) :
+        CoverFinderStatus
 
     /** The covers found, the one to recommend first. */
     data class Results(val suggestions: List<CoverSuggestion>, val failedProviders: List<String>) :
@@ -61,7 +63,7 @@ class CoverFinderViewModel(private val findCovers: FindCoversUseCase) : ViewMode
      */
     fun start(request: CoverRequest) {
         val status = _state.value.status
-        val shown = status is CoverFinderStatus.Results || status == CoverFinderStatus.Searching
+        val shown = status is CoverFinderStatus.Results || status is CoverFinderStatus.Searching
         if (shown && song?.isSameSongAs(request) == true) return
         song = request
         _state.value =
@@ -82,7 +84,7 @@ class CoverFinderViewModel(private val findCovers: FindCoversUseCase) : ViewMode
         val query = _state.value
         search?.cancel()
         search = viewModelScope.launch {
-            _state.update { it.copy(status = CoverFinderStatus.Searching) }
+            _state.update { it.copy(status = CoverFinderStatus.Searching()) }
             val status =
                 try {
                     findCovers(
@@ -97,7 +99,11 @@ class CoverFinderViewModel(private val findCovers: FindCoversUseCase) : ViewMode
                                 identifiers = song.identifiers,
                                 currentCover = song.currentCover,
                             )
-                        )
+                        ) { progress ->
+                            _state.update {
+                                it.copy(status = CoverFinderStatus.Searching(progress))
+                            }
+                        }
                         .toStatus()
                 } catch (cancellation: CancellationException) {
                     throw cancellation

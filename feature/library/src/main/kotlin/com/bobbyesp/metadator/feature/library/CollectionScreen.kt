@@ -192,7 +192,7 @@ private fun CollectionHeader(
     ) {
         if (collection !is TrackCollection.Folder) {
             ArtworkImage(
-                model = collection.artworkRef?.uri,
+                model = collection.artwork,
                 contentDescription = null,
                 modifier = Modifier.size(132.dp),
                 shape = RoundedCornerShape(14.dp),

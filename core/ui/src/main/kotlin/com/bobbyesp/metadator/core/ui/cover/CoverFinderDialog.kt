@@ -219,7 +219,7 @@ private fun QueryRow(
             onClick = onSearch,
             icon = Icons.Rounded.Search,
             style = StudioButtonStyle.Primary,
-            enabled = state.status != CoverFinderStatus.Searching,
+            enabled = state.status !is CoverFinderStatus.Searching,
         )
     }
 }
@@ -232,7 +232,7 @@ private fun DialogBody(
 ) {
     when (val status = state.status) {
         CoverFinderStatus.Idle -> Unit
-        CoverFinderStatus.Searching ->
+        is CoverFinderStatus.Searching ->
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -243,6 +243,11 @@ private fun DialogBody(
                     stringResource(R.string.cover_finder_searching),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Studio.colors.textSecondary,
+                )
+                Text(
+                    progressText(status.progress),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textTertiary,
                 )
             }
         is CoverFinderStatus.Results -> {

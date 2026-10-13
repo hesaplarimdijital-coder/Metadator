@@ -96,7 +96,7 @@ fun TrackRow(
     showDivider: Boolean = false,
 ) {
     val colors = Studio.colors
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val tint by
         animateColorAsState(
             targetValue =
@@ -212,7 +212,7 @@ private fun TrackCover(track: Track, selected: Boolean, size: Dp, corner: Dp) {
         )
     Box(contentAlignment = Alignment.Center) {
         ArtworkImage(
-            model = track.artworkRef?.uri,
+            model = track.artwork,
             contentDescription = null,
             modifier = Modifier.size(size),
             shape = RoundedCornerShape(radius),
@@ -423,7 +423,7 @@ fun TrackTableRow(
             label = "TrackTableRowTint",
         )
     val shape = RoundedCornerShape(9.dp)
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val secondary = MaterialTheme.typography.bodyMedium
     TableCells(
         columns = columns,
@@ -454,7 +454,7 @@ fun TrackTableRow(
         },
         title = {
             ArtworkImage(
-                model = track.artworkRef?.uri,
+                model = track.artwork,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 shape = RoundedCornerShape(6.dp),

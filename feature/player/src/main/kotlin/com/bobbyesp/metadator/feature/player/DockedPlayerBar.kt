@@ -74,6 +74,7 @@ import com.bobbyesp.metadator.player.api.RepeatMode
  * right. It is the collapsed content of [PlayerSheet] there, as [MiniPlayerBar] is on a phone, and
  * shares the same pieces with the full player.
  *
+ * @param position where the song is, which only the line of the song reads
  * @param ownContentPresence how much of what only the bar has is there, from 0 to 1, read while
  *   drawing so that a transition does not recompose the bar
  */
@@ -81,6 +82,7 @@ import com.bobbyesp.metadator.player.api.RepeatMode
 internal fun DockedPlayerBar(
     track: Track,
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     onOpen: () -> Unit,
     shape: Shape,
@@ -199,6 +201,7 @@ internal fun DockedPlayerBar(
                 }
                 DockedSeekBar(
                     playback = playback,
+                    position = position,
                     onSeek = player::seekTo,
                     modifier =
                         Modifier.widthIn(max = 520.dp).fillMaxWidth().dissolved(ownContentPresence),
@@ -238,20 +241,21 @@ internal val DockedBarHeight = 64.dp
 @Composable
 private fun DockedSeekBar(
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Studio.colors
     // As the player reports it, twice a second: plenty for a line this thin, and nothing on screen
-    // has to be drawn again on every frame for it.
-    val position = playback.positionMs
+    // has to be drawn again on every frame for it. Read here, so that only this is composed again.
+    val positionMs = position.positionMs
     val duration = playback.durationMs
     // While dragged, where the finger or the pointer is, not where the song is.
     var dragged by remember { mutableStateOf<Float?>(null) }
     val interactions = remember { MutableInteractionSource() }
     val hovered by interactions.collectIsHoveredAsState()
     val fraction =
-        dragged ?: if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        dragged ?: if (duration > 0) (positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val positionLabel = stringResource(R.string.seek_position)
     Row(
         modifier = modifier,
@@ -282,7 +286,7 @@ private fun DockedSeekBar(
                                 Key.DirectionRight -> SEEK_STEP_MS
                                 else -> return@onKeyEvent false
                             }
-                        onSeek((position + step).coerceIn(0, duration))
+                        onSeek((positionMs + step).coerceIn(0, duration))
                         true
                     }
                     .focusable(interactionSource = interactions)

@@ -41,6 +41,7 @@ import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
 import com.bobbyesp.metadator.core.model.Track
+import com.bobbyesp.metadator.core.ui.component.cacheKey
 import com.bobbyesp.metadator.player.api.PlaybackState
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
@@ -50,6 +51,7 @@ import dev.chrisbanes.haze.HazeState
  * screen. It is the collapsed content of [PlayerSheet], which owns how it appears, opens and is
  * dragged; the modifiers are how the sheet ties the pieces it shares with the full player.
  *
+ * @param position where the song is, read while drawing the line along the bar's foot
  * @param glass what the shell records of the screens beneath, which the bar is frosted with; null
  *   while the bar travels into the full player, where a frosted surface would flicker
  * @param modifier applied to the bar's surface
@@ -62,6 +64,7 @@ import dev.chrisbanes.haze.HazeState
 internal fun MiniPlayerBar(
     track: Track,
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     onOpen: () -> Unit,
     shape: Shape,
@@ -149,7 +152,7 @@ internal fun MiniPlayerBar(
                 drawRoundRect(rail, cornerRadius = radius)
                 drawRoundRect(
                     played,
-                    size = Size(size.width * playback.progress, size.height),
+                    size = Size(size.width * position.progress, size.height),
                     cornerRadius = radius,
                 )
             }
@@ -159,11 +162,12 @@ internal fun MiniPlayerBar(
 }
 
 /**
- * The key the cover is cached under. The bar and the full player ask for it at different sizes;
- * sharing the key lets the one arriving start from the picture the other already has.
+ * The key the cover is cached under: the library's, so that the bar, the full player and the
+ * library's rows, which ask for it at different sizes, each start from the picture another already
+ * has.
  */
-internal val Track.artworkCacheKey: String?
-    get() = artworkRef?.uri?.let { "artwork:$it" }
+internal val Track.artworkCacheKey: String
+    get() = artwork.cacheKey
 
 /**
  * Android 13 needs permission to show the media notification. It is asked the first time something

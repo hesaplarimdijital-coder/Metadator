@@ -6,6 +6,7 @@
     <string name="saving">Kaydediliyor…</string>
     <string name="saved">Kaydedildi</string>
     <string name="saved_some_unsupported">Kaydedildi. Bu biçim şunları saklayamıyor: %1$s</string>
+    <string name="save_nothing_to_write">Kaydedilecek bir şey yok: dosyada zaten bu etiketler var</string>
     <string name="undo">Geri al</string>
     <string name="undone">Değişiklikler geri alındı</string>
     <string name="undo_unavailable">Özgün etiketler artık mevcut değil</string>
@@ -24,12 +25,10 @@
 
     <string name="needs_attention_title">İlgi bekliyor</string>
     <string name="section_main">Şarkı</string>
-    <string name="section_track">Parça</string>
     <string name="section_credits">Emeği geçenler</string>
     <string name="section_more">Diğer</string>
     <string name="section_lyrics">Şarkı sözleri</string>
     <string name="section_all_tags">Tüm etiketler</string>
-    <string name="section_file">Dosya</string>
     <string name="all_tags_description">Dosyadaki diğer tüm etiketler. Burada değiştirmediğiniz sürece olduğu gibi kalır.</string>
 
     <string name="add_value">Bir tane daha ekle</string>
@@ -44,12 +43,12 @@
     <string name="cover_size">%1$d × %2$d px</string>
     <string name="cover_small_warning">Küçük kapak: büyük ekranda bulanık görünebilir</string>
     <string name="cover_unreadable">Bu görsel okunamadı</string>
-    <string name="cover_none">Kapak yok</string>
 
     <string name="lyrics_find">Şarkı sözü bul</string>
     <string name="lyrics_synced">Eşzamanlı</string>
     <string name="lyrics_found_synced">Eşzamanlı şarkı sözleri eklendi</string>
     <string name="lyrics_found_plain">Şarkı sözleri eklendi</string>
+    <string name="lyrics_already_there">Dosyada zaten bu şarkı sözleri var</string>
     <string name="lyrics_not_found">Bu şarkı için söz bulunamadı</string>
     <string name="lyrics_instrumental">Bu şarkı enstrümantal</string>
     <string name="lyrics_failed">Şarkı sözleri aranamadı</string>

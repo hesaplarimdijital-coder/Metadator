@@ -21,9 +21,13 @@ difference, `TagChanges`: changed keys (an empty list removes a key) and an `Art
 
 `SaveTagChangesUseCase`:
 1. Reads the file as it is now, so changes made elsewhere since the editor opened survive.
-2. Applies the changed keys to that map. Untouched keys keep their exact values.
+2. Applies the changed keys to that map. Untouched keys keep their exact values. If the file
+   already holds the result, nothing is written (`SaveOutcome.NothingToSave`): the editor reads
+   the file again, so the change does not stay on screen, and says there was nothing to save.
 3. Pictures: not written at all when the cover didn't change. Replacing or removing the cover
-   touches only the front cover; back covers, artist pictures and the rest stay.
+   touches only the front cover; back covers, artist pictures and the rest stay. Choosing the
+   picture the file already has (the cover finder puts it first when a source has it too) is no
+   change in the draft at all.
 4. Backs up the file's tags and pictures (`TagBackupStore`, Room plus picture files, the newest
    100 kept).
 5. Writes. If the write fails, it writes the backup back; if that fails too, the backup is kept.

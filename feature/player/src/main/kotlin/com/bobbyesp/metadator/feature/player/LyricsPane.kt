@@ -84,6 +84,7 @@ import kotlinx.coroutines.flow.collectLatest
  * timed, word by word where each word is, and as plain text to read where they are not.
  *
  * @param lyrics null while they are being read
+ * @param position where the song is, which timed lyrics follow
  * @param compact whether there is little height, which calls for smaller text
  * @param bottomClearance the room whatever floats over the bottom of the pane takes
  * @param onEdit asked to open the editor, which is where lyrics are added or looked up
@@ -93,6 +94,7 @@ import kotlinx.coroutines.flow.collectLatest
 internal fun LyricsPane(
     lyrics: TrackLyrics?,
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
     onEdit: () -> Unit,
     compact: Boolean,
@@ -132,7 +134,14 @@ internal fun LyricsPane(
                     when (val song = shown.lyrics) {
                         is SongLyrics.Plain -> PlainLyrics(song.text, compact, bottomClearance)
                         is SongLyrics.Synced ->
-                            SyncedLyrics(song.lines, playback, onSeek, compact, bottomClearance)
+                            SyncedLyrics(
+                                song.lines,
+                                playback,
+                                position,
+                                onSeek,
+                                compact,
+                                bottomClearance,
+                            )
                     }
             }
         }
@@ -179,11 +188,12 @@ private fun PlainLyrics(text: String, compact: Boolean, bottomClearance: Dp) {
 private fun SyncedLyrics(
     lines: List<TimedLine>,
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
     compact: Boolean,
     bottomClearance: Dp,
 ) {
-    val clock = rememberPlaybackClock(playback)
+    val clock = rememberPlaybackClock(playback, position)
     // Derived, so that a clock that changes every frame recomposes only when the line does.
     val activeIndex by remember(lines, clock) { derivedStateOf { lines.indexAt(clock.positionMs) } }
     val listState = rememberLazyListState()

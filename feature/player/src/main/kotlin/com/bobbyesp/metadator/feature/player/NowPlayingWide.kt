@@ -82,6 +82,7 @@ import dev.chrisbanes.haze.rememberHazeState
  * [PlayerSheet], and each of the modifiers the sheet ties the bar's pieces with goes on exactly one
  * element here too.
  *
+ * @param position where the song is, which only the slider and the lyrics read
  * @param compact whether the controls do not fit under the cover and float over the lyrics instead
  * @param settled whether the sheet is at rest, open. Only then is anything frosted: while the sheet
  *   moves its content is drawn in the transition's overlay, where a frosted surface flickers. And
@@ -92,6 +93,7 @@ import dev.chrisbanes.haze.rememberHazeState
 internal fun NowPlayingWideContent(
     track: Track,
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     lyrics: TrackLyrics?,
     compact: Boolean,
@@ -125,6 +127,7 @@ internal fun NowPlayingWideContent(
                 SongColumn(
                     track = track,
                     playback = playback,
+                    position = position,
                     player = player,
                     withControls = !compact,
                     settled = settled,
@@ -140,6 +143,7 @@ internal fun NowPlayingWideContent(
                 )
                 SidePanel(
                     playback = playback,
+                    position = position,
                     player = player,
                     lyrics = lyrics,
                     compact = compact,
@@ -160,6 +164,7 @@ internal fun NowPlayingWideContent(
 private fun SongColumn(
     track: Track,
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     withControls: Boolean,
     settled: Boolean,
@@ -198,7 +203,7 @@ private fun SongColumn(
             )
             TrackName(track, settled, titleModifier, artistModifier)
             if (withControls) {
-                SeekBar(playback, onSeek = player::seekTo)
+                SeekBar(playback, position, onSeek = player::seekTo)
                 TransportControls(playback, player, playButtonModifier)
                 SecondaryControls(playback, player, onEdit)
             }
@@ -213,9 +218,12 @@ private enum class SidePane {
 
 /** The lyrics or the queue, whichever is chosen, and over them the controls when [compact]. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// The play button is tied to the bar's by a modifier of its own, before the panel's.
+@Suppress("ModifierParameter")
 @Composable
 private fun SidePanel(
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     lyrics: TrackLyrics?,
     compact: Boolean,
@@ -273,6 +281,7 @@ private fun SidePanel(
                         LyricsPane(
                             lyrics = lyrics,
                             playback = playback,
+                            position = position,
                             onSeek = player::seekTo,
                             onEdit = onEdit,
                             compact = compact,
@@ -286,6 +295,7 @@ private fun SidePanel(
         if (compact) {
             FloatingControls(
                 playback = playback,
+                position = position,
                 player = player,
                 haze = haze,
                 frost = settled,
@@ -327,9 +337,12 @@ private fun UpNextPane(playback: PlaybackState, player: PlayerController, bottom
  * @param frost whether to frost it now; otherwise it is its container color, solid
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// The play button is tied to the bar's by a modifier of its own, before the panel's.
+@Suppress("ModifierParameter")
 @Composable
 private fun FloatingControls(
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     haze: HazeState,
     frost: Boolean,
@@ -369,6 +382,7 @@ private fun FloatingControls(
         }
         SeekBar(
             playback = playback,
+            position = position,
             onSeek = player::seekTo,
             modifier = Modifier.weight(1f).padding(horizontal = Spacing.small),
             showTimes = false,
@@ -388,8 +402,7 @@ private fun FloatingControls(
 @Composable
 private fun PlayerBackdrop(track: Track, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val artwork = track.artworkRef?.uri
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || artwork == null) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         Box(
             modifier.background(
                 Brush.verticalGradient(listOf(colors.primaryContainer, colors.surface))
@@ -409,7 +422,7 @@ private fun PlayerBackdrop(track: Track, modifier: Modifier = Modifier) {
             // at full size, for a fraction of the work on every frame the lyrics move. Stretched
             // past the edges, where a blur fades out.
             ArtworkImage(
-                model = shown.artworkRef?.uri,
+                model = shown.artwork,
                 contentDescription = null,
                 modifier =
                     Modifier.size(BackdropSample)

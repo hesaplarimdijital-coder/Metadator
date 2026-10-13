@@ -48,9 +48,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,18 +95,21 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
+internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
     val listState = rememberLazyListState()
-    SongListShortcuts(state, listState)
+    SongListShortcuts(tracks, listState)
     val onIntent = actions.onIntent
     // Ctrl and Shift, as they were when a song was clicked.
     val heldKeys = remember { HeldKeys() }
-    val menu = rememberSongMenu(state, actions)
+    // Read when a song is clicked, not closed over: a row's callbacks stay the same while the
+    // library changes around it (a song checked, the player moving on), and the row is skipped.
+    val latest = rememberUpdatedState(state)
+    val menu = rememberSongMenu(latest, actions)
     val activeUri = (LocalShownDetail.current as? Editor)?.uri
-    val allSelected = state.selection.size == state.tracks.size
+    val allSelected = state.selection.size == tracks.size
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxWidth < TrackColumns.MinWidth) {
-            SongRows(state, actions, listState, heldKeys, inCard = false)
+            SongRows(tracks, state, actions, listState, heldKeys, inCard = false)
             return@BoxWithConstraints
         }
         val columns = TrackColumns.forWidth(maxWidth - 16.dp)
@@ -136,7 +141,7 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
                 state = listState,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 8.dp),
             ) {
-                items(state.tracks, key = { it.id.value }, contentType = { "track" }) { track ->
+                items(tracks, key = { it.id.value }, contentType = { "track" }) { track ->
                     val selected = track.id in state.selection
                     ContextMenuArea(
                         actions = { menu(track, selected) },
@@ -145,7 +150,7 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
                         TrackTableRow(
                             track = track,
                             columns = columns,
-                            onClick = { onSongClick(track, state, heldKeys, actions) },
+                            onClick = { onSongClick(track, latest.value, heldKeys, actions) },
                             onToggle = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
                             onLongClick = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
                             quality = state.quality.of(track),
@@ -163,11 +168,11 @@ internal fun SongsTable(state: LibraryState, actions: LibraryActions) {
 
 /** The songs on a phone: rows on a card, below the filters. */
 @Composable
-internal fun SongCards(state: LibraryState, actions: LibraryActions) {
+internal fun SongCards(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
     val listState = rememberLazyListState()
-    SongListShortcuts(state, listState)
+    SongListShortcuts(tracks, listState)
     val heldKeys = remember { HeldKeys() }
-    SongRows(state, actions, listState, heldKeys, inCard = true)
+    SongRows(tracks, state, actions, listState, heldKeys, inCard = true)
 }
 
 /**
@@ -177,6 +182,7 @@ internal fun SongCards(state: LibraryState, actions: LibraryActions) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SongRows(
+    tracks: List<Track>,
     state: LibraryState,
     actions: LibraryActions,
     listState: LazyListState,
@@ -184,9 +190,10 @@ private fun SongRows(
     inCard: Boolean,
 ) {
     val onIntent = actions.onIntent
-    val menu = rememberSongMenu(state, actions)
+    val latest = rememberUpdatedState(state)
+    val menu = rememberSongMenu(latest, actions)
     val activeUri = (LocalShownDetail.current as? Editor)?.uri
-    val count = state.tracks.size
+    val count = tracks.size
     LazyColumn(
         modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(listState),
         state = listState,
@@ -199,7 +206,7 @@ private fun SongRows(
                 )
             } else PaddingValues(vertical = 4.dp),
     ) {
-        itemsIndexed(state.tracks, key = { _, track -> track.id.value }) { index, track ->
+        itemsIndexed(tracks, key = { _, track -> track.id.value }) { index, track ->
             val selected = track.id in state.selection
             ContextMenuArea(
                 actions = { menu(track, selected) },
@@ -214,7 +221,7 @@ private fun SongRows(
             ) {
                 TrackRow(
                     track = track,
-                    onClick = { onSongClick(track, state, heldKeys, actions) },
+                    onClick = { onSongClick(track, latest.value, heldKeys, actions) },
                     onLongClick = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
                     quality = state.quality.of(track),
                     selected = selected,
@@ -261,11 +268,12 @@ internal fun cardRowShape(index: Int, count: Int): Shape {
 
 /**
  * What a song's menu holds: for the mouse's second button, and the same as a long press offers. The
- * text is read here, once; the menu is made when it opens, for the song it opens on.
+ * text is read here, once; the menu is made when it opens, for the song it opens on, from the
+ * library as it is then.
  */
 @Composable
 private fun rememberSongMenu(
-    state: LibraryState,
+    state: State<LibraryState>,
     actions: LibraryActions,
 ): (Track, Boolean) -> List<MenuAction> {
     val onIntent = actions.onIntent
@@ -284,35 +292,50 @@ private fun rememberSongMenu(
                 " " +
                 stringResource(CoreUiR.string.mouse_click)
         } else null
-    return { track, selected ->
-        listOfNotNull(
-            MenuAction(editLabel, Icons.Rounded.Edit) { actions.onOpenTrack(track) },
-            MenuAction(findCoverLabel, Icons.Rounded.AutoAwesome, iconTint = accent) {
-                actions.onFindCover(track)
-            },
-            MenuAction(playLabel, Icons.Rounded.PlayArrow) { onIntent(LibraryIntent.Play(track)) },
-            MenuAction(
-                if (selected) deselectLabel else selectLabel,
-                if (selected) Icons.Rounded.Close else Icons.Rounded.Check,
-                shortcut = ctrlClick,
-            ) {
-                onIntent(LibraryIntent.ToggleSelection(track.id))
-            },
-            // On one of several selected songs, the menu is also the selection's.
-            MenuAction(editTogetherLabel, Icons.Rounded.EditNote) {
-                    actions.onEditTracks(state.selectedTracks)
-                }
-                .takeIf { selected && state.selection.size > 1 },
-            MenuAction(newWindowLabel, Icons.AutoMirrored.Rounded.OpenInNew) {
-                actions.onOpenInNewWindow(track)
-            },
+    val labels =
+        listOf(
+            editLabel,
+            findCoverLabel,
+            playLabel,
+            selectLabel,
+            deselectLabel,
+            editTogetherLabel,
+            newWindowLabel,
         )
+    return remember(state, actions, labels, accent, ctrlClick) {
+        { track, selected ->
+            val library = state.value
+            listOfNotNull(
+                MenuAction(editLabel, Icons.Rounded.Edit) { actions.onOpenTrack(track) },
+                MenuAction(findCoverLabel, Icons.Rounded.AutoAwesome, iconTint = accent) {
+                    actions.onFindCover(track)
+                },
+                MenuAction(playLabel, Icons.Rounded.PlayArrow) {
+                    onIntent(LibraryIntent.Play(track))
+                },
+                MenuAction(
+                    if (selected) deselectLabel else selectLabel,
+                    if (selected) Icons.Rounded.Close else Icons.Rounded.Check,
+                    shortcut = ctrlClick,
+                ) {
+                    onIntent(LibraryIntent.ToggleSelection(track.id))
+                },
+                // On one of several selected songs, the menu is also the selection's.
+                MenuAction(editTogetherLabel, Icons.Rounded.EditNote) {
+                        actions.onEditTracks(library.selectedTracks)
+                    }
+                    .takeIf { selected && library.selection.size > 1 },
+                MenuAction(newWindowLabel, Icons.AutoMirrored.Rounded.OpenInNew) {
+                    actions.onOpenInNewWindow(track)
+                },
+            )
+        }
     }
 }
 
 /** The keys that move through a long list, for when nothing in it has the focus to take them. */
 @Composable
-private fun SongListShortcuts(state: LibraryState, listState: LazyListState) {
+private fun SongListShortcuts(tracks: List<Track>, listState: LazyListState) {
     val scope = rememberCoroutineScope()
     KeyboardShortcuts(
         title = stringResource(R.string.tab_songs),
@@ -337,7 +360,7 @@ private fun SongListShortcuts(state: LibraryState, listState: LazyListState) {
                 },
                 Shortcut(KeyEvent.KEYCODE_MOVE_END, stringResource(R.string.shortcut_list_end)) {
                     scope.launch {
-                        listState.scrollToItem((state.tracks.size - 1).coerceAtLeast(0))
+                        listState.scrollToItem((tracks.size - 1).coerceAtLeast(0))
                     }
                 },
             ),
@@ -375,7 +398,7 @@ internal fun AlbumGrid(
                     listOfNotNull(album.artist, album.year?.toString())
                         .joinToString(" · ")
                         .ifEmpty { null },
-                artwork = album.artworkRef?.uri,
+                artwork = album.artwork,
                 onClick = { onOpen(album) },
                 modifier = Modifier.animateItem(),
             )
@@ -450,9 +473,9 @@ private fun CollectionRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (collection.artworkRef != null && collection !is TrackCollection.Folder) {
+            if (collection.artwork != null && collection !is TrackCollection.Folder) {
                 ArtworkImage(
-                    model = collection.artworkRef?.uri,
+                    model = collection.artwork,
                     contentDescription = null,
                     modifier = Modifier.size(42.dp),
                     shape =

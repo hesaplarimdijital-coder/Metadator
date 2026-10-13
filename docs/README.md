@@ -12,6 +12,7 @@ works, and why it was built that way. The rules for working on the code are in
 | [cover-finder.md](cover-finder.md) | Where covers are looked for, how they are compared, and how the one to use is chosen |
 | [desktop.md](desktop.md) | Samsung DeX and other desktops: windows, keyboard shortcuts, the mouse |
 | [testing.md](testing.md) | What is tested where, and what still needs a device |
+| [performance.md](performance.md) | How each screen is kept cheap to draw, and how fast the app is measured to be |
 | [ci.md](ci.md) | What runs on a pull request, the release build and its secrets |
 | [renovation-plan.md](renovation-plan.md) | The plan behind 2.0: the audit of 1.x, the UX goals and the phases |
 

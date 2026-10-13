@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="cover_of">Portada de %1$s</string>
     <string name="play">Reproducir</string>
     <string name="pause">Pausar</string>
     <plurals name="missing_tags">
         <item quantity="one">Falta: %1$s</item>
+        <item quantity="many">Faltan: %1$s</item>
         <item quantity="other">Faltan: %1$s</item>
     </plurals>
     <string name="missing_artist">artista</string>
@@ -12,7 +13,7 @@
     <string name="missing_album_artist">artista del álbum</string>
     <string name="missing_year">año</string>
     <string name="missing_track_number">número de pista</string>
-    <string name="selected">Seleccionada</string>
+    <string name="song_selected">Seleccionada</string>
     <string name="select">Seleccionar</string>
     <string name="unknown_artist">Artista desconocido</string>
     <string name="unknown_album">Álbum desconocido</string>
@@ -22,7 +23,7 @@
     <string name="field_album">Álbum</string>
     <string name="field_album_artist">Artistas del álbum</string>
     <string name="field_date">Año o fecha</string>
-    <string name="field_date_hint">2019 o 2019-05-17</string>
+    <string name="field_date_hint" tools:ignore="TypographyDashes">2019 o 2019-05-17</string>
     <string name="field_genre">Géneros</string>
     <string name="field_track">Pista</string>
     <string name="field_disc">Disco</string>
@@ -75,6 +76,12 @@
     <string name="cover_finder_title">Buscar una portada</string>
     <string name="cover_finder_search">Buscar</string>
     <string name="cover_finder_searching">Buscando portadas y comparándolas…</string>
+    <string name="cover_finder_asking">Consultando las fuentes…</string>
+    <plurals name="cover_finder_looking">
+        <item quantity="one">Mirando %1$d de %2$d portada…</item>
+        <item quantity="many">Mirando %1$d de %2$d portadas…</item>
+        <item quantity="other">Mirando %1$d de %2$d portadas…</item>
+    </plurals>
     <string name="cover_finder_no_results">No se encontraron portadas. Prueba con menos palabras.</string>
     <string name="cover_finder_no_sources">Todas las fuentes están desactivadas. Activa alguna en Ajustes.</string>
     <string name="cover_finder_offline">No tienes conexión</string>
@@ -96,7 +103,11 @@
     <string name="cover_reason_artist">El artista coincide</string>
     <string name="cover_reason_title">La canción está en este lanzamiento</string>
     <string name="cover_reason_year">El año coincide</string>
-    <string name="cover_reason_sources">%1$d fuentes tienen esta misma imagen</string>
+    <plurals name="cover_reason_sources">
+        <item quantity="one">%1$d fuente tiene esta misma imagen</item>
+        <item quantity="many">%1$d fuentes tienen esta misma imagen</item>
+        <item quantity="other">%1$d fuentes tienen esta misma imagen</item>
+    </plurals>
     <string name="cover_reason_same_as_current">La misma imagen que la portada actual</string>
     <string name="cover_reason_larger">Una copia más grande de la portada actual</string>
     <string name="cover_reason_high_resolution">Lo bastante grande para verse nítida en cualquier parte</string>

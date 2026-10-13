@@ -3,10 +3,20 @@
  */
 package com.bobbyesp.metadator.feature.batch
 
+import android.net.Uri
 import android.view.KeyEvent
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +79,7 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioSwitch
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
+import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -125,6 +136,7 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             ),
     )
     val panels = LocalPanels.current
+    val motion = MaterialTheme.motionScheme
     Column(
         Modifier.fillMaxSize()
             .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
@@ -132,11 +144,34 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             // is typed in.
             .imePadding()
     ) {
-        if (state.loading) {
-            BatchHead(state, onClose, Modifier.padding(16.dp))
-            LoadingScreen(Modifier.weight(1f))
-            return@Column
+        // The head is there from the first frame, with how many songs are coming; the rest fades
+        // in under it once they are read, over the moment of nothing before.
+        BatchHead(state, onClose, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
+        AnimatedContent(
+            targetState = state.loading,
+            transitionSpec = {
+                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            label = "BatchLoaded",
+        ) { loading ->
+            if (loading) LoadingScreen(Modifier.fillMaxSize())
+            else BatchForm(state, onIntent, pickCover, panels)
         }
+    }
+
+    state.progress?.let { progress -> ProgressDialog(progress, onIntent) }
+}
+
+/** The batch itself: what every song will get, and the way to write it. */
+@Composable
+private fun BatchForm(
+    state: BatchState,
+    onIntent: (BatchIntent) -> Unit,
+    pickCover: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
+    panels: Boolean,
+) {
+    Column(Modifier.fillMaxSize()) {
         val scroll = rememberScrollState()
         Column(
             modifier =
@@ -147,7 +182,6 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            BatchHead(state, onClose)
             CoverChoice(
                 cover = state.cover,
                 loading = state.loadingCover,
@@ -189,8 +223,6 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
         }
         BatchFooter(state, onIntent, phone = !panels)
     }
-
-    state.progress?.let { progress -> ProgressDialog(progress, onIntent) }
 }
 
 /** The songs being edited: a few of their covers stacked, how many, and which. */
@@ -226,7 +258,7 @@ private fun BatchHead(state: BatchState, onClose: () -> Unit, modifier: Modifier
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                pluralStringResource(R.plurals.batch_title, state.files.size, state.files.size),
+                pluralStringResource(R.plurals.batch_title, state.count, state.count),
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                 color = Studio.colors.text,
                 maxLines = 2,
@@ -581,81 +613,113 @@ private fun BatchFooter(state: BatchState, onIntent: (BatchIntent) -> Unit, phon
     }
 }
 
+/**
+ * The batch being written, then what came of it, in one dialog: its parts change through a fade and
+ * the dialog grows to them, rather than turning into another dialog between two frames.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ProgressDialog(
-    progress: BatchProgress,
-    onIntent: (BatchIntent) -> Unit,
-) {
+private fun ProgressDialog(progress: BatchProgress, onIntent: (BatchIntent) -> Unit) {
+    val running = progress.isRunning
+    val motion = MaterialTheme.motionScheme
     AlertDialog(
         onDismissRequest = {},
-        icon =
-            if (!progress.isRunning) {
-                { Icon(Icons.Rounded.CheckCircle, null) }
-            } else null,
+        icon = {
+            AnimatedVisibility(
+                visible = !running,
+                enter =
+                    fadeIn(motion.defaultEffectsSpec()) +
+                        expandVertically(motion.defaultSpatialSpec()),
+                exit =
+                    fadeOut(motion.fastEffectsSpec()) +
+                        shrinkVertically(motion.defaultSpatialSpec()),
+            ) {
+                Icon(Icons.Rounded.CheckCircle, null)
+            }
+        },
         title = {
-            Text(
-                if (progress.isRunning)
-                    stringResource(R.string.batch_running, progress.done + 1, progress.total)
-                else stringResource(R.string.batch_done_title)
-            )
+            Replaced(running) { shown ->
+                Text(
+                    if (shown)
+                        stringResource(R.string.batch_running, progress.done + 1, progress.total)
+                    else stringResource(R.string.batch_done_title)
+                )
+            }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-                if (progress.isRunning) {
-                    LinearWavyProgressIndicator(
-                        progress = { progress.fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    Text(
-                        pluralStringResource(
-                            R.plurals.batch_saved,
-                            progress.saved.size,
-                            progress.saved.size,
+            Replaced(running) { shown ->
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+                    if (shown) {
+                        LinearWavyProgressIndicator(
+                            progress = { progress.fraction },
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    )
-                    if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
-                    if (progress.failed.isNotEmpty()) {
+                    } else {
                         Text(
                             pluralStringResource(
-                                R.plurals.batch_failed,
-                                progress.failed.size,
-                                progress.failed.size,
-                            ),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        progress.failed.take(5).forEach { result ->
-                            Text(
-                                "${result.item.displayName}: ${stringResource(reason(result.outcome))}",
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                R.plurals.batch_saved,
+                                progress.saved.size,
+                                progress.saved.size,
                             )
+                        )
+                        if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
+                        if (progress.failed.isNotEmpty()) {
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.batch_failed,
+                                    progress.failed.size,
+                                    progress.failed.size,
+                                ),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            progress.failed.take(5).forEach { result ->
+                                Text(
+                                    "${result.item.displayName}: ${stringResource(reason(result.outcome))}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            if (progress.isRunning) {
-                TextButton(onClick = { onIntent(BatchIntent.Cancel) }) {
-                    Text(stringResource(R.string.batch_cancel))
-                }
-            } else {
-                TextButton(onClick = { onIntent(BatchIntent.Dismiss) }) {
-                    Text(stringResource(R.string.batch_finish))
+            Replaced(running) { shown ->
+                if (shown) {
+                    TextButton(onClick = { onIntent(BatchIntent.Cancel) }) {
+                        Text(stringResource(R.string.batch_cancel))
+                    }
+                } else {
+                    TextButton(onClick = { onIntent(BatchIntent.Dismiss) }) {
+                        Text(stringResource(R.string.batch_finish))
+                    }
                 }
             }
         },
-        dismissButton =
-            if (!progress.isRunning && progress.backups.isNotEmpty()) {
-                {
-                    TextButton(onClick = { onIntent(BatchIntent.UndoAll) }) {
-                        Text(stringResource(R.string.batch_undo_all))
-                    }
+        dismissButton = {
+            AnimatedVisibility(
+                visible = !running && progress.backups.isNotEmpty(),
+                enter = fadeIn(motion.defaultEffectsSpec()),
+                exit = fadeOut(motion.fastEffectsSpec()),
+            ) {
+                TextButton(onClick = { onIntent(BatchIntent.UndoAll) }) {
+                    Text(stringResource(R.string.batch_undo_all))
                 }
-            } else null,
+            }
+        },
+    )
+}
+
+/** A part of the dialog that is one thing while the batch runs and another after. */
+@Composable
+private fun Replaced(running: Boolean, content: @Composable (running: Boolean) -> Unit) {
+    AnimatedContent(
+        targetState = running,
+        transitionSpec = { fadeThrough() using SizeTransform(clip = false) },
+        label = "BatchDialogPart",
+        content = { content(it) },
     )
 }
 

@@ -21,6 +21,11 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -28,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
+import kotlinx.coroutines.delay
 
 /**
  * A section title over a group: small and quiet, as a desktop form names the parts of it. The group
@@ -62,14 +68,26 @@ fun SectionHeader(
     }
 }
 
-/** A screen still loading: Material's expressive indicator, centered. */
+/**
+ * A screen still loading: Material's expressive indicator, centered, once the wait is long enough
+ * to be one. Most screens have their content within the time their arrival takes, and an indicator
+ * shown for that moment was a flash before the content rather than a sign of waiting for it.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingScreen(modifier: Modifier = Modifier) {
+    var waiting by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(LoadingIndicatorDelayMillis)
+        waiting = true
+    }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        LoadingIndicator()
+        if (waiting) LoadingIndicator()
     }
 }
+
+/** How long a wait goes unmarked: under this, the content is as good as there. */
+const val LoadingIndicatorDelayMillis = 400L
 
 /**
  * Keeps this clear of what is at the sides of the window: the camera's cutout with the phone held

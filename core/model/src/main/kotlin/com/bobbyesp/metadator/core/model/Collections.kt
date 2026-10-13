@@ -9,8 +9,9 @@ sealed interface TrackCollection {
     val title: String
     val tracks: List<Track>
 
-    val artworkRef: ContentRef?
-        get() = tracks.firstNotNullOfOrNull { it.artworkRef }
+    /** The first song's cover stands for the group's. */
+    val artwork: TrackArtwork?
+        get() = tracks.firstOrNull()?.artwork
 
     data class Album(
         override val key: String,

@@ -103,6 +103,7 @@ import kotlinx.coroutines.delay
  * The player, full screen. It is the expanded content of [PlayerSheet], which owns how it gets on
  * and off the screen; the modifiers are how the sheet ties the pieces it shares with the bar.
  *
+ * @param position where the song is, which only the slider reads
  * @param settled whether the sheet is at rest, open: what waits for the pieces that travel to have
  *   arrived shows then
  * @param ownContentPresence how much of what only this has (all but the cover, the name and the
@@ -113,6 +114,7 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun NowPlayingContent(
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     settled: Boolean,
     onClose: () -> Unit,
@@ -130,6 +132,7 @@ internal fun NowPlayingContent(
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         NowPlayingScaffold(
             playback = playback,
+            position = position,
             player = player,
             track = track,
             settled = settled,
@@ -151,6 +154,7 @@ internal fun NowPlayingContent(
 @Composable
 private fun NowPlayingScaffold(
     playback: PlaybackState,
+    position: PlaybackPosition,
     player: PlayerController,
     track: Track?,
     settled: Boolean,
@@ -212,7 +216,7 @@ private fun NowPlayingScaffold(
                 ) {
                     Cover(track, artworkShape, artworkModifier)
                     TrackName(track, settled, titleModifier, artistModifier)
-                    SeekBar(playback, onSeek = player::seekTo)
+                    SeekBar(playback, position, onSeek = player::seekTo)
                     TransportControls(playback, player, playButtonModifier)
                     SecondaryControls(playback, player, onEdit = { onEdit(track.ref.uri) })
                 }
@@ -257,7 +261,7 @@ internal fun LazyListScope.upNextItems(
                 ListItemDefaults.segmentedColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 ),
-            leadingContent = { ArtworkImage(next.artworkRef?.uri, null, Modifier.size(44.dp)) },
+            leadingContent = { ArtworkImage(next.artwork, null, Modifier.size(44.dp)) },
             supportingContent = {
                 Text(next.artist ?: stringResource(R.string.unknown_artist), maxLines = 1)
             },
@@ -300,7 +304,7 @@ internal fun TrackArtwork(track: Track, shape: Shape, modifier: Modifier = Modif
         val blur = remember(focus) { { 1f - focus.value } }
         val leaving = transition.targetState == EnterExitState.PostExit
         ArtworkImage(
-            model = shown.artworkRef?.uri,
+            model = shown.artwork,
             contentDescription = null,
             modifier =
                 Modifier.fillMaxSize().defocused(blur, bounded = true).graphicsLayer {
@@ -319,6 +323,8 @@ internal fun TrackArtwork(track: Track, shape: Shape, modifier: Modifier = Modif
  * @param sharedModifier what ties it to the bar's cover, applied once it has its size
  * @param modifier how it takes its size, which is what differs between layouts
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @Composable
 internal fun Cover(
     track: Track,
@@ -349,6 +355,8 @@ internal fun Cover(
  *
  * @param settled whether the sheet is at rest, open, which is when the album first shows
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TrackName(
@@ -473,24 +481,27 @@ internal object TrackNameDefaults {
 
 /**
  * The position in the song, as a wave that moves while it plays and lies flat while it is paused or
- * being dragged.
+ * being dragged. It reads [position] itself: it is the one thing composed again as the song goes
+ * on.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SeekBar(
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
     showTimes: Boolean = true,
 ) {
     val state = rememberSliderState()
     // Where the user let go, until the player reports it: without this the thumb jumps back to the
     // old position for the moment the seek takes.
     var sought by remember { mutableStateOf<Float?>(null) }
-    LaunchedEffect(playback.progress, state.isDragging, sought) {
+    val progress = position.progress
+    LaunchedEffect(progress, state.isDragging, sought) {
         val target = sought
-        if (target != null && abs(playback.progress - target) < SEEK_TOLERANCE) sought = null
-        if (!state.isDragging && sought == null) state.value = playback.progress
+        if (target != null && abs(progress - target) < SEEK_TOLERANCE) sought = null
+        if (!state.isDragging && sought == null) state.value = progress
     }
     LaunchedEffect(sought) {
         if (sought != null) {
@@ -541,6 +552,8 @@ private const val SEEK_TIMEOUT_MS = 1_500L
  * Previous, play and next as one button group: pressing one squeezes its neighbors, which is the
  * whole point of putting them in a group.
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TransportControls(

@@ -5,7 +5,6 @@
         <item quantity="other">%1$d şarkıyı düzenle</item>
     </plurals>
     <string name="close">Kapat</string>
-    <string name="batch_files">Şarkılar</string>
     <string name="batch_and_more">ve %1$d tane daha</string>
     <string name="batch_fields">Her şarkıda ayarla</string>
     <string name="batch_fields_description">Her şarkının kendi değerini korumak için alanı olduğu gibi bırakın.</string>

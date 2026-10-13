@@ -118,8 +118,13 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   into another. The blur is on what floats, never around it. A `hazeSource` is a sibling of what it
   blurs, never an ancestor, and nothing is frosted while a shared element transition runs.
 - No deprecated API: the build has no deprecation warnings, keep it so. Animate with the theme's
-  `motionScheme`, not hand-written tweens. The player sheet and predictive back are the
-  exceptions, and say why.
+  `motionScheme`, not hand-written tweens. The player sheet, predictive back, and one thing taking
+  the place of another through a fade (`ThroughFocus`, `fadeThrough`) are the exceptions, and say
+  why.
+- A phone's screens come over each other (`NavigationMotion.push`/`pop`); panels on a ground
+  change with a short shift through a fade. A list re-sorted, filtered or of another tab fades
+  through (`fadeThrough`), never crossfades; a menu keeps its items while it closes
+  (`heldWhileClosing`); a choice in a sheet closes it with its slide first (`rememberSheetClosing`).
 - Regular expressions run on Android's engine (ICU), stricter than the JVM's the tests use: escape
   every literal `}` and `]`.
 

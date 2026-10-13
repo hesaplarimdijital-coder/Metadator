@@ -6,12 +6,12 @@
     <string name="more_options">Más opciones</string>
     <string name="open_file">Abrir un archivo</string>
     <string name="rescan_library">Volver a escanear la música</string>
+    <string name="library_rescanned">Música escaneada de nuevo</string>
     <string name="tab_songs">Canciones</string>
     <string name="tab_albums">Álbumes</string>
     <string name="tab_artists">Artistas</string>
     <string name="tab_folders">Carpetas</string>
     <string name="needs_attention_filter">Necesitan atención (%1$d)</string>
-    <string name="sort">Ordenar</string>
     <string name="sort_title">Título</string>
     <string name="sort_artist">Artista</string>
     <string name="sort_album">Álbum</string>
@@ -28,10 +28,12 @@
     <string name="close_selection">Dejar de seleccionar</string>
     <plurals name="selected_count">
         <item quantity="one">%1$d seleccionada</item>
+        <item quantity="many">%1$d seleccionadas</item>
         <item quantity="other">%1$d seleccionadas</item>
     </plurals>
     <plurals name="song_count">
         <item quantity="one">%1$d canción</item>
+        <item quantity="many">%1$d canciones</item>
         <item quantity="other">%1$d canciones</item>
     </plurals>
     <string name="permission_title">Tu música, lista para editar</string>
@@ -79,22 +81,27 @@
     <string name="find_cover">Buscar portada</string>
     <plurals name="selected_songs">
         <item quantity="one">%1$d canción seleccionada</item>
+        <item quantity="many">%1$d canciones seleccionadas</item>
         <item quantity="other">%1$d canciones seleccionadas</item>
     </plurals>
     <plurals name="song_count_formatted">
         <item quantity="one">%1$s canción</item>
+        <item quantity="many">%1$s canciones</item>
         <item quantity="other">%1$s canciones</item>
     </plurals>
     <plurals name="album_count">
         <item quantity="one">%1$s álbum</item>
+        <item quantity="many">%1$s álbumes</item>
         <item quantity="other">%1$s álbumes</item>
     </plurals>
     <plurals name="artist_count">
         <item quantity="one">%1$s artista</item>
+        <item quantity="many">%1$s artistas</item>
         <item quantity="other">%1$s artistas</item>
     </plurals>
     <plurals name="folder_count">
         <item quantity="one">%1$s carpeta</item>
+        <item quantity="many">%1$s carpetas</item>
         <item quantity="other">%1$s carpetas</item>
     </plurals>
 </resources>

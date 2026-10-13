@@ -127,6 +127,15 @@ data class CoverSuggestion(
         get() = MatchConfidence.of(score)
 }
 
+/** How far a search has got, for whoever is waiting on it. */
+sealed interface CoverSearchProgress {
+    /** The catalogues are being asked. */
+    data object Asking : CoverSearchProgress
+
+    /** The catalogues named [of] covers, and [seen] of them have been looked at. */
+    data class Looking(val seen: Int, val of: Int) : CoverSearchProgress
+}
+
 sealed interface CoverSearchOutcome {
     /** The covers found, the one to recommend first. May be empty. */
     data class Results(val suggestions: List<CoverSuggestion>, val failedProviders: List<String>) :

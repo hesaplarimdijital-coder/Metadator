@@ -7,6 +7,7 @@ import com.bobbyesp.metadator.core.common.normalizedForComparison
 import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
+import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.core.model.TrackSort
 import java.text.Collator
 import java.util.Locale
@@ -115,16 +116,25 @@ fun List<Track>.sorted(order: SortOrder, locale: Locale = Locale.getDefault()): 
     return sortedWith(if (order.ascending) comparator else comparator.reversed())
 }
 
-/** Albums by album artist and title, so two albums called "Greatest Hits" stay apart. */
+/**
+ * Albums by album artist and title, so two albums called "Greatest Hits" stay apart.
+ *
+ * Each is known by those two, which are what make it the album it is. MediaStore's id of an album
+ * is not: it is one for the songs of a title in a folder, whoever they are by, and two albums under
+ * one id had one key, which a list cannot show twice. A library with a compilation without album
+ * artists closed as soon as its albums were all in sight, as on a wide window.
+ */
 fun List<Track>.albums(): List<TrackCollection.Album> = filter {
     !it.album.isNullOrBlank()
 }
     .groupBy { (it.albumArtist ?: it.artist).orEmpty().lowercase() to it.album!!.lowercase() }
-    .map { (_, tracks) ->
+    .map { (identity, tracks) ->
+        val (artist, album) = identity
         val ordered = tracks.sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
         val first = ordered.first()
         TrackCollection.Album(
-            key = "album:${first.albumId}:${first.album}",
+            // The artist's length first: no artist and title can then be read as another pair.
+            key = "album:${artist.length}:$artist:$album",
             title = first.album!!,
             artist = first.albumArtist ?: first.artist,
             year = ordered.firstNotNullOfOrNull { it.year },
@@ -146,6 +156,20 @@ fun List<Track>.artists(): List<TrackCollection.Artist> = filter {
         )
     }
     .sortedWith(compareBy(Collator.getInstance()) { it.title })
+
+/**
+ * The collection known by [key] or, when none is any more, the one most of [songs] are in now. An
+ * edit can give a collection another key (another artist for an album without an album artist,
+ * another title, another name), and a screen that was showing it goes on showing those songs.
+ */
+fun <C : TrackCollection> List<C>.locate(key: String, songs: Collection<TrackId>): C? =
+    firstOrNull { it.key == key }
+        ?: songs.toSet().let { wanted ->
+            map { it to it.tracks.count { track -> track.id in wanted } }
+                .filter { (_, shared) -> shared > 0 }
+                .maxByOrNull { (_, shared) -> shared }
+                ?.first
+        }
 
 fun List<Track>.folders(): List<TrackCollection.Folder> = groupBy {
     it.folder.orEmpty()

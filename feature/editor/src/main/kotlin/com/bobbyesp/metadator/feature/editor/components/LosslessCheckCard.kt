@@ -3,6 +3,8 @@
  */
 package com.bobbyesp.metadator.feature.editor.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,6 +50,7 @@ import com.bobbyesp.metadator.core.designsystem.component.FactChip
 import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.component.StudioTone
 import com.bobbyesp.metadator.core.designsystem.component.colors
+import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.quality.LosslessFormat
 import com.bobbyesp.metadator.core.domain.quality.LosslessReport
@@ -68,9 +71,24 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun LosslessCheckCard(state: LosslessCheckState, modifier: Modifier = Modifier) {
+    // The verdict takes the place of the wait through a fade, and the card grows to it: it
+    // appeared whole, and shoved the fields under it down.
+    AnimatedContent(
+        targetState = state,
+        contentKey = { it::class },
+        transitionSpec = { fadeThrough() using SizeTransform(clip = false) },
+        modifier = modifier,
+        label = "LosslessCheck",
+    ) { shown ->
+        CheckState(shown)
+    }
+}
+
+@Composable
+private fun CheckState(state: LosslessCheckState, modifier: Modifier = Modifier) {
     when (state) {
         LosslessCheckState.None -> Unit
-        LosslessCheckState.Checking ->
+        is LosslessCheckState.Checking ->
             CheckCard(StudioTone.Neutral, modifier) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),

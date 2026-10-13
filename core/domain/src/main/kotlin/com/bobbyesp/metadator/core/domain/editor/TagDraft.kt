@@ -49,8 +49,16 @@ data class TagDraft(
 
     fun revert(key: String): TagDraft = copy(tags = tags.with(key, original.tags[key]))
 
+    /**
+     * The picture the file already has is no change: the cover finder puts it first when a source
+     * has it too, and counting it left a change that saving had nothing to write for.
+     */
     fun replaceCover(picture: EmbeddedPicture): TagDraft =
-        copy(artwork = ArtworkChange.Replace(picture))
+        copy(
+            artwork =
+                if (picture.isSameImage(original.frontCover)) ArtworkChange.Unchanged
+                else ArtworkChange.Replace(picture)
+        )
 
     fun removeCover(): TagDraft =
         copy(
@@ -62,3 +70,7 @@ data class TagDraft(
 
     fun revertAll(): TagDraft = TagDraft(original)
 }
+
+/** The same picture, whatever its type or description says: what a viewer would see. */
+private fun EmbeddedPicture.isSameImage(other: EmbeddedPicture?): Boolean =
+    other != null && mimeType == other.mimeType && data.contentEquals(other.data)

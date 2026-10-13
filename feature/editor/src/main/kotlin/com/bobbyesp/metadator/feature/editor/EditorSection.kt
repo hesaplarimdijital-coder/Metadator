@@ -29,6 +29,7 @@ import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
 import com.bobbyesp.metadator.feature.editor.lookup.LookupSheet
 import com.bobbyesp.metadator.feature.editor.lookup.LookupViewModel
 import com.bobbyesp.metadator.tags.api.TagField
@@ -125,7 +126,7 @@ fun EditorDestination(
         }
         EditorScreen(
             state = state,
-            onIntent = viewModel::onIntent,
+            onIntent = rememberIntents(viewModel),
             onFindMetadata = findMetadata,
             onFindCover = findCover,
             onClose = onClose,
@@ -159,7 +160,12 @@ fun EditorDestination(
                 onQueryChange = covers::setQuery,
                 onSearch = covers::search,
                 onUse = { suggestion ->
-                    viewModel.onIntent(EditorIntent.SetCoverFromUrl(suggestion.url))
+                    viewModel.onIntent(
+                        EditorIntent.SetCoverFromUrl(
+                            suggestion.url,
+                            preview = suggestion.thumbnailUrl ?: suggestion.url,
+                        )
+                    )
                     showCovers = false
                 },
                 onDismiss = { showCovers = false },

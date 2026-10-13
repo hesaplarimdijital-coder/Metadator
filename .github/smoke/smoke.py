@@ -437,6 +437,66 @@ def pull(file_name, folder=MUSIC):
     return local
 
 
+def cover_shown(title):
+    """The cover at the start of the song's row, as pixels: a square out of the middle of the
+    picture just before the title, which the row keeps at its height's middle and a little way off
+    the title in either of its layouts. The picture is not a thing the screen's tree knows; its
+    place beside the title is."""
+    nodes = screen()
+    titles = [node for node in find(re.escape(title), nodes) if not node.is_field]
+    if not titles:
+        raise Failed(f"no row says {title!r}")
+    label = min(titles, key=lambda node: (node.left, node.top))
+    line = label.pressed_as()
+    height = line.bottom - line.top
+    side = max(12, min(20, height // 2))
+    left = label.left - 14 - side
+    top = line.top + (height - side) // 2
+    if left < line.left or height <= 0:
+        raise Failed(f"no room for a cover before {title!r}: {label} in {line}")
+    picture = adb("exec-out", "screencap", "-p", binary=True, timeout=60)
+    cropped = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-vf", f"crop={side}:{side}:{left}:{top}",
+         "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"],
+        input=picture,
+        capture_output=True,
+        check=True,
+    ).stdout
+    return cropped
+
+
+def pictures_differ(before, after):
+    """How much two covers differ, on a scale of 0 to 255; None when they cannot be compared."""
+    if not before or len(before) != len(after):
+        return None
+    return sum(abs(a - b) for a, b in zip(before, after)) / len(before)
+
+
+def rows_show_new_covers(titles, shown_before, timeout=20):
+    """Waits for each song's row to show a cover other than the one it showed before the save."""
+    deadline = time.time() + timeout
+    changes = {}
+    while time.time() < deadline:
+        for title in titles:
+            if title in changes:
+                continue
+            difference = pictures_differ(shown_before[title], cover_shown(title))
+            if difference is not None and difference >= NEW_PICTURE:
+                changes[title] = difference
+        if len(changes) == len(titles):
+            break
+        time.sleep(2)
+    still = [title for title in titles if title not in changes]
+    if still:
+        raise Failed(f"the rows of {still} still show the cover they had before the save")
+    return ", ".join(f"{title}: {difference:.0f}" for title, difference in changes.items())
+
+
+# Rows of a list are small and a cover is most of one; a different picture moves the mean of its
+# pixels by far more than the ripple of a tap or the badge of a verdict does.
+NEW_PICTURE = 8
+
+
 def listed_songs():
     """The songs MediaStore has indexed: [(id, title, path)]."""
     rows = shell(
@@ -463,10 +523,17 @@ def activity_instance(activity=MAIN):
 
 
 def allow_system_dialog(timeout=30):
-    """Says yes to the system: the permission to list music, or to change a file."""
+    """Says yes to the system: the permission to list music, or to change a file. Pressed again
+    while it is still asked: on a slow emulator a press as the dialog comes in is lost, and a run
+    once waited a minute on a dialog it had pressed."""
     button = expect(r"^(Allow|ALLOW)$", timeout)
-    tap(button)
-    time.sleep(1.5)
+    for _ in range(4):
+        tap(button)
+        time.sleep(1.5)
+        still = find(r"^(Allow|ALLOW)$")
+        if not still:
+            return
+        button = still[0]
 
 
 def row(title, nodes=None):
@@ -782,15 +849,52 @@ def find_cover_for_song():
     return f"Esc closed the sheet, and the best cover is in the editor. It said: {reasons[:10]}"
 
 
+# What each song's row showed as its cover before a save, to see it change after.
+covers_before = {}
+
+
 def save_song():
     if not cover_search_worked:
         raise Skipped("no cover was found to save")
+    covers_before["One More Time"] = cover_shown("One More Time")
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
     # "Saved" shows for four seconds, which a screen read every two may miss; the foot saying
     # nothing is changed any more says the same, and stays.
     expect("^Saved|^No changes$", 60)
     return check_written(["01 - One More Time.flac"])
+
+
+def library_shows_saved_cover():
+    """The row of the song just saved shows the cover written to it, not the one it had: the
+    picture a list caches under a song is the picture the file had when it was read."""
+    if "One More Time" not in covers_before:
+        raise Skipped("nothing was saved to show")
+    return rows_show_new_covers(["One More Time"], covers_before)
+
+
+def same_cover_again():
+    """The cover finder puts the file's own picture first. Chosen, it is no change; and whatever a
+    source gives, a save leaves the foot saying nothing is changed, never a change it can't write."""
+    if not cover_search_worked:
+        raise Skipped("no cover was found to save")
+    expect("^No changes$", 30)
+    key(KEY_CTRL, KEY_K)
+    use, _ = read_cover_sheet(timeout=60)
+    tap(use)
+    expect_gone("Other covers|Use this cover", 20)
+    # The picture is downloaded before the draft has it: wait for the foot to settle.
+    time.sleep(6)
+    nodes = screen()
+    screenshot("the-same-cover-again")
+    if find("^No changes$", nodes):
+        return "the picture the file already has is no change"
+    if not find(r"^\d+ changes?$", nodes):
+        raise Failed(f"the foot says neither: {said_on(nodes)[:30]}")
+    key(KEY_CTRL, KEY_S)
+    allow_system_dialog(40)
+    expect("^No changes$", 60)
+    return "the source gave another copy of the picture; saving it left nothing changed"
 
 
 def check_written(file_names, folder=MUSIC):
@@ -892,9 +996,20 @@ def find_cover_for_album():
     return f"the cover is set for the four. The sheet said: {reasons[:10]}"
 
 
+# The songs of the batch that had no cover before it.
+BATCH_NEWLY_COVERED = ["Aerodynamic", "Digital Love", "Harder, Better, Faster, Stronger"]
+
+
+# The first song's picture before the batch, by its size: the batch may give it another.
+first_picture_before = []
+
+
 def apply_to_all():
     if not cover_search_worked:
         raise Skipped("no cover was found to apply")
+    for title in BATCH_NEWLY_COVERED + ["One More Time"]:
+        covers_before[title] = cover_shown(title)
+    first_picture_before[:] = probe(pull("01 - One More Time.flac"))["pictures"]
     key(KEY_CTRL, KEY_S)
     allow_system_dialog(40)
     expect("^Done$", 180)
@@ -908,6 +1023,28 @@ def apply_to_all():
     tap(expect("^Finish$", 10))
     expect("One More Time", 30)
     return f"{saved}. " + check_written(list(SONGS.values()))
+
+
+def library_shows_batch_covers():
+    """Every song the batch gave a cover shows it in its row, where it showed none."""
+    if not all(title in covers_before for title in BATCH_NEWLY_COVERED):
+        raise Skipped("the batch was not applied")
+    return rows_show_new_covers(BATCH_NEWLY_COVERED, covers_before)
+
+
+def library_shows_replaced_cover():
+    """The song that had a cover before the batch shows the one the batch gave it instead, when
+    that is another picture: the thumbnail MediaStore keeps of a file is renewed when the file is
+    written, and the list asks for it afresh."""
+    if "One More Time" not in covers_before:
+        raise Skipped("the batch was not applied")
+    after = probe(pull("01 - One More Time.flac"))["pictures"]
+    if after == first_picture_before:
+        raise Skipped(f"the batch gave the first song the picture it had: {after}")
+    return (
+        f"{first_picture_before} became {after}; "
+        + rows_show_new_covers(["One More Time"], covers_before)
+    )
 
 
 def leave_batch():
@@ -1682,10 +1819,41 @@ def playback_state():
     return 3 if match.group(1) is None else int(match.group(1))
 
 
+def played_so_far():
+    """Where the docked player's bar says the song is, in seconds: the time left of its line, which
+    says what it is. None while there is no such bar."""
+    nodes = screen()
+    lines = [node for node in nodes if node.description in SEEK_LINE]
+    if not lines:
+        return None
+    line = lines[0]
+    times = [
+        node
+        for node in nodes
+        if re.fullmatch(r"\d{1,3}:\d{2}", node.text)
+        and node.right <= line.left
+        and node.top < line.bottom
+        and node.bottom > line.top
+    ]
+    if not times:
+        return None
+    minutes, seconds = max(times, key=lambda node: node.right).text.split(":")
+    return int(minutes) * 60 + int(seconds)
+
+
+# What the docked bar's line is called, in English and in Turkish.
+SEEK_LINE = ("Position in the song", "Şarkıdaki konum")
+
+
 def keeps_playing_in_background():
     """Android 17 stops what plays from an app in the background unless it plays as the system
-    expects: through a media session, from a foreground service. The app's does."""
+    expects: through a media session, from a foreground service. The app's does. Before that, the
+    docked bar follows the song: where it is reaches only the line and its times, apart from the
+    rest of what plays, and nothing else would tell if it stopped reaching them."""
     home()
+    # The first song played asks to show its notification, as a dialog over the app, and nothing of
+    # the app's can be read from under it. Granted beforehand, as by someone who had answered it.
+    shell(f"pm grant {PACKAGE} android.permission.POST_NOTIFICATIONS")
     tap(expect("^Play all$", 15))
     deadline = time.time() + 20
     while playback_state() != 3:
@@ -1693,6 +1861,13 @@ def keeps_playing_in_background():
             raise Skipped(f"nothing played on this emulator: {playback_state()}")
         time.sleep(1)
     time.sleep(2)
+    # Read twice while the song plays: the songs here last 16 s, and the next one starts again from
+    # nothing, so any change says the time moved on, not only a later one.
+    first = played_so_far()
+    # What was there instead, should the bar not have been.
+    instead = None if first is not None else said_on(screen())[-12:]
+    time.sleep(3)
+    then = played_so_far()
     screenshot("the-player-docked-under-the-panels")
     key(3)  # Home: the app goes to the background.
     time.sleep(10)
@@ -1709,7 +1884,15 @@ def keeps_playing_in_background():
     shell("input keyevent 127")  # Pause, as a headset's button does.
     if state != 3:
         raise Failed(f"in the background the session is in state {state}: {hardening[:6]}")
-    return f"still playing ten seconds into the background. The audio service says: {hardening[:4]}"
+    if first is None or then is None or then == first:
+        raise Failed(
+            f"the docked bar said {first} s, then {then} s, while the song played"
+            + (f"; the screen said {instead}" if instead else "")
+        )
+    return (
+        f"the docked bar said {first} s, then {then} s; still playing ten seconds into the"
+        f" background. The audio service says: {hardening[:4]}"
+    )
 
 
 def editor_field(text, timeout=40):
@@ -1944,6 +2127,364 @@ def glass_on_a_phone():
     return "pictures of the player's bar, the selection's bar and a menu over the list"
 
 
+def ui_thread_times():
+    """How long the app's own thread worked on each of its last frames (composing, laying out,
+    recording what to draw), in ms: the median and the 90th percentile. The emulator draws without
+    a graphics card, so its whole frames are slow whatever the app does; this is the part the app
+    decides."""
+    out = shell(f"dumpsys gfxinfo {PACKAGE} framestats")
+    lines = out.split("---PROFILEDATA---")
+    if len(lines) < 2:
+        return None
+    rows = [line.strip().rstrip(",") for line in lines[1].strip().splitlines() if line.strip()]
+    if len(rows) < 2:
+        return None
+    header = rows[0].split(",")
+    try:
+        flags, start, sync = (header.index(name) for name in ("Flags", "HandleInputStart", "SyncStart"))
+    except ValueError:
+        return None
+    spans = []
+    for row in rows[1:]:
+        cells = row.split(",")
+        if len(cells) <= max(flags, start, sync) or cells[flags] != "0":
+            continue
+        span = (int(cells[sync]) - int(cells[start])) / 1_000_000
+        if 0 < span < 5000:
+            spans.append(span)
+    if not spans:
+        return None
+    spans.sort()
+    return spans[len(spans) // 2], spans[min(len(spans) - 1, len(spans) * 9 // 10)], len(spans)
+
+
+def frame_stats():
+    """What the system counted of the app's frames since they were last reset."""
+    out = shell(f"dumpsys gfxinfo {PACKAGE}")
+    stats = {}
+    for name, pattern in (
+        ("frames", r"Total frames rendered: (\d+)"),
+        ("janky", r"Janky frames: \d+ \(([\d.]+)%\)"),
+        ("p50", r"50th percentile: (\d+)ms"),
+        ("p90", r"90th percentile: (\d+)ms"),
+        ("p99", r"99th percentile: (\d+)ms"),
+    ):
+        match = re.search(pattern, out)
+        if match:
+            stats[name] = match.group(1)
+    return stats
+
+
+def scrolled(name, x, top, bottom, flings=12):
+    """Flings the list under [x] down and back up, and says how its frames went."""
+    shell(f"dumpsys gfxinfo {PACKAGE} reset")
+    for _ in range(flings):
+        shell(f"input swipe {x} {bottom} {x} {top} 180")
+        time.sleep(0.35)
+    for _ in range(flings):
+        shell(f"input swipe {x} {top} {x} {bottom} 180")
+        time.sleep(0.35)
+    time.sleep(1)
+    return f"{name}: " + frames_said()
+
+
+def frames_said():
+    """The frames since the last reset, as the system counted them, and the app's own share."""
+    stats = frame_stats()
+    ui = ui_thread_times()
+    said = (
+        f"{stats.get('frames', '?')} frames, {stats.get('janky', '?')}% janky, "
+        f"p50 {stats.get('p50', '?')} ms, p90 {stats.get('p90', '?')} ms"
+    )
+    if ui:
+        said += f"; the app's thread p50 {ui[0]:.1f} ms, p90 {ui[1]:.1f} ms (last {ui[2]} frames)"
+    return said
+
+
+def typed_in_editor():
+    """Types into a song's title in the editor, letter after letter as fast as the system sends
+    them, and says how the frames went: each letter is a change of the song in the editor, and
+    everything that shows the song is asked whether it changed."""
+    tap(row("One More Time"))
+    deadline = time.time() + 40
+    title = None
+    while title is None:
+        fields = [node for node in screen() if node.is_field and node.text == "One More Time"]
+        if fields:
+            title = fields[0]
+        elif time.time() > deadline:
+            raise Failed("One More Time did not open in the editor")
+        else:
+            time.sleep(1)
+    tap(title)
+    key(KEY_MOVE_END)
+    time.sleep(1)
+    shell(f"dumpsys gfxinfo {PACKAGE} reset")
+    for _ in range(3):
+        shell("input text abcdefghijklmnopqrst")
+    time.sleep(2)
+    said = frames_said()
+    key(KEY_CTRL, KEY_W)
+    tap(expect("^Discard$", 15))
+    return "typing 60 letters in the editor: " + said
+
+
+# How many copies of a song make a library long enough to scroll through.
+LONG_LIBRARY = 300
+
+
+def host_speed():
+    """How fast the emulator is on this run, told by something the app has no part in: the time its
+    shell takes to count to 100,000, the best of three. The machines the runs get are not all as
+    fast: one run was slower than another in everything, copying files included, by up to four
+    times, and its app with it."""
+    best = None
+    for _ in range(3):
+        started = time.time()
+        shell("i=0; while [ $i -lt 100000 ]; do i=$((i+1)); done", timeout=120)
+        took = time.time() - started
+        best = took if best is None else min(best, took)
+    return f"the emulator's shell counts to 100,000 in {best * 1000:.0f} ms"
+
+
+def performance():
+    """How fast it starts, how smoothly a long library scrolls on a wide window and on a phone, and
+    how much memory it holds then: numbers to compare between builds, not a pass or a fail. The
+    emulator draws without a graphics card of its own, so its frames are slower than a phone's;
+    what counts is how the numbers move from one build to the next, on machines as fast as each
+    other: how fast this one is comes first."""
+    notes = [host_speed()]
+    starts = []
+    for _ in range(3):
+        shell(f"am force-stop {PACKAGE}")
+        time.sleep(2)
+        match = re.search(r"TotalTime: (\d+)", shell(f"am start -W -n {PACKAGE}/{MAIN}"))
+        if match:
+            starts.append(int(match.group(1)))
+        time.sleep(5)
+    if starts:
+        notes.append(f"cold start {sorted(starts)[len(starts) // 2]} ms (of {starts})")
+    home()
+    notes.append(typed_in_editor())
+    home()
+    # A long library: a song with a cover, copied over and over, then found by a rescan.
+    shell(
+        "mkdir -p /sdcard/Music/Long && for i in $(seq 1 "
+        + str(LONG_LIBRARY)
+        + "); do cp '/sdcard/Music/Discovery/03 - Digital Love.mp3' /sdcard/Music/Long/$i.mp3; done"
+    )
+    key(KEY_CTRL, KEY_R)
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        counted = [
+            int(match.group(1))
+            for node in screen()
+            for match in [re.match(r"^(\d[\d,]*) songs", node.text.replace(",", ""))]
+            if match
+        ]
+        if counted and max(counted) >= LONG_LIBRARY:
+            break
+        time.sleep(3)
+    else:
+        raise Failed(f"the long library was not listed: {said_on(screen())[:20]}")
+    time.sleep(4)
+    notes.append(scrolled("the table on a wide window", 1100, 330, 960))
+    try:
+        shell("wm size 1080x2340")
+        shell("wm density 420")
+        time.sleep(5)
+        notes.append(scrolled("the rows on a phone", 540, 900, 2050))
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    memory = shell(f"dumpsys meminfo {PACKAGE}")
+    with open(os.path.join(out_dir, "meminfo.txt"), "w", encoding="utf-8") as file:
+        file.write(memory)
+    match = re.search(r"TOTAL PSS:\s+(\d+)", memory) or re.search(r"\n\s*TOTAL\s+(\d+)", memory)
+    if match:
+        notes.append(f"memory {int(match.group(1)) // 1024} MB (PSS)")
+    return "; ".join(notes)
+
+
+def crash_report():
+    """The app's last crash as the system logged it: the exception, what caused it, and the first
+    of the app's own frames it went through. Saved whole beside the report."""
+    crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
+    with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
+        file.write(crashes)
+    lines = [line.split(": ", 1)[-1] for line in crashes.splitlines() if "AndroidRuntime" in line]
+    said = [
+        line
+        for line in lines
+        if not line.startswith("\tat ") or "bobbyesp" in line or "compose" in line
+    ]
+    return " | ".join(said[:14]) or "nothing in the crash log"
+
+
+# The library's places, as its sidebar and its tabs name them.
+PLACES = ["Albums", "Artists", "Folders", "Songs"]
+
+LAYOUTS = [
+    ("a wide window", None),
+    ("a window with no room for the sidebar", ("1920x1080", 360)),
+    ("a phone", ("1080x2340", 420)),
+]
+
+
+def open_place(place, layout):
+    """Opens [place] from the sidebar's item or the tab, not the title over the list that says the
+    same, and fails with what the crash log says if the app closes."""
+    names = [
+        node.pressed_as()
+        for node in find(f"^{place}$")
+        if not node.is_field and node.pressed_as().takes_click
+    ]
+    if not names:
+        raise Failed(f"nothing opens {place!r} on {layout}: {said_on(screen())[:30]}")
+    tap(min(names, key=lambda node: (node.left, node.top)))
+    time.sleep(2.5)
+    if not shell(f"pidof {PACKAGE}").strip():
+        raise Failed(f"the app closed on {place}, on {layout}: {crash_report()}")
+
+
+def visit_places(tag, while_there=None):
+    """Each of the library's places opens: on a wide window, from its sidebar; on one with no room
+    for a sidebar, from the tabs over the panel; on a phone, from its tabs. [while_there] is done in
+    each, with the place and the layout's name."""
+    opened = []
+    try:
+        for name, size in LAYOUTS:
+            if size:
+                shell(f"wm size {size[0]}")
+                shell(f"wm density {size[1]}")
+                time.sleep(4)
+            for place in PLACES:
+                open_place(place, name)
+                if while_there:
+                    while_there(place, name)
+                    if not shell(f"pidof {PACKAGE}").strip():
+                        raise Failed(f"the app closed in {place}, on {name}: {crash_report()}")
+                screenshot(f"{tag}-{slug(name)}-{place.lower()}")
+            opened.append(name)
+    finally:
+        shell("wm size reset")
+        shell("wm density reset")
+        time.sleep(3)
+    return opened
+
+
+def every_place_opens():
+    """A place is a list, or a grid, of its own, and one with less in it than fills the window is a
+    case of its own."""
+    return "every place opened on " + ", ".join(visit_places("places"))
+
+
+# Albums made for the run, each with a cover of its own, as a library of albums has.
+COVERED_ALBUMS = 16
+
+
+def make_covered_albums():
+    """Songs of as many albums, each with a picture embedded as its front cover, put on the device
+    and found by a rescan."""
+    folder = os.path.join(out_dir, "covered-albums")
+    os.makedirs(folder, exist_ok=True)
+    for index in range(COVERED_ALBUMS):
+        cover = os.path.join(folder, f"cover-{index:02d}.jpg")
+        color = (index * 0x3A5F1D + 0x204060) & 0xFFFFFF
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+             f"color=c=0x{color:06x}:s=900x900,drawbox=x=150:y=150:w=600:h=600:color=white@0.6:t=40",
+             "-frames:v", "1", cover],
+            check=True,
+        )
+        song = os.path.join(folder, f"{index:02d} - Song {index}.mp3")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=330:duration=3",
+             "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "64k",
+             "-c:v", "copy", "-id3v2_version", "3",
+             "-metadata", f"title=Song {index}", "-metadata", f"album=Album {index:02d}",
+             "-metadata", f"artist=Artist {index % 5}", "-metadata", "date=2020",
+             "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)",
+             "-disposition:v", "attached_pic", song],
+            check=True,
+        )
+    # And one album as compilations often are: the same title on songs by two artists, with no
+    # album artist to say they are one. MediaStore gives both songs one album; the library tells
+    # them apart by their artists.
+    for artist in ("First Artist", "Second Artist"):
+        cover = os.path.join(folder, "cover-00.jpg")
+        song = os.path.join(folder, f"Shared - {artist}.mp3")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=220:duration=3",
+             "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "64k",
+             "-c:v", "copy", "-id3v2_version", "3",
+             "-metadata", f"title=Shared by {artist}", "-metadata", "album=Shared Album",
+             "-metadata", f"artist={artist}",
+             "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)",
+             "-disposition:v", "attached_pic", song],
+            check=True,
+        )
+    home()
+    before = listed_count()
+    shell("mkdir -p /sdcard/Music/Covered")
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".mp3"):
+            adb("push", os.path.join(folder, name), f"/sdcard/Music/Covered/{name}", timeout=60)
+    key(KEY_CTRL, KEY_R)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        if listed_count() >= before + COVERED_ALBUMS + 2:
+            return
+        time.sleep(3)
+    raise Failed(f"the albums made for the run were not listed: {said_on(screen())[:20]}")
+
+
+def listed_count():
+    """How many songs the library's head says it has."""
+    counted = [
+        int(match.group(1))
+        for node in screen()
+        for match in [re.match(r"^(\d+) songs", node.text.replace(",", ""))]
+        if match
+    ]
+    return max(counted, default=0)
+
+
+def flung(place, layout):
+    """Flings what the place lists, down and back up: a grid of covers loads them as it goes."""
+    width, height = (1920, 1080)
+    if "phone" in layout:
+        width, height = (1080, 2340)
+    x = width * 2 // 3 if "wide" in layout else width // 2
+    for start, end in ((height * 4 // 5, height // 3), (height // 3, height * 4 // 5)):
+        shell(f"input swipe {x} {start} {x} {end} 150")
+        time.sleep(0.8)
+
+
+def places_with_covers():
+    """The places again, with a library of albums that have covers: a grid of pictures is what a
+    library with covers shows, and what the first visit, on songs without any, could not try."""
+    make_covered_albums()
+    hovered = []
+
+    def while_there(place, layout):
+        flung(place, layout)
+        if place == "Albums" and layout == "a wide window" and mouse_works:
+            cards = [node.pressed_as() for node in find(r"^Album \d\d$")][:4]
+            with LiveMouse() as mouse:
+                for card in cards:
+                    hovered.append(mouse.go_to(*aim(card)))
+                    time.sleep(0.6)
+
+    opened = visit_places("covered", while_there)
+    return (
+        f"{COVERED_ALBUMS} albums with covers; every place opened, flung through, on "
+        + ", ".join(opened)
+        + (f"; the pointer rested on {len(hovered)} albums" if hovered else "")
+    )
+
+
 def no_crash():
     crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
     with open(os.path.join(out_dir, "logcat-crash.txt"), "w", encoding="utf-8") as file:
@@ -1953,7 +2494,7 @@ def no_crash():
         file.write("\n".join(everything.splitlines()[-6000:]))
     ours = [line for line in crashes.splitlines() if PACKAGE in line or "metadator" in line]
     if ours:
-        raise Failed(f"the app crashed: {ours[:6]}")
+        raise Failed(f"the app crashed: {crash_report()}")
     if not shell(f"pidof {PACKAGE}").strip():
         raise Failed("the app is not running any more")
     return "no crash in the log, and the app is still running"
@@ -1973,6 +2514,7 @@ def main():
         return
     global restore_after_failure
     restore_after_failure = True
+    step("Every place of the library opens, wide, narrower and on a phone", every_place_opens)
     step("On a wide window the editor has its place beside the library", two_panes)
     step("The library checks its lossless songs, and lists the fake ones", quality_scan)
     step("F1 lists the keyboard shortcuts", shortcut_list)
@@ -1993,11 +2535,29 @@ def main():
     step("An MP3 gets no verdict", no_verdict_for_mp3)
     step("Ctrl+K finds a cover for a song (network)", find_cover_for_song, required=False)
     step("Ctrl+S saves it, and only it", save_song, required=cover_search_worked)
+    step(
+        "The library shows the cover just written",
+        library_shows_saved_cover,
+        required=cover_search_worked,
+    )
+    step(
+        "The same cover again leaves nothing to save", same_cover_again, required=cover_search_worked
+    )
     step("Choosing another song shows it in place of the last", choosing_replaces)
     step("A song with unsaved changes stays under the next", unsaved_stays)
     step("Ctrl+A and Ctrl+E edit the songs together", edit_together)
     step("Ctrl+K finds a cover for the album (network)", find_cover_for_album, required=False)
     step("Ctrl+S applies it to all, and only it", apply_to_all, required=cover_search_worked)
+    step(
+        "The library shows the covers written to all",
+        library_shows_batch_covers,
+        required=cover_search_worked,
+    )
+    step(
+        "A cover replaced by the batch is the one the library shows",
+        library_shows_replaced_cover,
+        required=cover_search_worked,
+    )
     step("Back in the library", leave_batch)
     step("The activity follows its display without being recreated", follows_the_display)
     step("A narrow window shows one pane at a time", compact_layout)
@@ -2031,6 +2591,8 @@ def main():
     )
     step("On a phone, saving again and again keeps the editor whole", saves_on_a_phone, required=False)
     step("On a phone the bars float as glass", glass_on_a_phone, required=False)
+    step("Every place opens again, with albums that have covers", places_with_covers)
+    step("How fast it is: starting, scrolling, memory", performance, required=False)
     step("Nothing crashed", no_crash)
 
 

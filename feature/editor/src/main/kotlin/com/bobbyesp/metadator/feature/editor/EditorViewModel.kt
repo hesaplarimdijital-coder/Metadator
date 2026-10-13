@@ -39,8 +39,10 @@ import com.bobbyesp.metadator.tags.api.EmbeddedPicture
 import com.bobbyesp.metadator.tags.api.PictureType
 import com.bobbyesp.metadator.tags.api.TagField
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -66,7 +68,8 @@ sealed interface LosslessCheckState {
     /** Not looked at, or not a file whose audio is: there is nothing to show. */
     data object None : LosslessCheckState
 
-    data object Checking : LosslessCheckState
+    /** Being read; what its header said of its samples is known already, when it has one. */
+    data class Checking(val bitsPerSample: Int? = null) : LosslessCheckState
 
     data class Done(val report: LosslessReport) : LosslessCheckState
 
@@ -85,6 +88,8 @@ data class EditorState(
     val saving: Boolean = false,
     val findingLyrics: Boolean = false,
     val loadingCover: Boolean = false,
+    /** A small copy of the cover on its way, to show in its place until it has arrived. */
+    val coverPreview: String? = null,
     val settings: UserSettings = UserSettings(),
     val isPlayingThis: Boolean = false,
 ) {
@@ -117,8 +122,11 @@ sealed interface EditorIntent {
 
     data class SetCoverFromUri(val uri: String) : EditorIntent
 
-    /** Uses the cover an online source has at [url]. */
-    data class SetCoverFromUrl(val url: String) : EditorIntent
+    /**
+     * Uses the cover an online source has at [url]. [preview] is a small copy of it the source has,
+     * already seen in the finder, to show while the picture itself is fetched.
+     */
+    data class SetCoverFromUrl(val url: String, val preview: String? = null) : EditorIntent
 
     data object RemoveCover : EditorIntent
 
@@ -161,11 +169,9 @@ class EditorViewModel(
             .onEach { setState { copy(settings = it) } }
             .launchIn(viewModelScope)
         player.state
-            .onEach { playback ->
-                setState {
-                    copy(isPlayingThis = playback.isPlaying && playback.current?.ref == ref)
-                }
-            }
+            .map { it.isPlaying && it.current?.ref == ref }
+            .distinctUntilChanged()
+            .onEach { playing -> setState { copy(isPlayingThis = playing) } }
             .launchIn(viewModelScope)
         load(restorePending = true)
     }
@@ -191,7 +197,9 @@ class EditorViewModel(
             is EditorIntent.SetCoverFromUri ->
                 setCover { images.read(intent.uri)?.let { it.bytes to it.mimeType } }
             is EditorIntent.SetCoverFromUrl ->
-                setCover { artworkDownloader.download(intent.url)?.let { it.bytes to it.mimeType } }
+                setCover(preview = intent.preview) {
+                    artworkDownloader.download(intent.url)?.let { it.bytes to it.mimeType }
+                }
             EditorIntent.RemoveCover -> editDraft { removeCover() }
             EditorIntent.RevertCover -> editDraft { revertCover() }
             EditorIntent.Save -> save()
@@ -211,11 +219,15 @@ class EditorViewModel(
                     val loaded = result.track
                     var draft = TagDraft(loaded.snapshot)
                     if (restorePending) restorePendingFields()?.let { draft = draft.setAll(it) }
+                    // The head says "24 bit" from its first frame, read from the file's header
+                    // before the check reads its audio: a fact arriving later moved the others.
+                    val lossless = audioAtAGlance(loaded)
                     setState {
                         copy(
                             status = EditorStatus.Ready,
                             loaded = loaded,
                             draft = draft,
+                            lossless = lossless,
                             positionStyle =
                                 TrackPositions.detectStyle(
                                     loaded.snapshot.tags,
@@ -244,11 +256,11 @@ class EditorViewModel(
         if (edited.cover !== coverBefore) inspectCover()
     }
 
-    private fun setCover(source: suspend () -> Pair<ByteArray, String>?) =
-        launch(onError = { setState { copy(loadingCover = false) } }) {
-            setState { copy(loadingCover = true) }
+    private fun setCover(preview: String? = null, source: suspend () -> Pair<ByteArray, String>?) =
+        launch(onError = { setState { copy(loadingCover = false, coverPreview = null) } }) {
+            setState { copy(loadingCover = true, coverPreview = preview) }
             val picked = source()
-            setState { copy(loadingCover = false) }
+            setState { copy(loadingCover = false, coverPreview = null) }
             if (picked == null) {
                 showMessage(UiMessage(strings.get(R.string.cover_unreadable)))
                 return@launch
@@ -264,28 +276,31 @@ class EditorViewModel(
         if (currentState.draft?.cover === cover) setState { copy(coverInfo = info) }
     }
 
+    /** Whether a file is one the check reads: what it is called is only a hint, but one enough. */
+    private val LoadedTrack.namedLossless: Boolean
+        get() = fileExtension in LOSSLESS_EXTENSIONS
+
+    /**
+     * The check's first word on a file, before it has read the audio. A file with no name at all
+     * may still be a lossless one, which the check will say: until then there is nothing to show.
+     */
+    private suspend fun audioAtAGlance(loaded: LoadedTrack): LosslessCheckState =
+        if (loaded.namedLossless) LosslessCheckState.Checking(checkLossless.bitsPerSample(ref))
+        else LosslessCheckState.None
+
     /**
      * Looks at the audio of a lossless file for the marks of a lossy source. Once per load: saving
      * changes the tags, never the audio.
      */
     private fun inspectAudio(loaded: LoadedTrack) {
         losslessCheck?.cancel()
-        // What a file is called is only a hint, but a name that says MP3 is not worth opening it.
+        // A name that says MP3 is not worth opening the file for.
         val extension = loaded.fileExtension
-        val named = extension in LOSSLESS_EXTENSIONS
-        if (extension != null && !named) {
-            setState { copy(lossless = LosslessCheckState.None) }
-            return
-        }
+        val named = loaded.namedLossless
+        if (extension != null && !named) return
         val unreadable = if (named) LosslessCheckState.Failed else LosslessCheckState.None
         losslessCheck =
             launch(onError = { setState { copy(lossless = unreadable) } }) {
-                setState {
-                    copy(
-                        lossless =
-                            if (named) LosslessCheckState.Checking else LosslessCheckState.None
-                    )
-                }
                 val result = checkLossless(ref)
                 val checked =
                     when (result) {
@@ -366,7 +381,14 @@ class EditorViewModel(
                     )
                 )
             }
-            SaveOutcome.NothingToSave -> setState { copy(saving = false) }
+            SaveOutcome.NothingToSave -> {
+                // The file already holds what the draft asks for: values the chosen multi-value
+                // style writes as they are, or tags changed elsewhere to the same. Saving in
+                // silence kept the change on screen, and going back asked to discard it.
+                clearPendingFields()
+                reloadAfterWrite()
+                showMessage(UiMessage(strings.get(R.string.save_nothing_to_write)))
+            }
             SaveOutcome.NeedsAccess -> {
                 setState { copy(saving = false) }
                 showMessage(UiMessage(strings.get(R.string.write_access_denied), long = true))
@@ -452,6 +474,9 @@ class EditorViewModel(
                     val text = result.lyrics.preferred
                     if (text == null) {
                         showMessage(UiMessage(strings.get(R.string.lyrics_instrumental)))
+                    } else if (currentState.draft?.tags?.first(TagField.Lyrics.key) == text) {
+                        // What was found is what is there: nothing is added, and nothing to undo.
+                        showMessage(UiMessage(strings.get(R.string.lyrics_already_there)))
                     } else {
                         editDraft { set(TagField.Lyrics.key, listOf(text)) }
                         showMessage(

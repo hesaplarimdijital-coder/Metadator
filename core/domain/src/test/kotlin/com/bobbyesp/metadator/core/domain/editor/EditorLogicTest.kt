@@ -102,6 +102,22 @@ class EditorLogicTest {
     }
 
     @Test
+    fun `choosing the cover the file already has is no change`() {
+        val same = EmbeddedPicture(byteArrayOf(1), "image/jpeg", description = "from a source")
+        val draft = TagDraft(snapshot).replaceCover(same)
+        assertEquals(ArtworkChange.Unchanged, draft.artwork)
+        assertFalse(draft.isDirty)
+
+        // Taken out and put back, it is the file's cover again.
+        assertFalse(TagDraft(snapshot).removeCover().replaceCover(same).isDirty)
+
+        val other = EmbeddedPicture(byteArrayOf(2), "image/jpeg")
+        assertEquals(ArtworkChange.Replace(other), TagDraft(snapshot).replaceCover(other).artwork)
+        val otherType = EmbeddedPicture(byteArrayOf(1), "image/png")
+        assertTrue(TagDraft(snapshot).replaceCover(otherType).isDirty)
+    }
+
+    @Test
     fun `joined mode joins only changed multi-value fields`() {
         val changes =
             TagChanges(

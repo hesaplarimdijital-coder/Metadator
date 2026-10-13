@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.library.mediastore
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
@@ -140,6 +141,9 @@ class MediaStoreAudioLibrary(
             .orEmpty()
     }
 
+    // The columns of Android 11 (the album artist, the genre, the disc) are only asked for there,
+    // and read by name: elsewhere they are not in the cursor, and read as nothing.
+    @SuppressLint("InlinedApi")
     private fun Cursor.toTrack(roots: List<String>): Track {
         val id = long(MediaStore.Audio.Media._ID)!!
         val albumId = long(MediaStore.Audio.Media.ALBUM_ID) ?: 0

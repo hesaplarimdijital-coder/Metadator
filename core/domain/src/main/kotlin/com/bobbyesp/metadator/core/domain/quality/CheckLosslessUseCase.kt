@@ -52,6 +52,25 @@ class CheckLosslessUseCase(
             }
         }
 
+    /**
+     * What the file's header says of its samples, in a moment, for the editor to show while the
+     * check reads the audio: null for a file that is not FLAC or WAV, or cannot be opened.
+     */
+    suspend fun bitsPerSample(ref: ContentRef): Int? =
+        withContext(dispatchers.io) {
+            when (val open = opener.open(ref, AccessMode.Read)) {
+                is OpenResult.Opened ->
+                    open.file.use { file ->
+                        try {
+                            (FlacSource.open(file) ?: WavSource.open(file))?.bitsPerSample
+                        } catch (_: IOException) {
+                            null
+                        }
+                    }
+                else -> null
+            }
+        }
+
     private fun check(file: OpenedAudioFile, checkpoint: () -> Unit): LosslessCheckResult {
         val source =
             FlacSource.open(file)
