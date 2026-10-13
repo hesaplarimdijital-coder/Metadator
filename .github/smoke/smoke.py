@@ -1812,9 +1812,37 @@ def playback_state():
     return 3 if match.group(1) is None else int(match.group(1))
 
 
+def played_so_far():
+    """Where the docked player's bar says the song is, in seconds: the time left of its line, which
+    says what it is. None while there is no such bar."""
+    nodes = screen()
+    lines = [node for node in nodes if node.description in SEEK_LINE]
+    if not lines:
+        return None
+    line = lines[0]
+    times = [
+        node
+        for node in nodes
+        if re.fullmatch(r"\d{1,3}:\d{2}", node.text)
+        and node.right <= line.left
+        and node.top < line.bottom
+        and node.bottom > line.top
+    ]
+    if not times:
+        return None
+    minutes, seconds = max(times, key=lambda node: node.right).text.split(":")
+    return int(minutes) * 60 + int(seconds)
+
+
+# What the docked bar's line is called, in English and in Turkish.
+SEEK_LINE = ("Position in the song", "Şarkıdaki konum")
+
+
 def keeps_playing_in_background():
     """Android 17 stops what plays from an app in the background unless it plays as the system
-    expects: through a media session, from a foreground service. The app's does."""
+    expects: through a media session, from a foreground service. The app's does. Before that, the
+    docked bar follows the song: where it is reaches only the line and its times, apart from the
+    rest of what plays, and nothing else would tell if it stopped reaching them."""
     home()
     tap(expect("^Play all$", 15))
     deadline = time.time() + 20
@@ -1824,6 +1852,9 @@ def keeps_playing_in_background():
         time.sleep(1)
     time.sleep(2)
     screenshot("the-player-docked-under-the-panels")
+    first = played_so_far()
+    time.sleep(4)
+    then = played_so_far()
     key(3)  # Home: the app goes to the background.
     time.sleep(10)
     state = playback_state()
@@ -1839,7 +1870,12 @@ def keeps_playing_in_background():
     shell("input keyevent 127")  # Pause, as a headset's button does.
     if state != 3:
         raise Failed(f"in the background the session is in state {state}: {hardening[:6]}")
-    return f"still playing ten seconds into the background. The audio service says: {hardening[:4]}"
+    if first is None or then is None or then <= first:
+        raise Failed(f"the docked bar said {first} s, then {then} s, while the song played")
+    return (
+        f"the docked bar went from {first} s to {then} s; still playing ten seconds into the"
+        f" background. The audio service says: {hardening[:4]}"
+    )
 
 
 def editor_field(text, timeout=40):

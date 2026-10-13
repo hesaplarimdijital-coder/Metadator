@@ -39,7 +39,7 @@ says which held.
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | Turkish | What the screen says |
 | How it looks: the library by day and by night, the editor beside it, a phone's screen | Screenshots, for a person to look at. Not required |
-| The music goes on with the app in the background | The media session's state ten seconds after Home. Not required |
+| A song played from the library, then the app in the background | The time beside the docked bar's line, read twice while it plays; the media session's state ten seconds after Home. Not required |
 | A song saved twice in a row on a phone, an artist typed back in and saved without Enter, then the song put back | What says it was saved stands clear of Save, above the keyboard, one at a time; the title stays in its field; the artist is still in the file and nothing is left to save; the file read back with FFprobe is as it was. Not required |
 | The player's bar, the selection's bar and a menu on a phone | Screenshots of the glass, for a person to look at. Not required |
 | How fast it is: starting cold, typing in the editor, scrolling a library of 300 songs on a wide window and on a phone, and the memory held then ([performance.md](performance.md)) | Numbers in the report, to compare between builds. Not required |
