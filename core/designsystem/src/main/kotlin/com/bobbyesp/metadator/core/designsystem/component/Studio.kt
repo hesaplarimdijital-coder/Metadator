@@ -44,7 +44,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
@@ -554,11 +557,16 @@ fun StudioSwitch(
                 )
                 .graphicsLayer { alpha = if (enabled) 1f else DisabledAlpha }
                 .size(width = 40.dp, height = 24.dp)
-                .background(track, CircleShape)
+                // The track's color and the thumb's place are read as they are drawn and laid
+                // out, not composed: on its way across, the switch is not composed again each
+                // frame.
+                .drawBehind {
+                    drawRoundRect(color = track, cornerRadius = CornerRadius(size.height / 2))
+                }
                 .padding(2.dp)
     ) {
         Box(
-            Modifier.offset(x = thumbOffset)
+            Modifier.offset { IntOffset(thumbOffset.roundToPx(), 0) }
                 .size(20.dp)
                 .shadow(1.5.dp, CircleShape)
                 .background(Color.White, CircleShape)

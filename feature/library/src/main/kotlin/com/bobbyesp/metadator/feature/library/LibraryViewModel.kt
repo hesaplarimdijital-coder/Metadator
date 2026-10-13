@@ -74,6 +74,8 @@ data class Listing(
     val albums: List<TrackCollection.Album> = emptyList(),
     val artists: List<TrackCollection.Artist> = emptyList(),
     val folders: List<TrackCollection.Folder> = emptyList(),
+    /** How much room the songs listed take, added up once here rather than on every frame. */
+    val totalBytes: Long = 0,
 )
 
 data class LibraryState(
@@ -206,14 +208,13 @@ class LibraryViewModel(
                 }
             }
             .launchIn(viewModelScope)
+        // Only what the library shows of the player: its position moves twice a second.
         player.state
-            .onEach { playback ->
+            .map { Triple(it.current?.id, it.isActive, it.isPlaying) }
+            .distinctUntilChanged()
+            .onEach { (playing, active, running) ->
                 setState {
-                    copy(
-                        playingId = playback.current?.id,
-                        playerActive = playback.isActive,
-                        playbackRunning = playback.isPlaying,
-                    )
+                    copy(playingId = playing, playerActive = active, playbackRunning = running)
                 }
             }
             .launchIn(viewModelScope)
@@ -380,6 +381,7 @@ class LibraryViewModel(
                         albums = albums,
                         artists = artists,
                         folders = folders,
+                        totalBytes = visible.sumOf { it.sizeBytes },
                     ),
                 formats = formats,
                 needsAttentionCount = needsAttention,

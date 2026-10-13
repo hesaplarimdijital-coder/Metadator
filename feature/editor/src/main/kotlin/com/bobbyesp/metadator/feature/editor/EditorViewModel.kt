@@ -39,8 +39,10 @@ import com.bobbyesp.metadator.tags.api.EmbeddedPicture
 import com.bobbyesp.metadator.tags.api.PictureType
 import com.bobbyesp.metadator.tags.api.TagField
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -167,11 +169,9 @@ class EditorViewModel(
             .onEach { setState { copy(settings = it) } }
             .launchIn(viewModelScope)
         player.state
-            .onEach { playback ->
-                setState {
-                    copy(isPlayingThis = playback.isPlaying && playback.current?.ref == ref)
-                }
-            }
+            .map { it.isPlaying && it.current?.ref == ref }
+            .distinctUntilChanged()
+            .onEach { playing -> setState { copy(isPlayingThis = playing) } }
             .launchIn(viewModelScope)
         load(restorePending = true)
     }

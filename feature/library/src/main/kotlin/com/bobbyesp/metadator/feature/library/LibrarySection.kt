@@ -16,12 +16,15 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
@@ -29,9 +32,11 @@ import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.PlaceholderCard
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.domain.library.locate
 import com.bobbyesp.metadator.core.model.CollectionType
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
+import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.core.navigation.BatchEditor
 import com.bobbyesp.metadator.core.navigation.Collection
 import com.bobbyesp.metadator.core.navigation.Editor
@@ -40,6 +45,7 @@ import com.bobbyesp.metadator.core.navigation.Library
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.Settings
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
 import com.bobbyesp.metadator.player.api.PlayerController
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -60,7 +66,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
 
         LibraryScreen(
             state = state,
-            onIntent = viewModel::onIntent,
+            onIntent = rememberIntents(viewModel),
             onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
             onFindCover = {
                 navigator.showDetail(Editor(it.ref.uri, then = EditorAction.FindCover))
@@ -87,24 +93,31 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
         val state by viewModel.state.collectAsStateWithLifecycle()
         LaunchedEffect(Unit) { viewModel.onIntent(LibraryIntent.Start) }
         val player: PlayerController = koinInject()
-        val playback by player.state.collectAsStateWithLifecycle()
+        // What plays and whether it does, not where it is: that changes twice a second.
+        val playback = player.state.collectAsStateWithLifecycle()
+        val playingTrack by remember { derivedStateOf { playback.value.current } }
+        val isPlaybackRunning by remember { derivedStateOf { playback.value.isPlaying } }
         val openInNewWindow = rememberNewWindowOpener()
 
+        // Found again by the songs it showed once an edit has given it another key: the artist of
+        // an album without an album artist changed, say, from the button that edits them all.
+        val shown = remember { ShownSongs() }
         val collection =
             remember(state, key) {
                 when (key.type) {
                     CollectionType.Album -> state.albums
                     CollectionType.Artist -> state.artists
                     CollectionType.Folder -> state.folders
-                }.firstOrNull { it.key == key.key }
+                }.locate(key.key, shown.ids)
             }
+        SideEffect { collection?.let { found -> shown.ids = found.tracks.map { it.id } } }
 
         CollectionScreen(
-            title = key.title,
+            title = collection?.title ?: key.title,
             collection = collection.takeUnless { state.loading },
             quality = state.quality,
-            playingTrack = playback.current,
-            isPlaybackRunning = playback.isPlaying,
+            playingTrack = playingTrack,
+            isPlaybackRunning = isPlaybackRunning,
             showBack = true,
             onBack = navigator::goBack,
             onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
@@ -115,6 +128,13 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             },
         )
     }
+}
+
+/**
+ * The songs a collection's screen showed last. Nothing is drawn from them, so they are not state.
+ */
+private class ShownSongs {
+    var ids: List<TrackId> = emptyList()
 }
 
 internal val TrackCollection.type: CollectionType
@@ -166,7 +186,7 @@ private fun rememberNewWindowOpener(): (Track) -> Unit {
         { track ->
             val intent =
                 Intent(Intent.ACTION_EDIT)
-                    .setDataAndType(Uri.parse(track.ref.uri), "audio/*")
+                    .setDataAndType(track.ref.uri.toUri(), "audio/*")
                     .setPackage(context.packageName)
                     .addFlags(
                         Intent.FLAG_ACTIVITY_NEW_TASK or

@@ -18,21 +18,8 @@
     <string name="colors">Renkler</string>
     <string name="dynamic_color">Telefonun renk paleti</string>
     <string name="dynamic_color_description">Vurgu rengi telefonun kendi renklerinden, One UI ve duvar kâğıdının belirlediği gibi. Android 12 ve sonrası</string>
-    <string name="pure_black">Saf siyah</string>
-    <string name="pure_black_description">Daha koyu bir koyu tema, OLED ekranlarda daha rahat</string>
     <string name="color_from_cover">Düzenleyiciyi kapağa göre renklendir</string>
     <string name="color_from_cover_description">Her şarkının düzenleyicisi kapağının tonlarını alır</string>
-    <string name="seed_color">Vurgu rengi</string>
-    <string name="palette_style">Palet stili</string>
-    <string name="palette_tonal_spot">Tonal nokta</string>
-    <string name="palette_neutral">Nötr</string>
-    <string name="palette_vibrant">Canlı</string>
-    <string name="palette_expressive">Etkileyici</string>
-    <string name="palette_rainbow">Gökkuşağı</string>
-    <string name="palette_fruit_salad">Meyve salatası</string>
-    <string name="palette_monochrome">Tek renk</string>
-    <string name="palette_fidelity">Sadık</string>
-    <string name="palette_content">İçerik</string>
 
     <string name="multi_values">Birden çok sanatçı veya tür</string>
     <string name="multi_separate">Ayrı değerler olarak tut</string>

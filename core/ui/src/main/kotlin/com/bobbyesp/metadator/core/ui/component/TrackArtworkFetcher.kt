@@ -38,6 +38,17 @@ import okio.source
 class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options: Options) :
     Fetcher {
     override suspend fun fetch(): FetchResult {
+        val key = artwork.cacheKey
+        if (Missing.contains(key)) throw FileNotFoundException("No cover in ${artwork.ref.uri}")
+        return try {
+            fetchFromStore()
+        } catch (absent: FileNotFoundException) {
+            Missing.add(key)
+            throw absent
+        }
+    }
+
+    private fun fetchFromStore(): FetchResult {
         val resolver = options.context.contentResolver
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return ownPicture(resolver)
         val albumArt = artwork.albumArt ?: throw FileNotFoundException("No album art")
@@ -78,6 +89,27 @@ class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options
     private companion object {
         /** Asked for with no size to go by: enough for any row, and for a card. */
         const val DEFAULT_SIZE = 512
+    }
+}
+
+/**
+ * The songs found to have no cover, by the key of the version of their file that has none. A song
+ * with none was asked for again each time its row came back in sight, and MediaStore looked in its
+ * file again to say so: a library without covers read its files as it scrolled. A song saved with a
+ * cover is another version, under another key, and is asked for again.
+ */
+private object Missing {
+    private const val MOST = 4096
+    private val keys =
+        object : LinkedHashMap<String, Unit>(MOST, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) =
+                size > MOST
+        }
+
+    fun contains(key: String): Boolean = synchronized(keys) { keys.containsKey(key) }
+
+    fun add(key: String) {
+        synchronized(keys) { keys[key] = Unit }
     }
 }
 

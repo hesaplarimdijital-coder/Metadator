@@ -71,23 +71,29 @@ fun ArtworkImage(
         val showing = model != null && !failed
         // The picture on its way out is the one that was shown, not the nothing that replaces it.
         val shown = heldWhileClosing(showing, model)
+        val context = LocalContext.current
+        // Made once for each picture, not on every recomposition: a request that differed in its
+        // placeholder (the picture just shown, once it is shown) was a new request, and run again.
+        val request =
+            remember(shown, cacheKey, placeholderKey) {
+                ImageRequest.Builder(context)
+                    .data(shown)
+                    .crossfade(true)
+                    .memoryCacheKey(cacheKey)
+                    .placeholderMemoryCacheKey(
+                        cacheKey?.let { MemoryCache.Key(it) }
+                            ?: lastShown.key
+                            ?: placeholderKey?.let { MemoryCache.Key(it) }
+                    )
+                    .build()
+            }
         AnimatedVisibility(
             visible = showing,
             enter = fadeIn(motion.defaultEffectsSpec()),
             exit = fadeOut(motion.defaultEffectsSpec()),
         ) {
             AsyncImage(
-                model =
-                    ImageRequest.Builder(LocalContext.current)
-                        .data(shown)
-                        .crossfade(true)
-                        .memoryCacheKey(cacheKey)
-                        .placeholderMemoryCacheKey(
-                            cacheKey?.let { MemoryCache.Key(it) }
-                                ?: lastShown.key
-                                ?: placeholderKey?.let { MemoryCache.Key(it) }
-                        )
-                        .build(),
+                model = request,
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
                 onSuccess = { lastShown.key = it.result.memoryCacheKey },

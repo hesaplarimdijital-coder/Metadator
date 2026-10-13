@@ -12,7 +12,6 @@
     <string name="tab_artists">Sanatçılar</string>
     <string name="tab_folders">Klasörler</string>
     <string name="needs_attention_filter">İlgi bekleyenler (%1$d)</string>
-    <string name="sort">Sırala</string>
     <string name="sort_title">Başlık</string>
     <string name="sort_artist">Sanatçı</string>
     <string name="sort_album">Albüm</string>

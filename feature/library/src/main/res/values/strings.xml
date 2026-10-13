@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="search_library">Search songs, artists, albums</string>
     <string name="clear_search">Clear search</string>
     <string name="settings">Settings</string>
@@ -12,7 +12,6 @@
     <string name="tab_artists">Artists</string>
     <string name="tab_folders">Folders</string>
     <string name="needs_attention_filter">Needs attention (%1$d)</string>
-    <string name="sort">Sort</string>
     <string name="sort_title">Title</string>
     <string name="sort_artist">Artist</string>
     <string name="sort_album">Album</string>
@@ -76,7 +75,7 @@
     <string name="quality_progress">Checking lossless files: %1$s of %2$s</string>
     <string name="no_fake_title">No fake FLAC found</string>
     <string name="no_fake_description">Every lossless file in your library looks like what it says it is.</string>
-    <string name="no_fake_yet_description">None so far: %1$d of %2$d lossless files checked. The rest are being checked in the background.</string>
+    <string name="no_fake_yet_description" tools:ignore="PluralsCandidate">None so far: %1$d of %2$d lossless files checked. The rest are being checked in the background.</string>
     <string name="find_cover">Find cover</string>
     <plurals name="selected_songs">
         <item quantity="one">%1$d song selected</item>

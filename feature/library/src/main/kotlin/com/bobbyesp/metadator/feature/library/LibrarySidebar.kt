@@ -41,7 +41,6 @@ import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.library.Storage
 import com.bobbyesp.metadator.core.ui.input.shortcutHint
-import java.text.NumberFormat
 
 /**
  * The library's sidebar on a wide window: the ways of browsing it, the lists of songs it keeps
@@ -59,7 +58,7 @@ internal fun LibrarySidebar(
     onShowShortcuts: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val numbers = NumberFormat.getIntegerInstance()
+    val numbers = rememberNumberFormat()
     val section = state.section
     val show = { target: LibrarySection -> onIntent(LibraryIntent.ShowSection(target)) }
     val colors = Studio.colors

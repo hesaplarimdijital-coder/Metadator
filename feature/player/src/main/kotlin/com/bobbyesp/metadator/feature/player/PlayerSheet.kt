@@ -302,8 +302,8 @@ fun PlayerSheet(
                         contentScale = ContentScale.FillHeight,
                         alignment = Alignment.CenterStart,
                     )
-                val title = travellingText(SharedKey.Title, scope, text)
-                val artist = travellingText(SharedKey.Artist, scope, text)
+                val title = Modifier.travellingText(this, SharedKey.Title, scope, text)
+                val artist = Modifier.travellingText(this, SharedKey.Artist, scope, text)
                 // The button fills whatever bounds it is given, so the screen's laid out in the
                 // bar's bounds is the bar's: a shared element, as the cover is.
                 val playButton =
@@ -512,20 +512,23 @@ private fun arcTraveller(): FiniteAnimationSpec<Rect> =
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun SharedTransitionScope.travellingText(
+private fun Modifier.travellingText(
+    transition: SharedTransitionScope,
     key: SharedKey,
     scope: AnimatedVisibilityScope,
     resizeMode: SharedTransitionScope.ResizeMode,
 ): Modifier =
-    Modifier.sharedBounds(
-        sharedContentState = rememberSharedContentState(key),
-        animatedVisibilityScope = scope,
-        enter = EnterTransition.None,
-        exit = fadeOut(snap()),
-        boundsTransform = { _, _ -> arcTraveller() },
-        resizeMode = resizeMode,
-        zIndexInOverlay = ABOVE_CONTAINER,
-    )
+    with(transition) {
+        this@travellingText.sharedBounds(
+            sharedContentState = rememberSharedContentState(key),
+            animatedVisibilityScope = scope,
+            enter = EnterTransition.None,
+            exit = fadeOut(snap()),
+            boundsTransform = { _, _ -> arcTraveller() },
+            resizeMode = resizeMode,
+            zIndexInOverlay = ABOVE_CONTAINER,
+        )
+    }
 
 /**
  * How the sheet finishes once released. Looser than the motion scheme's springs, which are tuned

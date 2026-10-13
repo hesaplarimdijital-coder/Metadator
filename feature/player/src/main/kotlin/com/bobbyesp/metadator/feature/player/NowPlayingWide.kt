@@ -213,6 +213,8 @@ private enum class SidePane {
 
 /** The lyrics or the queue, whichever is chosen, and over them the controls when [compact]. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// The play button is tied to the bar's by a modifier of its own, before the panel's.
+@Suppress("ModifierParameter")
 @Composable
 private fun SidePanel(
     playback: PlaybackState,
@@ -327,6 +329,8 @@ private fun UpNextPane(playback: PlaybackState, player: PlayerController, bottom
  * @param frost whether to frost it now; otherwise it is its container color, solid
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// The play button is tied to the bar's by a modifier of its own, before the panel's.
+@Suppress("ModifierParameter")
 @Composable
 private fun FloatingControls(
     playback: PlaybackState,

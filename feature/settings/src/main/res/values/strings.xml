@@ -18,21 +18,8 @@
     <string name="colors">Colors</string>
     <string name="dynamic_color">The phone\'s palette</string>
     <string name="dynamic_color_description">The accent from the phone\'s own colors, as One UI and the wallpaper set them. Android 12 and later</string>
-    <string name="pure_black">Pure black</string>
-    <string name="pure_black_description">Darker dark theme, easier on OLED screens</string>
     <string name="color_from_cover">Color the editor from the cover</string>
     <string name="color_from_cover_description">Each song\'s editor takes the tones of its artwork</string>
-    <string name="seed_color">Accent color</string>
-    <string name="palette_style">Palette style</string>
-    <string name="palette_tonal_spot">Tonal spot</string>
-    <string name="palette_neutral">Neutral</string>
-    <string name="palette_vibrant">Vibrant</string>
-    <string name="palette_expressive">Expressive</string>
-    <string name="palette_rainbow">Rainbow</string>
-    <string name="palette_fruit_salad">Fruit salad</string>
-    <string name="palette_monochrome">Monochrome</string>
-    <string name="palette_fidelity">Fidelity</string>
-    <string name="palette_content">Content</string>
 
     <string name="multi_values">Several artists or genres</string>
     <string name="multi_separate">Keep them as separate values</string>

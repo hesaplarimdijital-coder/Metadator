@@ -319,6 +319,8 @@ internal fun TrackArtwork(track: Track, shape: Shape, modifier: Modifier = Modif
  * @param sharedModifier what ties it to the bar's cover, applied once it has its size
  * @param modifier how it takes its size, which is what differs between layouts
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @Composable
 internal fun Cover(
     track: Track,
@@ -349,6 +351,8 @@ internal fun Cover(
  *
  * @param settled whether the sheet is at rest, open, which is when the album first shows
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TrackName(
@@ -480,7 +484,7 @@ internal object TrackNameDefaults {
 internal fun SeekBar(
     playback: PlaybackState,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
     showTimes: Boolean = true,
 ) {
     val state = rememberSliderState()
@@ -541,6 +545,8 @@ private const val SEEK_TIMEOUT_MS = 1_500L
  * Previous, play and next as one button group: pressing one squeezes its neighbors, which is the
  * whole point of putting them in a group.
  */
+// Its parts are tied one by one to the other player's, each by a modifier of its own.
+@Suppress("ModifierParameter")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TransportControls(

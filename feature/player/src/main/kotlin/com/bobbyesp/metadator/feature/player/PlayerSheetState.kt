@@ -8,6 +8,7 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -56,7 +57,7 @@ internal class PlayerSheetState(
     private val progress = Animatable(initial.progress)
 
     /** The distance, in pixels, a finger covers to take the sheet from one state to the other. */
-    var travel by mutableStateOf(1f)
+    var travel by mutableFloatStateOf(1f)
 
     private var dragging by mutableStateOf(false)
     private var dragFrom = initial

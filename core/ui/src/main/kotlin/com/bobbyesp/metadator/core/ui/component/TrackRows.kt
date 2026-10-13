@@ -96,7 +96,7 @@ fun TrackRow(
     showDivider: Boolean = false,
 ) {
     val colors = Studio.colors
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val tint by
         animateColorAsState(
             targetValue =
@@ -423,7 +423,7 @@ fun TrackTableRow(
             label = "TrackTableRowTint",
         )
     val shape = RoundedCornerShape(9.dp)
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val secondary = MaterialTheme.typography.bodyMedium
     TableCells(
         columns = columns,

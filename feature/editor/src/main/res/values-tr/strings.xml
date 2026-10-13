@@ -25,12 +25,10 @@
 
     <string name="needs_attention_title">İlgi bekliyor</string>
     <string name="section_main">Şarkı</string>
-    <string name="section_track">Parça</string>
     <string name="section_credits">Emeği geçenler</string>
     <string name="section_more">Diğer</string>
     <string name="section_lyrics">Şarkı sözleri</string>
     <string name="section_all_tags">Tüm etiketler</string>
-    <string name="section_file">Dosya</string>
     <string name="all_tags_description">Dosyadaki diğer tüm etiketler. Burada değiştirmediğiniz sürece olduğu gibi kalır.</string>
 
     <string name="add_value">Bir tane daha ekle</string>
@@ -45,7 +43,6 @@
     <string name="cover_size">%1$d × %2$d px</string>
     <string name="cover_small_warning">Küçük kapak: büyük ekranda bulanık görünebilir</string>
     <string name="cover_unreadable">Bu görsel okunamadı</string>
-    <string name="cover_none">Kapak yok</string>
 
     <string name="lyrics_find">Şarkı sözü bul</string>
     <string name="lyrics_synced">Eşzamanlı</string>

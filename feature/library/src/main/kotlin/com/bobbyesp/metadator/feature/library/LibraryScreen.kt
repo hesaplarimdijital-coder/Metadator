@@ -63,6 +63,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +71,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -157,18 +159,32 @@ internal fun LibraryScreen(
         if (shortcuts != null && hasHardwareKeyboard()) {
             { shortcuts.isHelpRequested = true }
         } else null
+    // One instance for as long as what it holds is the same: every row's callbacks close over it,
+    // and a new one each time the library changed made every row in sight draw itself again.
     val actions =
-        LibraryActions(
-            onIntent = onIntent,
-            onOpenTrack = onOpenTrack,
-            onFindCover = onFindCover,
-            onOpenCollection = onOpenCollection,
-            onEditTracks = onEditTracks,
-            onOpenInNewWindow = onOpenInNewWindow,
-            onOpenSettings = onOpenSettings,
-            onOpenFile = onOpenFile,
-            onShowShortcuts = showShortcuts,
-        )
+        remember(
+            onIntent,
+            onOpenTrack,
+            onFindCover,
+            onOpenCollection,
+            onEditTracks,
+            onOpenInNewWindow,
+            onOpenSettings,
+            onOpenFile,
+            showShortcuts,
+        ) {
+            LibraryActions(
+                onIntent = onIntent,
+                onOpenTrack = onOpenTrack,
+                onFindCover = onFindCover,
+                onOpenCollection = onOpenCollection,
+                onEditTracks = onEditTracks,
+                onOpenInNewWindow = onOpenInNewWindow,
+                onOpenSettings = onOpenSettings,
+                onOpenFile = onOpenFile,
+                onShowShortcuts = showShortcuts,
+            )
+        }
     val content: @Composable (wide: Boolean) -> Unit = { wide ->
         when {
             !granted ->
@@ -190,6 +206,7 @@ internal fun LibraryScreen(
 }
 
 /** What the library can be asked to do, handed down to the pieces that ask. */
+@Stable
 internal class LibraryActions(
     val onIntent: (LibraryIntent) -> Unit,
     val onOpenTrack: (Track) -> Unit,
@@ -555,6 +572,16 @@ private fun PanelHeader(state: LibraryState, actions: LibraryActions) {
     }
 }
 
+/**
+ * How counts are written, in the language the window is in: made once for it, not each time a count
+ * is written, and made again when the language changes, which the activity outlives.
+ */
+@Composable
+internal fun rememberNumberFormat(): NumberFormat {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(locale) { NumberFormat.getIntegerInstance(locale) }
+}
+
 /** What the songs listed are: the place of the sidebar they are. */
 @Composable
 internal fun sectionTitle(state: LibraryState): String =
@@ -572,7 +599,7 @@ internal fun sectionTitle(state: LibraryState): String =
 @Composable
 internal fun sectionStats(state: LibraryState): String {
     val context = LocalContext.current
-    val numbers = NumberFormat.getIntegerInstance()
+    val numbers = rememberNumberFormat()
     val parts = mutableListOf<String>()
     when (state.tab) {
         LibraryTab.Songs -> {
@@ -582,7 +609,7 @@ internal fun sectionStats(state: LibraryState): String {
                     state.tracks.size,
                     numbers.format(state.tracks.size),
                 )
-            val bytes = state.tracks.sumOf { it.sizeBytes }
+            val bytes = state.listing.totalBytes
             if (bytes > 0) parts += Formatter.formatShortFileSize(context, bytes)
             if (state.filter.storage == null) {
                 state.storages

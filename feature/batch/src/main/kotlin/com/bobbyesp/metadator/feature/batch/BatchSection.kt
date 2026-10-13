@@ -19,6 +19,7 @@ import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -54,7 +55,7 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
         }
         BatchScreen(
             state = state,
-            onIntent = viewModel::onIntent,
+            onIntent = rememberIntents(viewModel),
             onClose = { navigator.removeDestination(key) },
         )
 

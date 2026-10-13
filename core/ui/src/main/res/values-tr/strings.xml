@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="cover_of">%1$s kapağı</string>
     <string name="play">Çal</string>
     <string name="pause">Duraklat</string>
@@ -12,7 +12,7 @@
     <string name="missing_album_artist">albüm sanatçısı</string>
     <string name="missing_year">yıl</string>
     <string name="missing_track_number">parça numarası</string>
-    <string name="selected">Seçili</string>
+    <string name="song_selected">Seçili</string>
     <string name="select">Seç</string>
     <string name="unknown_artist">Bilinmeyen sanatçı</string>
     <string name="unknown_album">Bilinmeyen albüm</string>
@@ -22,7 +22,7 @@
     <string name="field_album">Albüm</string>
     <string name="field_album_artist">Albüm sanatçıları</string>
     <string name="field_date">Yıl veya tarih</string>
-    <string name="field_date_hint">2019 veya 2019-05-17</string>
+    <string name="field_date_hint" tools:ignore="TypographyDashes">2019 veya 2019-05-17</string>
     <string name="field_genre">Türler</string>
     <string name="field_track">Parça</string>
     <string name="field_disc">Disk</string>
@@ -98,7 +98,10 @@
     <string name="cover_reason_artist">Sanatçı eşleşiyor</string>
     <string name="cover_reason_title">Şarkı bu yayında yer alıyor</string>
     <string name="cover_reason_year">Yıl eşleşiyor</string>
-    <string name="cover_reason_sources">%1$d kaynakta aynı görsel var</string>
+    <plurals name="cover_reason_sources">
+        <item quantity="one">%1$d kaynakta aynı görsel var</item>
+        <item quantity="other">%1$d kaynakta aynı görsel var</item>
+    </plurals>
     <string name="cover_reason_same_as_current">Şu anki kapakla aynı görsel</string>
     <string name="cover_reason_larger">Şu anki kapağın daha büyük bir kopyası</string>
     <string name="cover_reason_high_resolution">Her yerde net görünecek kadar büyük</string>

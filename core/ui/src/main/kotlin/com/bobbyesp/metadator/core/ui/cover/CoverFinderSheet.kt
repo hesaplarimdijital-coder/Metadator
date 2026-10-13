@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -402,7 +403,11 @@ internal fun reasonText(reason: CoverReason, suggestion: CoverSuggestion): Strin
         CoverReason.TitleMatches -> stringResource(R.string.cover_reason_title)
         CoverReason.YearMatches -> stringResource(R.string.cover_reason_year)
         CoverReason.SeveralSources ->
-            stringResource(R.string.cover_reason_sources, suggestion.sources.size)
+            pluralStringResource(
+                R.plurals.cover_reason_sources,
+                suggestion.sources.size,
+                suggestion.sources.size,
+            )
         CoverReason.SameAsCurrent -> stringResource(R.string.cover_reason_same_as_current)
         CoverReason.LargerThanCurrent -> stringResource(R.string.cover_reason_larger)
         CoverReason.HighResolution -> stringResource(R.string.cover_reason_high_resolution)

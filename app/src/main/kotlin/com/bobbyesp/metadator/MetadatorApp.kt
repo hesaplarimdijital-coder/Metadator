@@ -26,6 +26,7 @@ import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -132,7 +133,10 @@ fun MetadatorApp(onExit: () -> Unit) {
     val browsing = top == Library || top is Collection
     val showPlayer = browsing || (panels && (top is Editor || top is BatchEditor))
     val player = koinInject<PlayerController>()
-    val playback by player.state.collectAsStateWithLifecycle()
+    // Only whether anything is in the player: what it plays changes with the position too, twice a
+    // second while a song plays, and the whole window would be composed again each time.
+    val playback = player.state.collectAsStateWithLifecycle()
+    val playbackActive by remember { derivedStateOf { playback.value.isActive } }
     // Before the screens: a screen that wants one of these keys for itself comes later, and has
     // it.
     ShortcutsHelp()
@@ -143,26 +147,26 @@ fun MetadatorApp(onExit: () -> Unit) {
                 Shortcut(
                     KeyEvent.KEYCODE_SPACE,
                     stringResource(CoreUiR.string.shortcut_play_pause),
-                    enabled = playback.isActive,
+                    enabled = playbackActive,
                     action = player::togglePlayPause,
                 ),
                 Shortcut(
                     KeyEvent.KEYCODE_DPAD_RIGHT,
                     stringResource(CoreUiR.string.shortcut_next_song),
                     ctrl = true,
-                    enabled = playback.isActive,
+                    enabled = playbackActive,
                     action = player::skipToNext,
                 ),
                 Shortcut(
                     KeyEvent.KEYCODE_DPAD_LEFT,
                     stringResource(CoreUiR.string.shortcut_previous_song),
                     ctrl = true,
-                    enabled = playback.isActive,
+                    enabled = playbackActive,
                     action = player::skipToPrevious,
                 ),
             ),
     )
-    val docked = panels && showPlayer && playback.isActive
+    val docked = panels && showPlayer && playbackActive
     val editing = top is Editor || top is BatchEditor
     val snackbarClearance by
         animateDpAsState(
@@ -177,7 +181,7 @@ fun MetadatorApp(onExit: () -> Unit) {
                             Spacing.small
                     editing -> StudioDefaults.FooterHeight + Spacing.small
                     docked -> PlayerSheetDefaults.DockedClearance
-                    showPlayer && playback.isActive -> PlayerSheetDefaults.CollapsedClearance
+                    showPlayer && playbackActive -> PlayerSheetDefaults.CollapsedClearance
                     else -> Spacing.medium
                 },
             label = "SnackbarClearance",

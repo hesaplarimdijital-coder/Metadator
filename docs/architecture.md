@@ -56,8 +56,15 @@ where there is no such thumbnail. The cover is cached under the song and the ver
 (when it was last written): a cover saved to a song is a new picture under a new key, where the
 one it replaced was cached under the old. Without that the lists kept showing the cover a song had
 before it was saved, for as long as the app ran. A song whose file holds no picture, and whose
-folder has none, shows the note in its place, as the editor shows none. A group (an album, an
-artist) shows its first song's.
+folder has none, shows the note in its place, as the editor shows none; that it has none is
+remembered for that version of the file, so that its file is not opened again each time its row
+comes back in sight. A group (an album, an artist) shows its first song's.
+
+**Albums are grouped by album artist and title** (the artist where there is no album artist), and
+known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives
+the songs of one title in a folder one id, whoever they are by, so a compilation without album
+artists is one id and several albums. Keyed by the id, two of them had one key, and the grid of
+albums closed the app as soon as both were in sight.
 
 **SD cards and USB drives are part of the library.** MediaStore lists the songs of every mounted
 volume in one collection, and a song on a card is read, checked and written through the same
