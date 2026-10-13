@@ -214,6 +214,7 @@ fun PlayerSheet(
                         }
                     }
         ) {
+            val shared = this
             val transition = rememberTransition(sheet.transition, label = "PlayerSheet")
             transition.AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
@@ -302,8 +303,20 @@ fun PlayerSheet(
                         contentScale = ContentScale.FillHeight,
                         alignment = Alignment.CenterStart,
                     )
-                val title = Modifier.travellingText(this, SharedKey.Title, scope, text)
-                val artist = Modifier.travellingText(this, SharedKey.Artist, scope, text)
+                val title =
+                    Modifier.travellingText(
+                        shared,
+                        rememberSharedContentState(SharedKey.Title),
+                        scope,
+                        text,
+                    )
+                val artist =
+                    Modifier.travellingText(
+                        shared,
+                        rememberSharedContentState(SharedKey.Artist),
+                        scope,
+                        text,
+                    )
                 // The button fills whatever bounds it is given, so the screen's laid out in the
                 // bar's bounds is the bar's: a shared element, as the cover is.
                 val playButton =
@@ -508,19 +521,20 @@ private fun arcTraveller(): FiniteAnimationSpec<Rect> =
  * they travel on an arc, which moves their corners apart and together again, so they do not keep
  * the shape of the text and would cut into it.
  *
+ * @param shared the layout the sheet's shared elements travel in
+ * @param state which line it is, the same in the bar and on the screen
  * @param resizeMode how the text is scaled into the bounds
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
 private fun Modifier.travellingText(
-    transition: SharedTransitionScope,
-    key: SharedKey,
+    shared: SharedTransitionScope,
+    state: SharedTransitionScope.SharedContentState,
     scope: AnimatedVisibilityScope,
     resizeMode: SharedTransitionScope.ResizeMode,
 ): Modifier =
-    with(transition) {
+    with(shared) {
         this@travellingText.sharedBounds(
-            sharedContentState = rememberSharedContentState(key),
+            sharedContentState = state,
             animatedVisibilityScope = scope,
             enter = EnterTransition.None,
             exit = fadeOut(snap()),
