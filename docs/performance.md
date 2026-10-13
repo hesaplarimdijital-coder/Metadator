@@ -53,8 +53,8 @@ Most of the work here is making sure that a change touches only what shows it.
   (`Modifier.offset { }`) and its track drawn behind it (`drawBehind`), so its animation recomposes
   nothing; the bars of the player read how far it is open while drawing.
 - **Covers are asked for once.** A row builds its image request once per picture, and a song
-  whose file holds no picture is remembered as such (`TrackArtworkFetcher`), so a list flung
-  through does not open the file again each time the row comes back in sight
+  whose file holds no picture is remembered as such for five minutes (`TrackArtworkFetcher`), so a
+  list flung through does not open the file again each time the row comes back in sight
   ([architecture.md](architecture.md) on covers).
 - **Sums are made where the list is.** The size of the songs shown is summed by the ViewModel,
   once per change of the list, not by the screen each time it is drawn; a number format is made
@@ -73,6 +73,18 @@ as long to copy the songs to the device, a step the app has no part in, and its 
 it starts. So the step begins by saying how fast the emulator is: the time its shell takes to
 count to 100,000.
 
-The last build before the work above, on a fast run: started cold in 1676 ms; the app's thread
-took 79 ms a frame while typing (the middle frame; 137 ms for the slowest tenth), 52 ms (79 ms)
-scrolling the table, 43 ms (74 ms) scrolling a phone's rows; 76 MB held.
+For typing and scrolling, the app's thread a frame: the middle frame, then the slowest tenth.
+
+| On a fast run | Before the work above (`1dfa53d`) | After it (`4aada86`) |
+|---|---|---|
+| Starting cold | 1676 ms | 1901 ms |
+| Typing in the editor | 79 ms, 137 ms | 90 ms, 136 ms |
+| Scrolling the table on a wide window | 52 ms, 79 ms | 53 ms, 83 ms |
+| Scrolling a phone's rows | 43 ms, 74 ms | 41 ms, 51 ms |
+| Memory held | 76 MB | 84 MB |
+
+The two runs were about as fast: the steps the app has no part in took them the same time (the
+second's shell counted to 100,000 in 794 ms; the first's was not asked). The numbers are the same
+within what runs vary by, the same build having held 76 MB in one run and 84 MB in another, but
+for the slowest frames of a phone's rows. That is to be expected: what the work above saves is in
+what the run does not do, scrolling while music plays and while the library is being checked.
