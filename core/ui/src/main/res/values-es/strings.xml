@@ -77,7 +77,11 @@
     <string name="cover_finder_search">Buscar</string>
     <string name="cover_finder_searching">Buscando portadas y comparándolas…</string>
     <string name="cover_finder_asking">Consultando las fuentes…</string>
-    <string name="cover_finder_looking">Mirando %1$d de %2$d portadas…</string>
+    <plurals name="cover_finder_looking">
+        <item quantity="one">Mirando %1$d de %2$d portada…</item>
+        <item quantity="many">Mirando %1$d de %2$d portadas…</item>
+        <item quantity="other">Mirando %1$d de %2$d portadas…</item>
+    </plurals>
     <string name="cover_finder_no_results">No se encontraron portadas. Prueba con menos palabras.</string>
     <string name="cover_finder_no_sources">Todas las fuentes están desactivadas. Activa alguna en Ajustes.</string>
     <string name="cover_finder_offline">No tienes conexión</string>

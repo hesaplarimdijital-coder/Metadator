@@ -515,5 +515,10 @@ internal fun progressText(progress: CoverSearchProgress): String =
     when (progress) {
         CoverSearchProgress.Asking -> stringResource(R.string.cover_finder_asking)
         is CoverSearchProgress.Looking ->
-            stringResource(R.string.cover_finder_looking, progress.seen, progress.of)
+            pluralStringResource(
+                R.plurals.cover_finder_looking,
+                progress.of,
+                progress.seen,
+                progress.of,
+            )
     }
