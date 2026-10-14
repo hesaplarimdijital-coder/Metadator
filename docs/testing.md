@@ -15,7 +15,8 @@
 | JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
-| JVM unit | Which items a rectangle dragged with the mouse touches, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
+| JVM unit | Which items a rectangle dragged with the mouse touches, with a bar pinned at the top of the list too, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
+| JVM unit | What a click on a song does, by the keys held and the pointer that clicked: a mouse's opens it, a finger's picks it while songs are selected (`SongClickTest`) | `feature/library` |
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
 
