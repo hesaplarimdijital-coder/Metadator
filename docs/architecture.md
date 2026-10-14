@@ -259,7 +259,9 @@ the same instance, and `NavDisplay` finishes a back gesture that was let go only
 was showing equals the one the stack ends on: otherwise the leaving screen is gone at once.
 
 "Edit tags" (a file opened with the app) runs `ExternalEditorActivity` in its own task with only
-the editor, so closing it returns to the app that opened the file.
+the editor, so closing it returns to the app that opened the file. It and `MainActivity` are a
+`MetadatorActivity`, which composes nothing until the settings are read, then provides their
+theme, the snackbar's state and the keyboard's shortcuts.
 
 ## Theme
 
