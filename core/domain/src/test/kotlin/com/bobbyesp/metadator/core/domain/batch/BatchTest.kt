@@ -91,7 +91,7 @@ class BatchTest {
             refs.mapIndexed { index, ref -> BatchItem(ref, "song$index.mp3") },
             BatchEdit(fields = mapOf("ALBUM" to listOf("Live")), numbering = TrackNumbering()),
         )
-        advanceUntilIdle()
+        finish(runner)
 
         val progress = runner.progress.value!!
         assertFalse(progress.isRunning)
@@ -103,6 +103,12 @@ class BatchTest {
             assertEquals(listOf("120"), tags["BPM"])
             assertEquals(listOf(ref.uri), tags["TITLE"])
         }
+    }
+
+    /** Runs [runner]'s batch to its end, whatever runs this scope's coroutines. */
+    private suspend fun TestScope.finish(runner: BatchRunner) {
+        advanceUntilIdle()
+        while (runner.isRunning) yield()
     }
 
     /** Three songs, and a runner and a save that keep only [keep] backups. */
@@ -126,7 +132,7 @@ class BatchTest {
         val songs = Songs(this, keep = 1)
 
         songs.runner.start(songs.items, songs.edit)
-        advanceUntilIdle()
+        finish(songs.runner)
 
         val progress = songs.runner.progress.value!!
         assertEquals(1, songs.backups.prunes.size)
@@ -140,7 +146,7 @@ class BatchTest {
     fun `the next save drops a batch's backups beyond those kept`() = runTest {
         val songs = Songs(this, keep = 1)
         songs.runner.start(songs.items, songs.edit)
-        advanceUntilIdle()
+        finish(songs.runner)
 
         val outcome =
             songs.save(songs.refs.first(), TagChanges(fields = mapOf("TITLE" to listOf("x"))))
@@ -159,7 +165,7 @@ class BatchTest {
             if (++seen == 3) songs.runner.cancel()
             changes
         }
-        advanceUntilIdle()
+        finish(songs.runner)
 
         val progress = songs.runner.progress.value!!
         assertTrue(progress.wasCancelled)
