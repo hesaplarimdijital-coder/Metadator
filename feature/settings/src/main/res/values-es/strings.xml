@@ -51,7 +51,7 @@
     <string name="rate_description">En Google Play</string>
     <string name="credits">Hecho con</string>
     <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes y LRCLIB</string>
-    <string name="made_by">Hecho por BobbyESP</string>
+    <string name="made_by">Desarrollado por Project Ark</string>
     <string name="accent">Color de acento</string>
     <string name="accent_blue">Azul</string>
     <string name="accent_violet">Violeta</string>
