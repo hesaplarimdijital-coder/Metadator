@@ -35,10 +35,13 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
         val id = key.uris.hashCode().toString()
         val viewModel: BatchViewModel = koinViewModel(key = id) { parametersOf(key.uris) }
         val covers: CoverFinderViewModel = koinViewModel(key = "covers:$id")
+        val lookup: AlbumLookupViewModel = koinViewModel(key = "lookup:$id")
         val state by viewModel.state.collectAsStateWithLifecycle()
         val coverState by covers.state.collectAsStateWithLifecycle()
+        val lookupState by lookup.state.collectAsStateWithLifecycle()
         // Not saved: what it showed would be gone with the process, and the songs not yet read.
         var showCovers by remember { mutableStateOf(false) }
+        var showLookup by remember { mutableStateOf(false) }
         // The library beside it shows its selection here as it changes: never in place of edits
         // not yet applied, nor of the dialog that says how applying them went.
         val holding = !state.edit.isEmpty || state.progress != null
@@ -55,6 +58,10 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
                 is BatchEffect.FindCover -> {
                     covers.start(effect.request)
                     showCovers = true
+                }
+                is BatchEffect.FindMetadata -> {
+                    lookup.start(effect.query)
+                    showLookup = true
                 }
             }
         }
@@ -81,6 +88,20 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
                         state.files.size,
                         state.files.size,
                     ),
+            )
+        }
+
+        if (showLookup) {
+            AlbumLookupSheet(
+                state = lookupState,
+                songCount = state.files.size,
+                onQueryChange = lookup::setQuery,
+                onSearch = lookup::search,
+                onUse = { proposal ->
+                    viewModel.onIntent(BatchIntent.UseAlbum(proposal))
+                    showLookup = false
+                },
+                onDismiss = { showLookup = false },
             )
         }
     }

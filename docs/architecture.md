@@ -30,9 +30,11 @@ or on another feature fails the build.
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
   `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
   and the spectrum it reads ([lossless-check.md](lossless-check.md)), `FindCoversUseCase` with
-  the scoring of covers ([cover-finder.md](cover-finder.md)), `GarbledText`, which tells text
-  decoded with the wrong character set and puts it right (`text`), and `LibraryCoverScanner`, which
-  finds the songs without a cover (`artwork`).
+  the scoring of covers ([cover-finder.md](cover-finder.md)), what the batch editor finds and
+  merges (`FindAlbumUseCase` with the releases it proposes, and `AlbumMerge`: [Editing several
+  songs](#editing-several-songs)), `GarbledText`, which tells text decoded with the wrong
+  character set and puts it right (`text`), and `LibraryCoverScanner`, which finds the songs
+  without a cover (`artwork`).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
   `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. A few ports are the domain's own,
@@ -379,6 +381,59 @@ The player's sheet does it to what its bar and its full screen do not share.
 
 Below Android 12 nothing blurs: a frosted surface falls back to its container color, nearly opaque,
 and what would go out of focus is only dimmed, and more.
+
+## Editing several songs
+
+The batch editor (`feature/batch`) is opened for a selection ("Edit together"), an album ("Edit
+all"), or by the inspector, for the songs selected beside it, and edits its songs as one: a field
+set there is set on every song, and a field left alone keeps each song's own value (`BatchEdit`).
+Besides the fields, it sets one cover for all, picked or found online
+([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
+gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
+differs from song to song, from the release found online or the disc a merged album's title said.
+A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a
+total or a number, the file keeps.
+
+- **A field of several values** (artists, album artists, genres, composers) shows them joined with
+  the separator of the settings, and takes what is typed split on it, a list from then on
+  (`splitValues`). What is typed is shown as typed while the screen holds the values it was taken
+  for, and while they are still on their way to it (`TypedValues`): shown joined again from the
+  values, "Daft Punk; " was "Daft Punk", and the separator typed for a second value was gone before
+  it could be typed.
+- **Find metadata** (Ctrl+L, the editor's key) finds the release the songs are from. The sources
+  know tracks, each with its album, not albums, so `FindAlbumUseCase` asks them for the album under
+  its own name, which finds the songs of an album in the iTunes Store and the title track
+  elsewhere, then for up to eight of the songs, spread over the batch: one search at a time, a
+  second apart, as MusicBrainz asks, and few enough not to have the iTunes Store turn the app away.
+  The query starts from the album and album artist most songs will have, and can be changed in the
+  sheet. Each search sends what a search for one song sends: a title, the artist and the album.
+- **The releases** (`albumProposals`) are the tracks found grouped by album title and first
+  credited artist, as they compare: a track crediting a featured artist ("Daft Punk, Romanthony &
+  Todd Edwards") is still on Daft Punk's album. Each source has one say in what a release is (its
+  album artists, its date, the year agreed first and then the most precise day, its genres, its
+  track count), and a tie goes to the better match. They are ranked by how well their title and
+  artist match what was searched, how many of the songs are on them, how close their track count
+  is to the number of songs, how many sources have them and whether they have a cover.
+- **Choosing a release** fills the album, album artists, date and genres for every song, those it
+  has, and gives the songs found on it their track and disc numbers (`positionsFor`): a song is
+  found when a track has its title, compared without featured artists and remaster notes, and is
+  the same recording by its length, or where a length is missing sits where the file already says.
+  A song not found keeps its numbers, and gets only the track total, where the file says its disc
+  or the release has one. Sources that disagree on where a song is say nothing: a number is never
+  guessed. The titles are left alone. It is all shown as changed, and written with "Apply to all".
+- **Merging albums**: when the songs are on more than one album, as the library tells albums apart
+  (title, and album artist or else artist), a card at the top lists them with their songs. One
+  album spelled two ways, with an album artist on some songs only, or split into "CD1" and "CD2",
+  is several albums there. "Merge into one album" sets one title and one album artist for every
+  song, those of the album with the most songs unless others are chosen from the albums' or typed
+  (`AlbumMerge`). When the titles differ only by a disc suffix ("CD 2", "(Disc 1)"), the title is
+  proposed without it, and each song the disc its album's title said. The inspector shows the card
+  for any songs selected across albums, as they are selected, so it only proposes, and lists the
+  largest three of more than four albums until asked for the rest.
+- **Applying** writes it all through `BatchRunner`, file by file, each backed up first and undone
+  together ([saving-tags.md](saving-tags.md)). A field a song's format cannot hold is dropped by
+  the format and the song still saved; the dialog after the batch says which fields some songs
+  dropped (`BatchProgress.notStored`).
 
 ## The player
 

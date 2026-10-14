@@ -65,4 +65,79 @@
         <item quantity="one">Will be written to %1$d song</item>
         <item quantity="other">Will be written to %1$d songs</item>
     </plurals>
+    <string name="batch_lookup_find">Find metadata</string>
+    <string name="batch_lookup_title">Find the album\'s metadata</string>
+    <string name="batch_lookup_search">Search</string>
+    <string name="batch_lookup_searching">Looking for the album and its songs…</string>
+    <string name="batch_lookup_asking">Asking the sources…</string>
+    <plurals name="batch_lookup_progress">
+        <item quantity="one">Looked for %1$d of %2$d song…</item>
+        <item quantity="other">Looked for %1$d of %2$d songs…</item>
+    </plurals>
+    <string name="batch_lookup_results">Albums found</string>
+    <plurals name="batch_lookup_how">
+        <item quantity="one">Choosing one fills in its album, album artists, year and genres for %1$d song, and its track number if it is found on it. Nothing is written until you apply.</item>
+        <item quantity="other">Choosing one fills in its album, album artists, year and genres for all %1$d songs, and the track number of each song found on it. Nothing is written until you apply.</item>
+    </plurals>
+    <plurals name="batch_lookup_tracks">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+    <plurals name="batch_lookup_songs_found">
+        <item quantity="one">Has %1$d of %2$d song</item>
+        <item quantity="other">Has %1$d of %2$d songs</item>
+    </plurals>
+    <string name="batch_lookup_match_good">Good match</string>
+    <string name="batch_lookup_match_possible">Possible match</string>
+    <string name="batch_lookup_match_weak">Weak match</string>
+    <string name="batch_lookup_no_results">No albums found. Try fewer words.</string>
+    <string name="batch_lookup_no_sources">Every source is turned off. Turn one on in Settings.</string>
+    <string name="batch_lookup_offline">You\'re offline</string>
+    <string name="batch_lookup_busy">The sources are busy. Try again in a moment.</string>
+    <string name="batch_lookup_failed">The search failed. Try again.</string>
+    <string name="batch_lookup_partial">%1$s didn\'t answer</string>
+    <string name="batch_lookup_applied">Filled in from “%1$s”. Check the fields, then apply to all.</string>
+    <plurals name="batch_albums_title">
+        <item quantity="one">These songs are in %1$d album</item>
+        <item quantity="other">These songs are in %1$d albums</item>
+    </plurals>
+    <string name="batch_albums_why">Merged, they get one title and one album artist, and the library shows them as one album.</string>
+    <plurals name="batch_albums_more">
+        <item quantity="one">Show %1$d more album</item>
+        <item quantity="other">Show %1$d more albums</item>
+    </plurals>
+    <string name="batch_albums_fewer">Show fewer</string>
+    <string name="batch_merge_pending">They will be one album once you apply.</string>
+    <plurals name="batch_album_songs">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <plurals name="batch_albums_without">
+        <item quantity="one">%1$d song has no album: merging puts it on the album too</item>
+        <item quantity="other">%1$d songs have no album: merging puts them on the album too</item>
+    </plurals>
+    <string name="batch_album_no_artist">No artist</string>
+    <string name="batch_merge">Merge into one album</string>
+    <string name="batch_merge_apply">Merge</string>
+    <string name="batch_merge_cancel">Cancel</string>
+    <string name="batch_merge_discs">Number the discs from the albums\' names</string>
+    <string name="batch_merge_discs_description">“CD 2” becomes disc 2, and leaves the album\'s name</string>
+    <string name="batch_numbers">Track and disc numbers</string>
+    <plurals name="batch_numbers_tracks">
+        <item quantity="one">Track number for %1$d song</item>
+        <item quantity="other">Track numbers for %1$d songs</item>
+    </plurals>
+    <plurals name="batch_numbers_totals">
+        <item quantity="one">Only the track total for %1$d song</item>
+        <item quantity="other">Only the track total for %1$d songs</item>
+    </plurals>
+    <plurals name="batch_numbers_discs">
+        <item quantity="one">Disc number for %1$d song</item>
+        <item quantity="other">Disc numbers for %1$d songs</item>
+    </plurals>
+    <string name="batch_numbers_reset">Keep each song\'s numbers</string>
+    <plurals name="batch_not_stored">
+        <item quantity="one">%1$d song\'s format couldn\'t keep: %2$s</item>
+        <item quantity="other">%1$d songs\' formats couldn\'t keep: %2$s</item>
+    </plurals>
 </resources>
