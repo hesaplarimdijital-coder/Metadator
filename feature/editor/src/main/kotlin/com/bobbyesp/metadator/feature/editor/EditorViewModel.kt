@@ -24,6 +24,7 @@ import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.UserSettings
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
@@ -120,6 +121,9 @@ sealed interface EditorIntent {
 
     data object RevertAll : EditorIntent
 
+    /** Puts right the fields whose text looks garbled, as changes to save. */
+    data object RepairText : EditorIntent
+
     data class SetCoverFromUri(val uri: String) : EditorIntent
 
     /**
@@ -194,6 +198,7 @@ class EditorViewModel(
             is EditorIntent.Revert ->
                 editDraft { intent.keys.fold(this) { draft, key -> draft.revert(key) } }
             EditorIntent.RevertAll -> editDraft { revertAll() }
+            EditorIntent.RepairText -> editDraft { setAll(tags.textRepairs()) }
             is EditorIntent.SetCoverFromUri ->
                 setCover { images.read(intent.uri)?.let { it.bytes to it.mimeType } }
             is EditorIntent.SetCoverFromUrl ->

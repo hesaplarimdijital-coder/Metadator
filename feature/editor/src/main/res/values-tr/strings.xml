@@ -24,6 +24,8 @@
     <string name="play_unavailable">Yalnızca kitaplığınızdaki şarkılar çalınabilir</string>
 
     <string name="needs_attention_title">İlgi bekliyor</string>
+    <string name="garbled_text_suggestion">%1$s: %2$s?</string>
+    <string name="garbled_text_repair">Düzelt</string>
     <string name="section_main">Şarkı</string>
     <string name="section_credits">Emeği geçenler</string>
     <string name="section_more">Diğer</string>
@@ -151,5 +153,9 @@
     <plurals name="changes_count">
         <item quantity="one">%1$d değişiklik</item>
         <item quantity="other">%1$d değişiklik</item>
+    </plurals>
+    <plurals name="garbled_text_title">
+        <item quantity="one">Karakterler bozuk görünüyor</item>
+        <item quantity="other">Karakterler bozuk görünüyor</item>
     </plurals>
 </resources>

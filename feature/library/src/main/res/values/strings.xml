@@ -48,6 +48,20 @@
     <string name="collection_play">Play</string>
     <string name="collection_shuffle">Shuffle</string>
     <string name="collection_edit_all">Edit all</string>
+    <string name="open_collection">Open</string>
+    <string name="merge_albums">Merge albums</string>
+    <plurals name="selected_albums">
+        <item quantity="one">%1$d album selected</item>
+        <item quantity="other">%1$d albums selected</item>
+    </plurals>
+    <plurals name="selected_artists">
+        <item quantity="one">%1$d artist selected</item>
+        <item quantity="other">%1$d artists selected</item>
+    </plurals>
+    <plurals name="selected_folders">
+        <item quantity="one">%1$d folder selected</item>
+        <item quantity="other">%1$d folders selected</item>
+    </plurals>
     <string name="back">Back</string>
     <string name="no_song_open_title">Pick a song</string>
     <string name="no_song_open_description">Its tags open here, next to your library.</string>

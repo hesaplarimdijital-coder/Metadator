@@ -7,8 +7,11 @@
 | JVM unit | Tag merge and diff, pictures, multi-values (`TagChangesTest`) | `tags/api` |
 | JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
+| JVM unit | The batch editor: an album artist set for all reaching every file in both multi-value modes, a field a format drops, numbers of each song's own in each file's style; the albums of a batch and their merge, disc suffixes; finding the songs' album with fake sources, the releases grouped, agreed on and ranked, which song is which track and when that is not sure (`BatchTest`, `AlbumMergeTest`, `AlbumLookupTest`) | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
 | JVM unit | The check of the whole library: each lossless song once, again only once its file changed, a song added later, a verdict the editor made (`LibraryQualityScannerTest`) | `core/domain` |
+| JVM unit | Garbled text: UTF-8 read as Windows-1252 or Latin-1, once or twice over, and Turkish in Windows-1254 read as Latin-1, put right; Icelandic, Faroese and other text that is right left alone; a wrong guess at an Asian character set recognized; the repairs offered for a file's tags (`GarbledTextTest`). The library showing a garbled song's text from its file, read once per version (`GarbledLibraryTextTest`) | `core/domain` |
+| JVM unit | The check of the library's covers: each song once, a song saved since read again first, a file that could not be opened tried again at the next start, nothing read while other work is at the files (`LibraryCoverScannerTest`) | `core/domain` |
 | JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
@@ -93,4 +96,6 @@ an SD card: how long the first pass takes, that the app stays smooth meanwhile, 
 start checks nothing again. The cover finder needs the network: try an album whose single has
 another cover, a song without an album tag, and a file that already has a small cover. From the
 batch editor, try a whole album, an album whose songs have no cover yet, and songs of two albums
-selected together.
+selected together. Its "Find metadata" needs the network too: try a whole album, one without an
+album tag, one of two discs and a compilation, and see which songs get numbers; then merge an album
+the library splits by its album artists, and one split into "CD1" and "CD2".

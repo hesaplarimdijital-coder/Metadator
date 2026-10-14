@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -460,5 +461,55 @@ fun AttentionNotice(missing: List<String>, modifier: Modifier = Modifier) {
                 color = colors.textSecondary,
             )
         }
+    }
+}
+
+/**
+ * Fields whose text looks garbled, as a tag decoded with the wrong character set does, each with
+ * what it most likely says ("Album artist: Moğollar?"), and the one action that takes those as
+ * changes to save.
+ *
+ * @param suggestions each field's name and its text put right
+ */
+@Composable
+fun GarbledTextNotice(
+    suggestions: List<Pair<String, String>>,
+    onRepair: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Studio.colors
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(colors.warningSoft, shape)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Rounded.Warning,
+            contentDescription = null,
+            tint = colors.warning,
+            modifier = Modifier.size(18.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                pluralStringResource(R.plurals.garbled_text_title, suggestions.size),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = colors.text,
+            )
+            suggestions.forEach { (field, text) ->
+                Text(
+                    stringResource(R.string.garbled_text_suggestion, field, text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        StudioButton(text = stringResource(R.string.garbled_text_repair), onClick = onRepair)
     }
 }

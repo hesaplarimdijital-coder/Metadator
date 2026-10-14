@@ -14,7 +14,17 @@ data class FileTrackTags(
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
     val genre: String? = null,
-)
+    /** Only ever taken where the library's looks garbled: the library always has a title. */
+    val title: String? = null,
+) {
+    companion object {
+        /**
+         * What reading a file gives now. An entry read by an earlier version says nothing of what
+         * was added since: 2 added the title.
+         */
+        const val READER_VERSION = 2
+    }
+}
 
 /** The tags of a file as it was at one modification date and size; stale once either changes. */
 data class CachedTrackTags(
@@ -22,6 +32,8 @@ data class CachedTrackTags(
     val dateModifiedEpochSeconds: Long,
     val sizeBytes: Long,
     val tags: FileTrackTags,
+    /** The [FileTrackTags.READER_VERSION] that read it. */
+    val readerVersion: Int = FileTrackTags.READER_VERSION,
 )
 
 /** Remembers what was read from each file, so a file is opened once per version of it. */

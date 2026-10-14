@@ -4,9 +4,10 @@
 package com.bobbyesp.metadator.feature.library
 
 import android.view.KeyEvent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -62,6 +63,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -507,17 +510,28 @@ private fun SongListShortcuts(tracks: List<Track>, listState: LazyListState) {
 /** Most of what is in view: a line or two stay, to keep the place. */
 private fun LazyListState.pageHeight(): Float = layoutInfo.viewportSize.height * 0.85f
 
-/** The albums, as a grid of covers. */
+/**
+ * The albums, as a grid of covers. A click opens one; with Ctrl or Shift held, or a long press, it
+ * selects, as on the songs; the mouse's second button opens its menu.
+ */
 @Composable
 internal fun AlbumGrid(
     albums: List<TrackCollection.Album>,
-    onOpen: (TrackCollection) -> Unit,
+    state: LibraryState,
+    actions: LibraryActions,
     wide: Boolean,
 ) {
     val gridState = rememberLazyGridState()
+    CollectionPlaceShortcuts(LibraryTab.Albums, albums, state, actions)
+    val onIntent = actions.onIntent
+    // Ctrl and Shift, as they were when an album was clicked.
+    val heldKeys = remember { HeldKeys() }
+    // Read when an album is clicked, not closed over, as the songs' rows read the library.
+    val latest = rememberUpdatedState(state)
+    val menu = rememberCollectionMenu(latest, actions)
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = if (wide) 168.dp else 150.dp),
-        modifier = Modifier.fillMaxSize().scrollbar(gridState),
+        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(gridState),
         state = gridState,
         contentPadding =
             if (wide) PaddingValues(10.dp)
@@ -529,30 +543,47 @@ internal fun AlbumGrid(
                 ),
     ) {
         items(albums, key = { it.key }) { album ->
-            CollectionCard(
-                title = album.title,
-                subtitle =
-                    listOfNotNull(album.artist, album.year?.toString())
-                        .joinToString(" · ")
-                        .ifEmpty { null },
-                artwork = album.artwork,
-                onClick = { onOpen(album) },
+            val selected = album.key in state.collectionSelection
+            ContextMenuArea(
+                actions = { menu(album, selected) },
                 modifier = Modifier.animateItem(),
-            )
+            ) {
+                CollectionCard(
+                    title = album.title,
+                    subtitle =
+                        listOfNotNull(album.artist, album.year?.toString())
+                            .joinToString(" · ")
+                            .ifEmpty { null },
+                    artwork = album.artwork,
+                    onClick = { onCollectionClick(album, latest.value, heldKeys, actions) },
+                    onLongClick = { onIntent(LibraryIntent.ToggleCollection(album.key)) },
+                    selected = selected,
+                )
+            }
         }
     }
 }
 
-/** The artists or the folders, as rows: on the panel on a wide window, on a card on a phone. */
+/**
+ * The artists or the folders, as rows: on the panel on a wide window, on a card on a phone. They
+ * are opened, selected and given a menu as the albums are.
+ */
 @Composable
 internal fun CollectionList(
+    tab: LibraryTab,
     collections: List<TrackCollection>,
-    onOpen: (TrackCollection) -> Unit,
+    state: LibraryState,
+    actions: LibraryActions,
     wide: Boolean,
 ) {
     val listState = rememberLazyListState()
+    CollectionPlaceShortcuts(tab, collections, state, actions)
+    val onIntent = actions.onIntent
+    val heldKeys = remember { HeldKeys() }
+    val latest = rememberUpdatedState(state)
+    val menu = rememberCollectionMenu(latest, actions)
     LazyColumn(
-        modifier = Modifier.fillMaxSize().scrollbar(listState),
+        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(listState),
         state = listState,
         contentPadding =
             if (wide) PaddingValues(8.dp)
@@ -565,32 +596,57 @@ internal fun CollectionList(
     ) {
         itemsIndexed(collections, key = { _, it -> it.key }) { index, collection ->
             val shape = cardRowShape(index, collections.size)
-            CollectionRow(
-                collection = collection,
-                onClick = { onOpen(collection) },
-                showDivider = !wide && index > 0,
+            val selected = collection.key in state.collectionSelection
+            ContextMenuArea(
+                actions = { menu(collection, selected) },
                 modifier =
                     Modifier.animateItem()
                         .then(
                             if (wide) Modifier
                             else Modifier.clip(shape).background(Studio.colors.panel, shape)
                         ),
-            )
+            ) {
+                CollectionRow(
+                    collection = collection,
+                    onClick = { onCollectionClick(collection, latest.value, heldKeys, actions) },
+                    onLongClick = { onIntent(LibraryIntent.ToggleCollection(collection.key)) },
+                    selected = selected,
+                    showDivider = !wide && index > 0,
+                )
+            }
         }
     }
 }
 
-/** An artist or a folder: its picture or icon, its name, and how many songs and where. */
+/**
+ * An artist or a folder: its picture or icon, its name, and how many songs and where. Selected, it
+ * is tinted with the accent and a check takes the place of its picture, as on a song's row.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CollectionRow(
     collection: TrackCollection,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    selected: Boolean,
     showDivider: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = Studio.colors
     val interactions = remember { MutableInteractionSource() }
     val hovered by interactions.collectIsHoveredAsState()
+    val tint by
+        animateColorAsState(
+            targetValue =
+                when {
+                    selected -> colors.accentSoft
+                    hovered -> colors.hover
+                    else -> Color.Transparent
+                },
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+            label = "CollectionRowTint",
+        )
+    val selectedLabel = stringResource(CoreUiR.string.song_selected)
     val shape = RoundedCornerShape(10.dp)
     Column(modifier) {
         if (showDivider) StudioDivider(Modifier.padding(start = 66.dp))
@@ -599,31 +655,37 @@ private fun CollectionRow(
                 Modifier.fillMaxWidth()
                     .heightIn(min = 60.dp)
                     .clip(shape)
-                    .background(if (hovered) colors.hover else Color.Transparent, shape)
-                    .clickable(
+                    .background(tint, shape)
+                    .combinedClickable(
                         interactionSource = interactions,
                         indication = ripple(),
                         role = Role.Button,
+                        onLongClickLabel = stringResource(CoreUiR.string.select),
+                        onLongClick = onLongClick,
                         onClick = onClick,
                     )
+                    .semantics { if (selected) stateDescription = selectedLabel }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (collection.artwork != null && collection !is TrackCollection.Folder) {
-                ArtworkImage(
-                    model = collection.artwork,
-                    contentDescription = null,
-                    modifier = Modifier.size(42.dp),
-                    shape =
-                        if (collection is TrackCollection.Artist) CircleShape
-                        else RoundedCornerShape(9.dp),
-                )
-            } else {
-                CollectionIcon(
-                    if (collection is TrackCollection.Folder) Icons.Outlined.Folder
-                    else Icons.Outlined.Person
-                )
+            Box(contentAlignment = Alignment.Center) {
+                if (collection.artwork != null && collection !is TrackCollection.Folder) {
+                    ArtworkImage(
+                        model = collection.artwork,
+                        contentDescription = null,
+                        modifier = Modifier.size(42.dp),
+                        shape =
+                            if (collection is TrackCollection.Artist) CircleShape
+                            else RoundedCornerShape(9.dp),
+                    )
+                } else {
+                    CollectionIcon(
+                        if (collection is TrackCollection.Folder) Icons.Outlined.Folder
+                        else Icons.Outlined.Person
+                    )
+                }
+                SelectedCheck(selected, size = 42.dp)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(

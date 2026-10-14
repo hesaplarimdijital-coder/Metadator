@@ -24,6 +24,8 @@
     <string name="play_unavailable">Only songs in your library can be played</string>
 
     <string name="needs_attention_title">Needs attention</string>
+    <string name="garbled_text_suggestion">%1$s: %2$s?</string>
+    <string name="garbled_text_repair">Repair</string>
     <string name="section_main">Song</string>
     <string name="section_credits">Credits</string>
     <string name="section_more">More</string>
@@ -151,5 +153,9 @@
     <plurals name="changes_count">
         <item quantity="one">%1$d change</item>
         <item quantity="other">%1$d changes</item>
+    </plurals>
+    <plurals name="garbled_text_title">
+        <item quantity="one">This looks garbled</item>
+        <item quantity="other">These look garbled</item>
     </plurals>
 </resources>
