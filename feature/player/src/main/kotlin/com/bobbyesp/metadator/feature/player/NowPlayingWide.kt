@@ -3,13 +3,10 @@
  */
 package com.bobbyesp.metadator.feature.player
 
-import android.os.Build
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,57 +16,39 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.blur.BlurRadiusSpec
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.Choice
 import com.bobbyesp.metadator.core.designsystem.component.ConnectedChoices
-import com.bobbyesp.metadator.core.designsystem.theme.MetadatorBlurDefaults
+import com.bobbyesp.metadator.core.designsystem.component.GlassSurface
+import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
-import com.bobbyesp.metadator.core.designsystem.theme.frosted
 import com.bobbyesp.metadator.core.domain.lyrics.TrackLyrics
 import com.bobbyesp.metadator.core.model.Track
-import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.player.api.PlaybackState
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
@@ -82,9 +61,9 @@ import dev.chrisbanes.haze.rememberHazeState
  * [PlayerSheet], and each of the modifiers the sheet ties the bar's pieces with goes on exactly one
  * element here too.
  *
- * @param position where the song is, which only the slider and the lyrics read
+ * @param position where the song is, which only the seek line and the lyrics read
  * @param compact whether the controls do not fit under the cover and float over the lyrics instead
- * @param settled whether the sheet is at rest, open. Only then is anything frosted: while the sheet
+ * @param settled whether the sheet is at rest, open. Only then is anything glass: while the sheet
  *   moves its content is drawn in the transition's overlay, where a frosted surface flickers. And
  *   only then does the album show.
  * @param ownContentPresence how much of what only this has is there, as in [NowPlayingContent]
@@ -109,10 +88,12 @@ internal fun NowPlayingWideContent(
     playButtonModifier: Modifier = Modifier,
     ownContentPresence: () -> Float = { 1f },
 ) {
-    // What the floating controls frost: the backdrop and the lyrics. Both are recorded here as
-    // siblings of the controls, never as their ancestors, or the controls would blur themselves.
+    // What the floating controls are glass over: the backdrop and the lyrics. Both are recorded
+    // here as siblings of the controls, never as their ancestors, or the controls would blur
+    // themselves.
     val haze = rememberHazeState()
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+    val colors = Studio.colors
+    Surface(modifier = modifier.fillMaxSize(), color = colors.ground, contentColor = colors.text) {
         Box(Modifier.fillMaxSize()) {
             PlayerBackdrop(track, Modifier.matchParentSize().hazeSource(haze))
             Row(
@@ -159,7 +140,6 @@ internal fun NowPlayingWideContent(
 }
 
 /** The song: its cover and its name, and under them its controls where they fit. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SongColumn(
     track: Track,
@@ -179,12 +159,8 @@ private fun SongColumn(
     playButtonModifier: Modifier,
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        // The whole row is the handle the sheet is dragged down by, as the app bar is when stacked.
-        Row(Modifier.fillMaxWidth().then(topBarModifier).padding(vertical = Spacing.small)) {
-            IconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
-                Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.close))
-            }
-        }
+        // The whole row is the handle the sheet is dragged down by, as it is when stacked.
+        PlayerTopRow(onClose = onClose, onEdit = onEdit, modifier = topBarModifier)
         Column(
             modifier =
                 Modifier.weight(1f)
@@ -203,9 +179,20 @@ private fun SongColumn(
             )
             TrackName(track, settled, titleModifier, artistModifier)
             if (withControls) {
-                SeekBar(playback, position, onSeek = player::seekTo)
-                TransportControls(playback, player, playButtonModifier)
-                SecondaryControls(playback, player, onEdit)
+                SeekLine(
+                    playback = playback,
+                    position = position,
+                    onSeek = player::seekTo,
+                    modifier = Modifier.fillMaxWidth(),
+                    times = SeekTimes.Below,
+                    hitHeight = SeekLineDefaults.TouchHitHeight,
+                )
+                TransportControls(
+                    playback = playback,
+                    player = player,
+                    playButtonModifier = playButtonModifier,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -217,7 +204,6 @@ private enum class SidePane {
 }
 
 /** The lyrics or the queue, whichever is chosen, and over them the controls when [compact]. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 // The play button is tied to the bar's by a modifier of its own, before the panel's.
 @Suppress("ModifierParameter")
 @Composable
@@ -239,16 +225,15 @@ private fun SidePanel(
     val bottomClearance = if (compact) FloatingControlsClearance else 0.dp
     Box(modifier) {
         Column(Modifier.fillMaxSize()) {
+            // As tall as the song column's top row, so the two read as one line across the top.
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.small),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.End),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = PlayerTopRowHeight)
+                        .padding(vertical = Spacing.small),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (compact) {
-                    FilledTonalIconButton(onClick = onEdit, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.Rounded.Edit, stringResource(R.string.edit_tags))
-                    }
-                }
                 ConnectedChoices(
                     choices =
                         listOf(
@@ -297,8 +282,7 @@ private fun SidePanel(
                 playback = playback,
                 position = position,
                 player = player,
-                haze = haze,
-                frost = settled,
+                glass = haze.takeIf { settled },
                 playButtonModifier = playButtonModifier,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.medium),
             )
@@ -306,7 +290,7 @@ private fun SidePanel(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** The queue as the library lists songs, on a card; or that there is none. */
 @Composable
 private fun UpNextPane(playback: PlaybackState, player: PlayerController, bottomClearance: Dp) {
     if (!playback.hasUpNext) {
@@ -314,29 +298,29 @@ private fun UpNextPane(playback: PlaybackState, player: PlayerController, bottom
             Text(
                 stringResource(R.string.queue_empty),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Studio.colors.textSecondary,
                 textAlign = TextAlign.Center,
             )
         }
         return
     }
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        modifier = Modifier.fillMaxSize().scrollbar(listState),
         contentPadding =
             PaddingValues(top = Spacing.small, bottom = Spacing.extraLarge + bottomClearance),
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
-        upNextItems(playback, player)
+        upNextRows(playback, player)
     }
 }
 
 /**
- * The controls as one bar floating over the lyrics, frosted: what is beneath shows through it,
+ * The controls as one bar floating over the lyrics, as glass: what is beneath shows through it,
  * blurred. For where there is no height to put them under the cover.
  *
- * @param frost whether to frost it now; otherwise it is its container color, solid
+ * @param glass what to be glass over; null while the sheet moves, when it is its tone, solid
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 // The play button is tied to the bar's by a modifier of its own, before the panel's.
 @Suppress("ModifierParameter")
 @Composable
@@ -344,100 +328,36 @@ private fun FloatingControls(
     playback: PlaybackState,
     position: PlaybackPosition,
     player: PlayerController,
-    haze: HazeState,
-    frost: Boolean,
+    glass: HazeState?,
     playButtonModifier: Modifier,
     modifier: Modifier = Modifier,
 ) {
-    val container = MaterialTheme.colorScheme.surfaceContainerHigh
-    val shape = MaterialTheme.shapes.extraLarge
-    val style = MetadatorBlurDefaults.surfaceStyle(container)
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .then(
-                    if (frost) Modifier.frosted(haze, style, shape)
-                    else Modifier.clip(shape).background(container)
-                )
-                .padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-        verticalAlignment = Alignment.CenterVertically,
+    GlassSurface(
+        backdrop = glass,
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = modifier.fillMaxWidth(),
     ) {
-        IconButton(onClick = player::skipToPrevious, shapes = IconButtonDefaults.shapes()) {
-            Icon(Icons.Rounded.SkipPrevious, stringResource(R.string.previous))
-        }
-        PlayPauseButton(
-            isPlaying = playback.isPlaying,
-            onToggle = player::togglePlayPause,
-            // The sheet's modifier first: it is what sizes the button on the way here.
-            modifier = playButtonModifier.size(PlayPauseButtonDefaults.CompactSize),
-        )
-        IconButton(
-            onClick = player::skipToNext,
-            enabled = playback.hasNext,
-            shapes = IconButtonDefaults.shapes(),
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.small, vertical = Spacing.extraSmall),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.SkipNext, stringResource(R.string.next))
-        }
-        SeekBar(
-            playback = playback,
-            position = position,
-            onSeek = player::seekTo,
-            modifier = Modifier.weight(1f).padding(horizontal = Spacing.small),
-            showTimes = false,
-        )
-        ShuffleButton(playback, player)
-        RepeatButton(playback, player)
-    }
-}
-
-/**
- * What the wide player is drawn on: the cover, out of focus, under a veil of the surface color, so
- * the screen takes the colors of the song without the text on it losing contrast. A new song's
- * cover fades in over the last one's. Where the device cannot blur, the theme's colors do, which
- * the cover has already tinted.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun PlayerBackdrop(track: Track, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-        Box(
-            modifier.background(
-                Brush.verticalGradient(listOf(colors.primaryContainer, colors.surface))
+            TransportControls(
+                playback = playback,
+                player = player,
+                playButtonModifier = playButtonModifier,
+                sizes = TransportSizes.Floating,
             )
-        )
-        return
-    }
-    var bounds by remember { mutableStateOf(IntSize.Zero) }
-    Box(modifier.background(colors.surface).onSizeChanged { bounds = it }) {
-        Crossfade(
-            targetState = track,
-            animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
-            modifier = Modifier.align(Alignment.Center),
-            label = "Backdrop",
-        ) { shown ->
-            // Blurred small and then stretched over the screen: the same picture as blurring it
-            // at full size, for a fraction of the work on every frame the lyrics move. Stretched
-            // past the edges, where a blur fades out.
-            ArtworkImage(
-                model = shown.artwork,
-                contentDescription = null,
-                modifier =
-                    Modifier.size(BackdropSample)
-                        .graphicsLayer {
-                            val scale =
-                                maxOf(bounds.width, bounds.height) / size.width * BACKDROP_OVERSCAN
-                            scaleX = scale
-                            scaleY = scale
-                        }
-                        .blur { radius = BlurRadiusSpec.uniform(BackdropBlur) },
-                shape = RectangleShape,
-                cacheKey = shown.artworkCacheKey,
+            // No times: on a phone on its side, five buttons leave the line little enough.
+            SeekLine(
+                playback = playback,
+                position = position,
+                onSeek = player::seekTo,
+                modifier = Modifier.weight(1f).padding(end = Spacing.small),
+                times = SeekTimes.None,
+                hitHeight = SeekLineDefaults.TouchHitHeight,
             )
         }
-        Box(Modifier.matchParentSize().background(colors.surface.copy(alpha = BACKDROP_VEIL)))
     }
 }
 
@@ -446,8 +366,3 @@ private val SongColumnMaxWidth = 440.dp
 
 /** The room the floating controls take at the bottom of what scrolls beneath them. */
 private val FloatingControlsClearance = 80.dp
-
-private val BackdropSample = 96.dp
-private val BackdropBlur = 16.dp
-private const val BACKDROP_OVERSCAN = 1.5f
-private const val BACKDROP_VEIL = 0.72f

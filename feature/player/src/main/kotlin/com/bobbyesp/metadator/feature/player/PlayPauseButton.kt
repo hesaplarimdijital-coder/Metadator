@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
@@ -22,15 +21,18 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
 /**
  * Play and pause, in both players. A toggle only so that its shape can say what is happening: round
- * while paused, squared off while playing. It stays in the primary color either way, because it is
- * the main thing to press whichever state it is in.
+ * while paused, squared off while playing. It is filled with the accent either way, because it is
+ * the main thing to press whichever state it is in; and the same accent in the bars and on the
+ * screen, since it is one button that travels between them, and one that changed color would change
+ * it the moment it set off.
  *
  * Give it a size: its container fills it and its icon is half as tall, whatever that size is. That
  * is what lets the bar's button grow into the full player's: laid out in the same bounds the two
@@ -44,42 +46,46 @@ internal fun PlayPauseButton(
     isPlaying: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    interactionSource: MutableInteractionSource? = null,
-    containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
     val motion = MaterialTheme.motionScheme
-    FilledIconToggleButton(
-        checked = isPlaying,
-        onCheckedChange = { onToggle() },
-        shapes = IconButtonDefaults.toggleableShapes(),
-        modifier = modifier,
-        colors =
-            IconButtonDefaults.filledIconToggleButtonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-                checkedContainerColor = containerColor,
-                checkedContentColor = contentColor,
-            ),
-        interactionSource = interactionSource,
-    ) {
-        AnimatedContent(
-            targetState = isPlaying,
-            transitionSpec = {
-                (scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f) +
-                    fadeIn(motion.fastEffectsSpec())) togetherWith
-                    (scaleOut(motion.fastEffectsSpec(), targetScale = 0.6f) +
-                        fadeOut(motion.fastEffectsSpec()))
-            },
-            label = "PlayPause",
-        ) { playing ->
-            Icon(
-                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(if (playing) R.string.pause else R.string.play),
-                modifier =
-                    Modifier.fillMaxHeight(ICON_FRACTION)
-                        .aspectRatio(1f, matchHeightConstraintsFirst = true),
-            )
+    val container = Studio.colors.accent
+    val content = MaterialTheme.colorScheme.onPrimary
+    val name = stringResource(if (isPlaying) R.string.pause else R.string.play)
+    // Named for the pointer, as every button that is only an icon is. The tooltip is around the
+    // button, not in its chain: what the sheet ties to the other player's is the button alone.
+    Tooltip(name) {
+        FilledIconToggleButton(
+            checked = isPlaying,
+            onCheckedChange = { onToggle() },
+            shapes = IconButtonDefaults.toggleableShapes(),
+            modifier = modifier,
+            colors =
+                IconButtonDefaults.filledIconToggleButtonColors(
+                    containerColor = container,
+                    contentColor = content,
+                    checkedContainerColor = container,
+                    checkedContentColor = content,
+                ),
+        ) {
+            AnimatedContent(
+                targetState = isPlaying,
+                transitionSpec = {
+                    (scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f) +
+                        fadeIn(motion.fastEffectsSpec())) togetherWith
+                        (scaleOut(motion.fastEffectsSpec(), targetScale = 0.6f) +
+                            fadeOut(motion.fastEffectsSpec()))
+                },
+                label = "PlayPause",
+            ) { playing ->
+                Icon(
+                    if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription =
+                        stringResource(if (playing) R.string.pause else R.string.play),
+                    modifier =
+                        Modifier.fillMaxHeight(ICON_FRACTION)
+                            .aspectRatio(1f, matchHeightConstraintsFirst = true),
+                )
+            }
         }
     }
 }

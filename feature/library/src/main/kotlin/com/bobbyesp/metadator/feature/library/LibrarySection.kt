@@ -16,10 +16,10 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,11 +32,9 @@ import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.PlaceholderCard
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
-import com.bobbyesp.metadator.core.domain.library.locate
 import com.bobbyesp.metadator.core.model.CollectionType
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
-import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.core.navigation.BatchEditor
 import com.bobbyesp.metadator.core.navigation.Collection
 import com.bobbyesp.metadator.core.navigation.Editor
@@ -44,11 +42,15 @@ import com.bobbyesp.metadator.core.navigation.EditorAction
 import com.bobbyesp.metadator.core.navigation.Library
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.Settings
+import com.bobbyesp.metadator.core.navigation.pane.LocalPaneContext
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
 import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
-import com.bobbyesp.metadator.player.api.PlayerController
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 
 /** The library's destinations: the root list and the collections reached from it. */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
@@ -63,11 +65,15 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             navigator.showDetail(Editor(uri.toString()))
         }
         val openInNewWindow = rememberNewWindowOpener()
+        InspectorFollowsSelection(state, navigator)
 
         LibraryScreen(
             state = state,
             onIntent = rememberIntents(viewModel),
-            onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
+            onOpenTrack = { track ->
+                viewModel.onIntent(LibraryIntent.Opened(track.id))
+                navigator.showDetail(Editor(track.ref.uri))
+            },
             onFindCover = {
                 navigator.showDetail(Editor(it.ref.uri, then = EditorAction.FindCover))
             },
@@ -87,59 +93,104 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
     entry<Collection>(
         metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { NoSongOpen() })
     ) { key ->
-        // The library's ViewModel lives in the Library entry; a collection reads the same data
-        // through its own, keyed by what it shows.
+        // The library narrowed to the collection, keyed by what it shows: its songs are what is
+        // selected, taken in a range and played, and it is found again by them once an edit has
+        // given it another key.
         val viewModel: LibraryViewModel = koinViewModel(key = "collection:${key.key}")
         val state by viewModel.state.collectAsStateWithLifecycle()
-        LaunchedEffect(Unit) { viewModel.onIntent(LibraryIntent.Start) }
-        val player: PlayerController = koinInject()
-        // What plays and whether it does, not where it is: that changes twice a second.
-        val playback = player.state.collectAsStateWithLifecycle()
-        val playingTrack by remember { derivedStateOf { playback.value.current } }
-        val isPlaybackRunning by remember { derivedStateOf { playback.value.isPlaying } }
+        LaunchedEffect(key) { viewModel.onIntent(LibraryIntent.ShowCollection(key.type, key.key)) }
+        ShowMessages(viewModel.messages)
         val openInNewWindow = rememberNewWindowOpener()
-
-        // Found again by the songs it showed once an edit has given it another key: the artist of
-        // an album without an album artist changed, say, from the button that edits them all.
-        val shown = remember { ShownSongs() }
-        val collection =
-            remember(state, key) {
-                when (key.type) {
-                    CollectionType.Album -> state.albums
-                    CollectionType.Artist -> state.artists
-                    CollectionType.Folder -> state.folders
-                }.locate(key.key, shown.ids)
-            }
-        SideEffect { collection?.let { found -> shown.ids = found.tracks.map { it.id } } }
+        val collection = state.collection
         // None of its songs left where they were (moved by another app, say): it goes, rather than
         // stay a screen that loads forever.
         val gone = !state.loading && collection == null
         LaunchedEffect(gone) { if (gone) navigator.removeDestination(key) }
+        InspectorFollowsSelection(state, navigator)
 
+        val onIntent = rememberIntents(viewModel)
+        val actions =
+            remember(onIntent, navigator, openInNewWindow) {
+                LibraryActions(
+                    onIntent = onIntent,
+                    onOpenTrack = { track ->
+                        onIntent(LibraryIntent.Opened(track.id))
+                        navigator.showDetail(Editor(track.ref.uri))
+                    },
+                    onFindCover = {
+                        navigator.showDetail(Editor(it.ref.uri, then = EditorAction.FindCover))
+                    },
+                    onOpenCollection = {},
+                    onEditTracks = { tracks ->
+                        navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
+                    },
+                    onOpenInNewWindow = openInNewWindow,
+                    onOpenSettings = {},
+                    onOpenFile = {},
+                    onShowShortcuts = null,
+                )
+            }
         CollectionScreen(
             title = collection?.title ?: key.title,
             collection = collection.takeUnless { state.loading },
-            quality = state.quality,
-            playingTrack = playingTrack,
-            isPlaybackRunning = isPlaybackRunning,
+            state = state,
+            actions = actions,
             showBack = true,
-            onBack = navigator::goBack,
-            onOpenTrack = { navigator.showDetail(Editor(it.ref.uri)) },
-            onOpenInNewWindow = openInNewWindow,
-            onPlay = { tracks, index, shuffle -> player.play(tracks, index, shuffle) },
-            onEditAll = { tracks: List<Track> ->
-                navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
-            },
+            onBack = { navigator.leave(key) },
         )
     }
 }
 
 /**
- * The songs a collection's screen showed last. Nothing is drawn from them, so they are not state.
+ * Where a list shares the window with its inspector, the inspector shows what is selected in it, as
+ * a desktop's file manager does: the songs selected together in the batch editor, one song in its
+ * editor, and with nothing selected the song last opened with a click while it is listed, or
+ * nothing. Left to the clicks alone, the inspector stayed on the song opened before songs were
+ * selected, and an editor of a song no longer listed stayed beside a list of others.
+ *
+ * Only a change of the selection moves it, not what it is when the list comes back into sight: the
+ * inspector then shows what was left there (a file opened, the song playing). A selection that
+ * grows, row after row of a range or a drag, is shown once it has stopped for a moment: each step
+ * would read every song again. A selection ended shows at once what stands in for it. Whatever has
+ * unsaved changes stays ([Navigator.showSelection]). A phone has no inspector: there the selection
+ * is edited together from its bar.
  */
-private class ShownSongs {
-    var ids: List<TrackId> = emptyList()
+@OptIn(FlowPreview::class)
+@Composable
+private fun InspectorFollowsSelection(state: LibraryState, navigator: Navigator) {
+    if (LocalPaneContext.current.isSolePane) return
+    val inspected = remember(state.listing, state.selection, state.clicked) { Inspected.of(state) }
+    val latest = rememberUpdatedState(inspected)
+    LaunchedEffect(navigator) {
+        snapshotFlow { latest.value }
+            .drop(1)
+            .debounce { if (it.selected) SelectionSettles else Duration.ZERO }
+            .collect { navigator.showSelection(it.key) }
+    }
 }
+
+/** What the inspector shows of a list, and whether that is its selection. */
+private data class Inspected(val key: NavKey?, val selected: Boolean) {
+    companion object {
+        fun of(state: LibraryState): Inspected {
+            val selected = state.selectedTracks
+            return when {
+                selected.size > 1 -> Inspected(BatchEditor(selected.map { it.ref.uri }), true)
+                selected.size == 1 -> Inspected(Editor(selected.single().ref.uri), true)
+                else ->
+                    Inspected(
+                        state.clicked
+                            ?.let { id -> state.tracks.firstOrNull { it.id == id } }
+                            ?.let { Editor(it.ref.uri) },
+                        selected = false,
+                    )
+            }
+        }
+    }
+}
+
+/** How long a selection rests before the inspector reads it. */
+private val SelectionSettles = 300.milliseconds
 
 internal val TrackCollection.type: CollectionType
     get() =

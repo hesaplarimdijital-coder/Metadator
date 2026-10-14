@@ -5,6 +5,7 @@ package com.bobbyesp.metadator.feature.batch
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,10 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
         // Not saved: what it showed would be gone with the process, and the songs not yet read.
         var showCovers by remember { mutableStateOf(false) }
         var showLookup by remember { mutableStateOf(false) }
+        // The library beside it shows its selection here as it changes: never in place of edits
+        // not yet applied, nor of the dialog that says how applying them went.
+        val holding = !state.edit.isEmpty || state.progress != null
+        LaunchedEffect(holding) { navigator.hold(key, holding) }
         ShowMessages(viewModel.messages)
         viewModel.effects.CollectEffects { effect ->
             when (effect) {
