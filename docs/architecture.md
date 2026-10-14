@@ -123,12 +123,34 @@ list-detail is given a pane expansion anchored that far from the end, and the li
 rest. Left to itself, the scaffold splits the window down the middle. A list is told which detail
 is beside it (`LocalShownDetail`), and marks that song.
 
-A feature moves through the stack with its `Navigator` and nothing else. `goTo` adds a
-destination. `showDetail` is what a list uses for what is chosen in it: the choice takes the place
-of the detail on top when that is of the same kind, so that on a wide window, where the list stays
-beside its detail, choosing song after song does not pile up an editor for each. A detail that
-holds what must not be thrown away says so with `hold` (the editor, while it has unsaved changes),
-and stays under the next one instead.
+A feature moves through the stack with its `Navigator` and nothing else (`BackStackNavigator`,
+tested on the JVM). The stack is the library at its root, a collection gone to from it, what is
+shown beside each (an editor or the batch editor: `isList` and `isDetail` in `Keys.kt` say which,
+as the entries' metadata tells list-detail), and the screens gone to from those.
+
+- `goTo` adds a destination. A list gone to from a list starts with nothing beside it: what was
+  beside the one left was chosen there.
+- `showDetail` is what a list uses for what is chosen in it: the choice takes the place of what is
+  beside the list, an editor and the batch editor alike, so that on a wide window, where the list
+  stays beside its detail, choosing song after song does not pile up an editor for each. A detail
+  that holds what must not be thrown away says so with `hold` (the editor, while it has unsaved
+  changes; the batch editor, while it has edits not applied or its dialog of how applying them
+  went), and stays under the next one instead; nothing else is left under it, and a detail chosen
+  again comes up rather than twice. What came back with the stack after the process was gone is
+  kept until it has said whether it holds anything.
+- `showSelection` is what a list shows on its own as its selection changes: the same, but never over
+  a detail that holds something, since nobody chose it.
+- `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
+- `goBack` takes one step: what Back does.
+
+Back goes back one step at a time, through what is open, the selection, what is beside the list,
+the collection, then the library's places, as [desktop.md](desktop.md#back) lists. List-detail is
+told to pop one entry at a time (`BackNavigationBehavior.PopLatest`): its default pops until the
+panes change, and side by side they never do, so it took no Back at all and Android minimized the
+app. While the full player covers the screens, their back is off (a dispatcher of navigation events
+of their own, turned off), so that a screen composed after the player cannot take Back before it.
+At the start, a desktop's window stays where it is (`StayAtTheStart`, `DesktopWindow` in
+`MainActivity`); a phone goes home.
 
 Every transition between screens is in `NavigationMotion`:
 
@@ -229,7 +251,8 @@ desktop vocabulary over Material's components:
   something, and one that only says something. The second never looks selected, so it is not read
   as a filter that is on.
 - `GlassSurface`: what floats over the screen, as glass (see Blur): the player's bar and the
-  library's selection bar on a phone, and the menus.
+  library's selection bar on a phone, the player's controls over its lyrics on a phone on its side,
+  and the menus.
 - `PlayingBars`: the three bars on the row of the song that is playing; still while paused.
 - `SectionHeader`, `NavigationItem`, `SwitchItem`, `RadioItem`, `PlaceholderCard`: grouped lists
   (their shapes from `GroupShapes`) and what a screen shows instead of content.
@@ -245,9 +268,9 @@ desktop vocabulary over Material's components:
   choice, a sheet was there one frame and gone the next.
 - `LoadingScreen`: a screen still loading, which shows its indicator only once the wait has gone on
   for 400 ms.
-- `Tooltip`, `ContextMenuArea`, `HeldKeys`: what a mouse adds. The name of a button that is only an
-  icon, a menu on the second button, and the keys held during a click
-  ([desktop.md](desktop.md#mouse)).
+- `Tooltip`, `ContextMenuArea`, `HeldKeys`, `Modifier.marqueeSelection`: what a mouse adds. The
+  name of a button that is only an icon, a menu on the second button, the keys held during a
+  click, and a rectangle dragged over a list to select ([desktop.md](desktop.md#mouse)).
 
 `:core:ui` holds what two features show alike: `TrackTableHeader` and `TrackTableRow`, the table of
 songs, whose columns drop out as its panel narrows (`TrackColumns`: the year, then the format, then
@@ -280,18 +303,19 @@ two jobs.
 it shows through, blurred, under its Material container color made translucent. It is
 [Haze](https://github.com/chrisbanes/haze): the content is recorded with `Modifier.hazeSource`, and
 the surface applies `Modifier.frosted` with `MetadatorBlurDefaults.surfaceStyle(containerRole)`.
-The surface's own container becomes transparent and loses its shadow. That is the wide player's
-floating controls.
+The surface's own container becomes transparent and loses its shadow. Nothing floats bare like
+this now: the glass below is built on it.
 
 **What floats over the screen is glass** (`GlassSurface`, with
 `MetadatorBlurDefaults.glassStyle`): frosted as above, more see-through, with a hairline edge
 lighter along its top, and nothing drawn around it. The blur is on the surface, never around it:
 the bars and the menus were once lifted by a halo, the content around them out of focus, which read
 as an effect beside them rather than as depth. That is the player's bar on a phone, frosted with
-what the shell records, the library's selection bar, with the list the library records, and every
-menu's groups. While the player's bar travels into the full player it is solid, since nothing
-frosts during a shared element transition. The bar docked under the panels is not glass: it is a
-panel of the window, which nothing floats over.
+what the shell records, the library's selection bar, with the list the library records, the
+player's controls floating over its lyrics on a phone on its side, with the lyrics and the
+backdrop the player records, and every menu's groups. While the player's bar travels into the
+full player it is solid, since nothing frosts during a shared element transition. The bar docked
+under the panels is not glass: it is a panel of the window, which nothing floats over.
 
 - **The source is a sibling of what frosts it, never an ancestor.** A surface inside its own source
   would blur itself.
@@ -323,15 +347,17 @@ system's media notification and lock-screen controls. Its player is built with t
 and the audio containers only (FLAC, WAV, MP4, AMR, Ogg, Matroska, ADTS, AC-3, AC-4, MP3), so R8
 drops the rest of Media3; a new container is one more line there. `Media3PlayerController`
 connects to it on first use and exposes a `StateFlow<PlaybackState>`. It is driven from the main
-thread, as Media3 requires. The full player shows the position as a wave that lies flat while
-paused, as its slider's track; the bar on a phone, as a hairline along the foot of its glass; the
-bar docked on a wide window, as a desktop player does, a thin line between the times, which a
-click, a drag or the arrow keys move.
+thread, as Media3 requires. The position is shown as a desktop player shows it (`SeekLine`): a
+thin line, which a click, a drag or the arrow keys move, with a knob while the pointer is over it;
+between the times in the bar docked on a wide window, with the times under it in the full player,
+where there is room, and alone in the controls floating over a phone on its side, where there is
+none. The bar on a phone shows it as a hairline along the foot of its glass.
 
 The position is reported twice a second while a song plays, and is read apart from the rest
 (`PlaybackPosition`): the sheet hands its bars and screens what plays without it, which stays the
-same object while only the position moves, and only those lines, the sliders and the clock of the
-lyrics read where the song is. Read with the rest, it composed the whole player again each time.
+same object while only the position moves, and only those lines, the seek lines and the clock of
+the lyrics read where the song is. Read with the rest, it composed the whole player again each
+time.
 
 ### One surface, two sizes
 
@@ -363,13 +389,13 @@ corners straighten. Pulling the full player down, or back, closes it.
   - The title and the artist are one line each in both players, and the bar's styles are the full
     player's at a smaller size (`TextStyle.resizedTo`, `TrackNameDefaults`), not other roles of the
     type scale: those differ in weight, line height and tracking, and two texts that differ in any
-    of them drift apart glyph by glyph. They are scaled by their height from their start
-    (`scaleToBounds(FillHeight, CenterStart)`), so the two coincide for as long as they say the
-    same. They are `sharedBounds`, since a `sharedElement` would lay the text out again at every
-    width, with no enter and an exit that snaps, which is what draws only one. Both players say
-    the same in each line, so it travels whole. It is not clipped to its bounds on the way: on an
-    arc they do not keep the shape of the text, and would cut into it. A title too long for its
-    line scrolls in the full player instead of wrapping.
+    of them drift apart glyph by glyph. They are in the same colors in both too. They are scaled
+    by their height from their start (`scaleToBounds(FillHeight, CenterStart)`), so the two
+    coincide for as long as they say the same. They are `sharedBounds`, since a `sharedElement`
+    would lay the text out again at every width, with no enter and an exit that snaps, which is
+    what draws only one. Both players say the same in each line, so it travels whole. It is not
+    clipped to its bounds on the way: on an arc they do not keep the shape of the text, and would
+    cut into it. A title too long for its line scrolls in the full player instead of wrapping.
   - The album is the full player's alone and is not part of what travels. It is a `LabelChip`
     under the name that rolls into its place the first time the sheet settles (`RolledIn`): up
     from under it, out of focus from the speed and sharp as it stops. Its place is kept meanwhile,
@@ -385,7 +411,9 @@ corners straighten. Pulling the full player down, or back, closes it.
   - The button is a `sharedElement`, laid out again in the changing bounds. `PlayPauseButton`
     fills the size it is given and draws its icon at half its height, and the bar gives it the
     whole 48 dp touch target: left to Material's 40 dp container inside that target, it jumped to
-    fill it on the first frame of the transition.
+    fill it on the first frame of the transition. It is filled with the accent in the bars and on
+    the screen alike, for the same reason: one that changed color between the two changed it the
+    moment it set off.
   - The cover steps back while paused, in the full player only. Both covers scale by as much as
     the sheet is open, since a shared element draws only one of the two.
 - All three travel on an arc (`ArcAnimationSpec`), not a straight line: sideways first and up late
@@ -428,12 +456,35 @@ how much room it has: the shell measures the window and passes the layout that f
   controls on the left, and on the right the lyrics or the queue, chosen with `ConnectedChoices`
   (`NowPlayingWideContent`).
 - `SideBySideCompact`, the same under 600 dp of height (a phone on its side): there is no room for
-  the controls under the cover, so they float over the lyrics in a frosted bar.
+  the controls under the cover, so they float over the lyrics in a bar of glass (`GlassSurface`),
+  solid while the sheet moves, since nothing frosts during a shared element transition.
 
 Each modifier the sheet ties the bar's pieces with (cover, name, play button, drag handle) goes on
-exactly one element in every layout. The wide layouts are drawn over the cover, blurred, under a
-veil of the surface color. It is blurred small and stretched, which looks the same and costs a
-fraction on every frame the lyrics move. Below Android 12 the theme's colors take its place.
+exactly one element in every layout.
+
+All three are the Studio look, and the docked bar grown for a stage: the same pieces, larger.
+
+- Along the top, a row that is the handle the sheet is dragged down by (`PlayerTopRow`): the way
+  down at its start, and at its end `Edit tags`, a `StudioButton`, where a Studio screen keeps its
+  actions. On a wide window the right panel's `ConnectedChoices` sit on the same line.
+- The controls are the docked bar's in the docked bar's order (`TransportControls`): shuffle,
+  previous, play, next and repeat, as `StudioIconButton`s around the round play button in the
+  accent, at the size of the place they are in (`TransportSizes`: the docked bar's for a pointer,
+  the floating bar's for a finger in little room, the stage's under the cover). Shuffle and repeat
+  say whether they are on by their tint, the accent, and nothing more, as the docked bar says it.
+- The position is the same thin line (`SeekLine`), with its times under it where there is width,
+  beside it in the docked bar, and without them in the floating bar, where five buttons leave it
+  little enough.
+- The queue is rows in the library's style on one card (`UpNext`), with a hairline between them,
+  lit under the pointer; on a phone under a `SectionHeader`, on a wide window as the right panel.
+- The cover, the song's name in the Studio type scale, and the album as a `LabelChip` under it.
+
+Both layouts are drawn on the ground with the cover blurred beneath it, under a veil of the ground
+(`PlayerBackdrop`): a wash of the song's colors on the stage, which is the one screen that is the
+song's, while the panels keep their grays and the one accent, the cover's, stays the one accent.
+The cover is blurred small and stretched, which looks the same and costs a fraction on every frame
+the lyrics move. Below Android 12 the theme's colors take its place. Nothing else decorates the
+stage: no pills, no waves, no Material chips.
 
 ### Lyrics
 
@@ -451,12 +502,16 @@ reads them, and nothing is looked up online from the player. Looking them up is 
   The clock counts frames between reports and blends each report in rather than jumping to it. It
   is read only while drawing, and only by the line being sung, so nothing recomposes per frame;
   which line is being sung is a `derivedStateOf` that changes once per line.
-- `LyricsPane`: the line being sung comes forward (opacity, scale and the primary color, with an
-  effects spec) and the list scrolls it to a third of the way down, also with an effects spec so it
-  never bounces. Scrolling by hand stops that until the user asks to go back or leaves the list
-  alone for a while. Tapping a line plays from it.
+- `LyricsPane`: the lines are set in a headline of the Studio scale, a weight down from the
+  scale's, in the color of text that is not the point (`textSecondary`); the line being sung comes
+  forward, a little larger and in the accent, with an effects spec, and the list scrolls it to a
+  third of the way down, also with an effects spec so it never bounces. Colors, not opacities: the
+  lines are read ahead as text is. Scrolling by hand stops the following until the user asks to go
+  back (a `StudioButton`) or leaves the list alone for a while. Tapping a line plays from it. The
+  pane fades out at its top and its bottom rather than being cut.
 - Where words are timed, the line is drawn by hand from its `TextLayoutResult`, a word at a time:
-  in the primary color up to the word being sung and through it in step with it, with a soft edge.
+  the line lit in the text color, and in the accent up to the word being sung and through it in
+  step with it, with a soft edge.
   Each word rises a little as it is sung and stays up, and glows while it is sung and shortly
   after, more on a note that is held: the line shines only where the voice is. Words move apart
   from each other, so each row is split between its words and each part is the whole layout,

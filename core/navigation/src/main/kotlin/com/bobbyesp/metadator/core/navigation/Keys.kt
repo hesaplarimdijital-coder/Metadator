@@ -44,3 +44,16 @@ enum class EditorAction {
 @Serializable data object LookupSettings : NavKey
 
 @Serializable data object About : NavKey
+
+/*
+ * What the entries tell list-detail with their metadata, the navigator needs to keep the stack:
+ * which destinations list songs and which are shown beside a list, in a wide window's inspector.
+ */
+
+/** Whether this lists songs, beside which a wide window shows what is chosen in it. */
+internal val NavKey.isList: Boolean
+    get() = this is Library || this is Collection
+
+/** Whether this is shown beside a list: one song's editor, or the batch editor. */
+internal val NavKey.isDetail: Boolean
+    get() = this is Editor || this is BatchEditor
