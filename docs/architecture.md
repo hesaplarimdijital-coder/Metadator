@@ -119,12 +119,34 @@ list-detail is given a pane expansion anchored that far from the end, and the li
 rest. Left to itself, the scaffold splits the window down the middle. A list is told which detail
 is beside it (`LocalShownDetail`), and marks that song.
 
-A feature moves through the stack with its `Navigator` and nothing else. `goTo` adds a
-destination. `showDetail` is what a list uses for what is chosen in it: the choice takes the place
-of the detail on top when that is of the same kind, so that on a wide window, where the list stays
-beside its detail, choosing song after song does not pile up an editor for each. A detail that
-holds what must not be thrown away says so with `hold` (the editor, while it has unsaved changes),
-and stays under the next one instead.
+A feature moves through the stack with its `Navigator` and nothing else (`BackStackNavigator`,
+tested on the JVM). The stack is the library at its root, a collection gone to from it, what is
+shown beside each (an editor or the batch editor: `isList` and `isDetail` in `Keys.kt` say which,
+as the entries' metadata tells list-detail), and the screens gone to from those.
+
+- `goTo` adds a destination. A list gone to from a list starts with nothing beside it: what was
+  beside the one left was chosen there.
+- `showDetail` is what a list uses for what is chosen in it: the choice takes the place of what is
+  beside the list, an editor and the batch editor alike, so that on a wide window, where the list
+  stays beside its detail, choosing song after song does not pile up an editor for each. A detail
+  that holds what must not be thrown away says so with `hold` (the editor, while it has unsaved
+  changes; the batch editor, while it has edits not applied or its dialog of how applying them
+  went), and stays under the next one instead; nothing else is left under it, and a detail chosen
+  again comes up rather than twice. What came back with the stack after the process was gone is
+  kept until it has said whether it holds anything.
+- `showSelection` is what a list shows on its own as its selection changes: the same, but never over
+  a detail that holds something, since nobody chose it.
+- `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
+- `goBack` takes one step: what Back does.
+
+Back goes back one step at a time, through what is open, the selection, what is beside the list,
+the collection, then the library's places, as [desktop.md](desktop.md#back) lists. List-detail is
+told to pop one entry at a time (`BackNavigationBehavior.PopLatest`): its default pops until the
+panes change, and side by side they never do, so it took no Back at all and Android minimized the
+app. While the full player covers the screens, their back is off (a dispatcher of navigation events
+of their own, turned off), so that a screen composed after the player cannot take Back before it.
+At the start, a desktop's window stays where it is (`StayAtTheStart`, `DesktopWindow` in
+`MainActivity`); a phone goes home.
 
 Every transition between screens is in `NavigationMotion`:
 
