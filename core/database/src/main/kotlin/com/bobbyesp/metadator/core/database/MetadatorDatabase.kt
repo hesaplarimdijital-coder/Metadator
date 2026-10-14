@@ -52,8 +52,8 @@ interface TagBackupDao {
 }
 
 /**
- * What was read from a song's file to fill in what MediaStore does not know about it. A cache: a
- * row is only good for the file as it was at [dateModified] and [sizeBytes].
+ * What was read from a song's file to fill in what MediaStore does not know about it, or decodes
+ * wrong. A cache: a row is only good for the file as it was at [dateModified] and [sizeBytes].
  */
 @Entity(tableName = "track_tags")
 data class TrackTagsEntity(
@@ -67,6 +67,9 @@ data class TrackTagsEntity(
     @ColumnInfo(name = "track_number") val trackNumber: Int?,
     @ColumnInfo(name = "disc_number") val discNumber: Int?,
     val genre: String?,
+    val title: String?,
+    /** `FileTrackTags.READER_VERSION` when the row was read: 1 for rows from before titles were. */
+    @ColumnInfo(name = "reader_version", defaultValue = "1") val readerVersion: Int,
 )
 
 @Dao
@@ -80,9 +83,9 @@ interface TrackTagsDao {
 
 @Database(
     entities = [TagBackupEntity::class, TrackTagsEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class MetadatorDatabase : RoomDatabase() {
     abstract fun tagBackups(): TagBackupDao

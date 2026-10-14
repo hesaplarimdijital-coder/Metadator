@@ -28,8 +28,9 @@ or on another feature fails the build.
 - **Domain** (`core:domain`): use cases and pure logic. `SaveTagChangesUseCase`,
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
   `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
-  and the spectrum it reads ([lossless-check.md](lossless-check.md)), and `FindCoversUseCase` with
-  the scoring of covers ([cover-finder.md](cover-finder.md)).
+  and the spectrum it reads ([lossless-check.md](lossless-check.md)), `FindCoversUseCase` with
+  the scoring of covers ([cover-finder.md](cover-finder.md)), and `GarbledText`, which tells text
+  decoded with the wrong character set and puts it right (`text`).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
   `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. One port is the domain's own, having no
@@ -44,8 +45,33 @@ The library is MediaStore's, completed from the files (`TagCompletedAudioLibrary
 scanner does not index every tag of every format: a FLAC's `DATE` never becomes a year, and before
 Android 11 there is no album artist or genre at all. A song with a field MediaStore has no value
 for has its tags read once, and what was read is cached in Room (`track_tags`) against the file's
-modification date and size. MediaStore's values always win; the file only fills the gaps, so
-"Needs attention" means the file itself lacks the field.
+modification date and size. MediaStore's values win where they read right, and the file fills the
+gaps, so "Needs attention" means the file itself lacks the field.
+
+**Text MediaStore decoded wrong is the file's own.** Android's scanner decodes a tag marked Latin-1
+with a guess at its real character set, and old taggers wrote whatever bytes they had under that
+mark: Turkish in Windows-1254, or UTF-8. A wrong guess shows "MoÄŸollar" for "Moğollar", or Chinese
+characters in a Turkish name, and split an album in two when its songs gave their album artist both
+ways. `GarbledText` (`core:domain`, `text`) tells such text from text that is right:
+
+- UTF-8 read as Windows-1252 or Latin-1 ("Ã¶" for "ö"), when the bytes the text stands for are
+  UTF-8 without a fault and decode to letters of one script per word. Text that is right almost
+  never is: it would need an accented capital followed by a symbol.
+- Turkish in Windows-1254 read as Latin-1 ("Moðollar"), when swapping the six letters the two
+  differ in (ð Ð þ Þ ý Ý for ğ Ğ ş Ş ı İ) gives text that is Turkish by its letters and its shape:
+  only Turkish letters, ğ after exactly one vowel, and something only Turkish has (ç or ü, a ğ in a
+  word of one vowel harmony, an ş before a consonant…). Icelandic, which has those six letters
+  itself, is left as it is; a short word both could spell ("Kýr") too.
+- Characters of another script against Latin letters, in text that is mostly Latin: what a wrong
+  guess at an Asian character set gives ("Mo" and a Chinese character and "llar"). That cannot be
+  undone from the text; only the file can say what it was.
+
+A song whose title, artist, album or album artist looks garbled has its file read too, once per
+version of the file like the rest (`track_tags` keeps the title for it), and the library shows the
+file's text where it looks less garbled than MediaStore's. Where the file itself is garbled, as
+TagLib reads it too, the editor says so above the fields, with what each field most likely says
+("Album artist: Moğollar?"), and one action that puts them right as changes to save
+(`TagMap.textRepairs`, which a batch can write as well).
 
 **A list shows each song's own cover** (`TrackArtwork`, `Track.artwork`): MediaStore's thumbnail
 of the picture in the song's file (`ContentResolver.loadThumbnail`, which reads it out of the file

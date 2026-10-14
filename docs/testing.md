@@ -9,6 +9,7 @@
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
 | JVM unit | The check of the whole library: each lossless song once, again only once its file changed, a song added later, a verdict the editor made (`LibraryQualityScannerTest`) | `core/domain` |
+| JVM unit | Garbled text: UTF-8 read as Windows-1252 or Latin-1, once or twice over, and Turkish in Windows-1254 read as Latin-1, put right; Icelandic, Faroese and other text that is right left alone; a wrong guess at an Asian character set recognized; the repairs offered for a file's tags (`GarbledTextTest`). The library showing a garbled song's text from its file, read once per version (`GarbledLibraryTextTest`) | `core/domain` |
 | JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |

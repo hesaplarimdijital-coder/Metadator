@@ -104,6 +104,7 @@ import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.editor.LoadedTrack
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.cacheKey
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
@@ -116,6 +117,7 @@ import com.bobbyesp.metadator.feature.editor.components.CoverModel
 import com.bobbyesp.metadator.feature.editor.components.EditorActions
 import com.bobbyesp.metadator.feature.editor.components.EditorHeader
 import com.bobbyesp.metadator.feature.editor.components.FileInfoCard
+import com.bobbyesp.metadator.feature.editor.components.GarbledTextNotice
 import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
 import com.bobbyesp.metadator.feature.editor.components.TagChipsField
@@ -799,6 +801,17 @@ private fun Fields(parts: EditorParts, draft: TagDraft) {
     val separator = state.settings.multiValueSeparator
     val missing = EssentialFields.filter { field -> draft.tags[field.key].all { it.isBlank() } }
     if (missing.isNotEmpty()) AttentionNotice(missing.map { fieldLabel(it.key) })
+    // The file's own text garbled, as TagLib reads it: offered put right, to save as any change.
+    val repairs = remember(draft.tags) { draft.tags.textRepairs() }
+    if (repairs.isNotEmpty()) {
+        GarbledTextNotice(
+            suggestions =
+                repairs.map { (key, values) ->
+                    fieldLabel(key) to values.joinToString(", ") { it.lineSequence().first() }
+                },
+            onRepair = { onIntent(EditorIntent.RepairText) },
+        )
+    }
 
     Section(stringResource(R.string.section_main)) {
         FieldInput(TagField.Title, draft, separator, onIntent)

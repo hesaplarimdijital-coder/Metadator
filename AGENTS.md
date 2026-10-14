@@ -17,9 +17,9 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:app` | Composition root: `App`, `MainActivity`, `ExternalEditorActivity`, the navigation shell, DI wiring, flavors. | The only module that names implementations. |
 | `:core:model` | `Track`, `ContentRef`, `UserSettings`… | Plain Kotlin. |
 | `:core:common` | Dispatchers, `StringProvider`, text helpers. | Plain Kotlin. |
-| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check and the check of the whole library (`quality`), the cover finder (`cover`). | Plain Kotlin. Tested on the JVM with fakes. |
+| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check and the check of the whole library (`quality`), the cover finder (`cover`), garbled text (`text`). | Plain Kotlin. Tested on the JVM with fakes. |
 | `:core:data` | DataStore settings, Android strings, decoding pictures for the cover finder, the lossless check's verdicts. | |
-| `:core:database` | Room: tag backups for undo. | |
+| `:core:database` | Room: tag backups for undo, the tags read from files for the library. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
 | `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
 | `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
