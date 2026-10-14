@@ -30,6 +30,8 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
                 add("implementation", libs.library("kotlinx-collections-immutable"))
 
                 add("testImplementation", libs.library("turbine"))
+                // The domain's fakes of the ports, for the ViewModels' tests.
+                add("testImplementation", testFixtures(project(":core:domain")))
             }
 
             afterEvaluate { checkDependencyRules() }

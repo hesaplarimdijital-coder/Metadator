@@ -19,6 +19,7 @@
 | JVM unit | A text field's echo of what the screen keeps: typed text said back, a value the screen sets on its own, texts it skips or turns down (`TextMirrorTest`) | `core/designsystem` |
 | JVM unit | Which items a rectangle dragged with the mouse touches, with a bar pinned at the top of the list too, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
 | JVM unit | What a click on a song does, by the keys held and the pointer that clicked: a mouse's opens it, a finger's picks it while songs are selected (`SongClickTest`) | `feature/library` |
+| JVM unit | The editor's ViewModel: a song opened, what was typed typed again after the process died, a save and its Undo, a change the file already holds, write access refused before writing and when asked, a failed write, what is typed while a save writes, lyrics not looked for without a title, garbled text repaired field by field, a failure nothing explains said (`EditorViewModelTest`) | `feature/editor` |
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
 
@@ -61,6 +62,10 @@ build works there; it does not say how the app feels, and it is not Samsung DeX.
 
 - Ports are tested with fakes, not mocks of the framework. `FakeTagFiles` behaves like TagLib:
   a write replaces the whole property map, and keys a format cannot hold are dropped.
+- The fakes are `core/domain`'s test fixtures (`src/testFixtures`), which every feature's tests
+  get too: a ViewModel is tested with the domain's real use cases on fake ports. A feature's own
+  port (the editor's `ImageSource`) is faked in its tests, and its `MainDispatcherRule` runs
+  what the ViewModel launches on the test's scheduler.
 - A bug gets a failing test before its fix.
 
 ## Not yet verified
