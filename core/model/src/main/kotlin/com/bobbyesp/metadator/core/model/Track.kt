@@ -54,11 +54,15 @@ data class Track(
             if (genre.isNullOrBlank()) add(TrackField.Genre)
         }
 
-    val needsAttention: Boolean
-        get() = missingFields.any { it in TrackField.Essential }
+    /*
+     * Worked out once for each song, not at each letter typed in the library's search, which counts
+     * and filters every song by them. A song never changes; a copy of it works them out again.
+     */
 
-    val fileExtension: String
-        get() = displayName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+    val needsAttention: Boolean = missingFields.any { it in TrackField.Essential }
+
+    val fileExtension: String =
+        displayName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
 
     /** The song's own cover, as the lists show it. */
     val artwork: TrackArtwork

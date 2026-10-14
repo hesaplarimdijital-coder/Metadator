@@ -114,20 +114,27 @@ private fun Track.matches(terms: List<String>): Boolean {
     return terms.all { it in haystack }
 }
 
-fun List<Track>.sorted(order: SortOrder, locale: Locale = Locale.getDefault()): List<Track> {
+fun List<Track>.sorted(order: SortOrder, locale: Locale = Locale.getDefault()): List<Track> =
+    sortedWith(order.comparator(locale))
+
+/**
+ * How [sorted] orders songs. Made once for all the lists sorted alike: each makes a collator, which
+ * is slow to make, and the artists and folders of a library are hundreds of lists.
+ */
+private fun SortOrder.comparator(locale: Locale = Locale.getDefault()): Comparator<Track> {
     val collator = Collator.getInstance(locale).apply { strength = Collator.PRIMARY }
     val text =
         Comparator<String?> { a, b ->
             when {
                 a.isNullOrBlank() && b.isNullOrBlank() -> 0
                 // Missing values last, whichever the direction, so they never crowd the top.
-                a.isNullOrBlank() -> if (order.ascending) 1 else -1
-                b.isNullOrBlank() -> if (order.ascending) -1 else 1
+                a.isNullOrBlank() -> if (ascending) 1 else -1
+                b.isNullOrBlank() -> if (ascending) -1 else 1
                 else -> collator.compare(a, b)
             }
         }
     val comparator: Comparator<Track> =
-        when (order.sort) {
+        when (sort) {
             TrackSort.Title -> compareBy(text) { it.title }
             TrackSort.Artist ->
                 compareBy<Track, String?>(text) { it.artist }
@@ -142,7 +149,7 @@ fun List<Track>.sorted(order: SortOrder, locale: Locale = Locale.getDefault()): 
             TrackSort.DateModified -> compareBy { it.dateModifiedEpochSeconds }
             TrackSort.Duration -> compareBy { it.durationMs }
         }
-    return sortedWith(if (order.ascending) comparator else comparator.reversed())
+    return if (ascending) comparator else comparator.reversed()
 }
 
 /**
@@ -173,18 +180,19 @@ fun List<Track>.albums(): List<TrackCollection.Album> = filter {
     .sortedWith(compareBy(Collator.getInstance()) { it.title })
 
 /** Artists by album artist when there is one, so features do not split an album's artist. */
-fun List<Track>.artists(): List<TrackCollection.Artist> = filter {
-    !(it.albumArtist ?: it.artist).isNullOrBlank()
+fun List<Track>.artists(): List<TrackCollection.Artist> {
+    val byAlbum = SortOrder(TrackSort.Album).comparator()
+    return filter { !(it.albumArtist ?: it.artist).isNullOrBlank() }
+        .groupBy { (it.albumArtist ?: it.artist)!!.trim() }
+        .map { (name, tracks) ->
+            TrackCollection.Artist(
+                key = "artist:$name",
+                title = name,
+                tracks = tracks.sortedWith(byAlbum),
+            )
+        }
+        .sortedWith(compareBy(Collator.getInstance()) { it.title })
 }
-    .groupBy { (it.albumArtist ?: it.artist)!!.trim() }
-    .map { (name, tracks) ->
-        TrackCollection.Artist(
-            key = "artist:$name",
-            title = name,
-            tracks = tracks.sorted(SortOrder(TrackSort.Album)),
-        )
-    }
-    .sortedWith(compareBy(Collator.getInstance()) { it.title })
 
 /**
  * The collection known by [key] or, when none is any more, the one most of [songs] are in now. An
@@ -200,16 +208,17 @@ fun <C : TrackCollection> List<C>.locate(key: String, songs: Collection<TrackId>
                 ?.first
         }
 
-fun List<Track>.folders(): List<TrackCollection.Folder> = groupBy {
-    it.folder.orEmpty()
+fun List<Track>.folders(): List<TrackCollection.Folder> {
+    val byTitle = SortOrder(TrackSort.Title).comparator()
+    return groupBy { it.folder.orEmpty() }
+        .map { (folder, tracks) ->
+            val path = folder.trimEnd('/')
+            TrackCollection.Folder(
+                key = "folder:$folder",
+                title = path.substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
+                parent = path.substringBeforeLast('/', ""),
+                tracks = tracks.sortedWith(byTitle),
+            )
+        }
+        .sortedWith(compareBy(Collator.getInstance()) { it.title })
 }
-    .map { (folder, tracks) ->
-        val path = folder.trimEnd('/')
-        TrackCollection.Folder(
-            key = "folder:$folder",
-            title = path.substringAfterLast('/').ifEmpty { folder.ifEmpty { "/" } },
-            parent = path.substringBeforeLast('/', ""),
-            tracks = tracks.sorted(SortOrder(TrackSort.Title)),
-        )
-    }
-    .sortedWith(compareBy(Collator.getInstance()) { it.title })

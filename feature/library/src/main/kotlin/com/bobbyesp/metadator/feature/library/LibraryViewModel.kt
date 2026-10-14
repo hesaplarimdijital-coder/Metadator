@@ -648,13 +648,21 @@ class LibraryViewModel(
                     .map { Listed(current, it) }
             } else flowOf(Listed(current, emptySet()))
         }
+        // The whole library, not what is listed: the checks go through all of it, and once for
+        // each version of it, not again at each letter typed in the search.
+        val tracks =
+            library.observeTracks().onEach { all ->
+                quality.submit(all)
+                covers.submit(all)
+                latest.value = all
+            }
         observing =
-            combine(library.observeTracks(), queried, fakes) { tracks, listed, fake ->
-                    // The whole library, not what is listed: the checks go through all of it.
-                    quality.submit(tracks)
-                    covers.submit(tracks)
-                    latest.value = tracks
-                    present(tracks, listed.query, fake, listed.withoutCover)
+            combine(tracks, queried, fakes) { all, listed, fake -> Triple(all, listed, fake) }
+                // A listing takes a while for a large library: one a letter, a fast typist's list
+                // fell behind the search. At most one no longer wanted, then the latest.
+                .conflate()
+                .map { (all, listed, fake) ->
+                    present(all, listed.query, fake, listed.withoutCover)
                 }
                 .flowOn(dispatchers.default)
                 .catch {
