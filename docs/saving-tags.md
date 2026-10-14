@@ -38,6 +38,11 @@ difference, `TagChanges`: changed keys (an empty list removes a key) and an `Art
 
 Undo (`RestoreBackupUseCase`) writes a backup back and rescans.
 
+After a save the editor reads the file again and shows what it now holds. Its fields stay editable
+while a save writes: what was edited meanwhile is made again on what was read
+(`TagDraft.changesSince`, `TagDraft.applying`) and kept for process death like any other edit, so a
+slow save does not take it with it.
+
 Multi-value fields are lists from the file to the chips in the editor and back. The only place
 values are joined is the user's choice in Settings ("Join them into one value"), applied to the
 fields they changed, just before writing. What is typed into a field of chips becomes a value on
