@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
 /**
@@ -49,36 +50,42 @@ internal fun PlayPauseButton(
     val motion = MaterialTheme.motionScheme
     val container = Studio.colors.accent
     val content = MaterialTheme.colorScheme.onPrimary
-    FilledIconToggleButton(
-        checked = isPlaying,
-        onCheckedChange = { onToggle() },
-        shapes = IconButtonDefaults.toggleableShapes(),
-        modifier = modifier,
-        colors =
-            IconButtonDefaults.filledIconToggleButtonColors(
-                containerColor = container,
-                contentColor = content,
-                checkedContainerColor = container,
-                checkedContentColor = content,
-            ),
-    ) {
-        AnimatedContent(
-            targetState = isPlaying,
-            transitionSpec = {
-                (scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f) +
-                    fadeIn(motion.fastEffectsSpec())) togetherWith
-                    (scaleOut(motion.fastEffectsSpec(), targetScale = 0.6f) +
-                        fadeOut(motion.fastEffectsSpec()))
-            },
-            label = "PlayPause",
-        ) { playing ->
-            Icon(
-                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(if (playing) R.string.pause else R.string.play),
-                modifier =
-                    Modifier.fillMaxHeight(ICON_FRACTION)
-                        .aspectRatio(1f, matchHeightConstraintsFirst = true),
-            )
+    val name = stringResource(if (isPlaying) R.string.pause else R.string.play)
+    // Named for the pointer, as every button that is only an icon is. The tooltip is around the
+    // button, not in its chain: what the sheet ties to the other player's is the button alone.
+    Tooltip(name) {
+        FilledIconToggleButton(
+            checked = isPlaying,
+            onCheckedChange = { onToggle() },
+            shapes = IconButtonDefaults.toggleableShapes(),
+            modifier = modifier,
+            colors =
+                IconButtonDefaults.filledIconToggleButtonColors(
+                    containerColor = container,
+                    contentColor = content,
+                    checkedContainerColor = container,
+                    checkedContentColor = content,
+                ),
+        ) {
+            AnimatedContent(
+                targetState = isPlaying,
+                transitionSpec = {
+                    (scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f) +
+                        fadeIn(motion.fastEffectsSpec())) togetherWith
+                        (scaleOut(motion.fastEffectsSpec(), targetScale = 0.6f) +
+                            fadeOut(motion.fastEffectsSpec()))
+                },
+                label = "PlayPause",
+            ) { playing ->
+                Icon(
+                    if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription =
+                        stringResource(if (playing) R.string.pause else R.string.play),
+                    modifier =
+                        Modifier.fillMaxHeight(ICON_FRACTION)
+                            .aspectRatio(1f, matchHeightConstraintsFirst = true),
+                )
+            }
         }
     }
 }
