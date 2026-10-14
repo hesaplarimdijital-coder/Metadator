@@ -10,6 +10,7 @@ app ──────────────► every module (the only place i
 feature:* ────────► core:*, *:api
 core:ui ──────────► core:designsystem, core:domain (what two features show alike)
 core:domain ──────► core:model, core:common, tags:api, library:api, lookup:api, lyrics:api
+core:database ────► core:domain, tags:api, library:api (the ports its stores implement)
 tags:taglib ──────► tags:api, library:api (opens files through AudioFileOpener)
 lookup:* , lyrics:lrclib ─► their api, core:network
 ```
@@ -29,13 +30,16 @@ or on another feature fails the build.
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
   `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
   and the spectrum it reads ([lossless-check.md](lossless-check.md)), `FindCoversUseCase` with
-  the scoring of covers ([cover-finder.md](cover-finder.md)), and `GarbledText`, which tells text
-  decoded with the wrong character set and puts it right (`text`).
+  the scoring of covers ([cover-finder.md](cover-finder.md)), `GarbledText`, which tells text
+  decoded with the wrong character set and puts it right (`text`), and `LibraryCoverScanner`, which
+  finds the songs without a cover (`artwork`).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
-  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. One port is the domain's own, having no
-  engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
-  (`AndroidImageSampler` in `core:data`).
+  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. A few ports are the domain's own,
+  having no engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
+  (`AndroidImageSampler` in `core:data`), and the stores of what the checks of the library found,
+  `QualityStore` (`FileQualityStore` in `core:data`) and `CoverCheckStore` (`RoomCoverCheckStore`
+  in `core:database`).
 - **Implementations**: TagLib, MediaStore, Room, DataStore, Ktor, Media3.
 - **Presentation** (`feature:*`): screens and ViewModels. What two features show alike is in
   `core:ui`, since a feature cannot depend on another: the cover finder's sheet and its ViewModel
@@ -85,6 +89,20 @@ before it was saved, for as long as the app ran. A song whose file holds no pict
 folder has none, shows the note in its place, as the editor shows none; that it has none is
 remembered for that version of the file, so that its file is not opened again each time its row
 comes back in sight. A group (an album, an artist) shows its first song's.
+
+**Which songs have no cover is found in the background** (`LibraryCoverScanner`, one for the app,
+as the lossless check is): a row only learns it when it fails to show one. Each song's file is read
+with TagLib for its pictures, a picture of any kind counting, since the app shows the first one
+where there is no front cover. What was found is kept in Room (`cover_checks`) against the song and
+the version of its file, its modification date and size: a restart reads nothing again, and a song
+saved with a cover is read again first, before the songs not read yet. A file TagLib reads no tags
+of is kept as unknown; one that could not be opened is tried again at the next start. The scanner
+is given the library (`submit`) and works through it one file at a time, yielding between two, and
+waits while the lossless check of the library or a batch is at the files. Its state
+(`LibraryCoverState`) is the songs without a cover and how far it has got. The TagLib binding has
+no read of pictures that skips their bytes (`getPictures` copies them too, and cannot tell a format
+it does not read from a file without pictures), so it reads the tags with their pictures, as the
+editor does.
 
 **Albums are grouped by album artist and title** (the artist where there is no album artist), and
 known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives

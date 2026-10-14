@@ -13,9 +13,12 @@ import com.bobbyesp.metadator.core.data.DataStoreSettingsRepository
 import com.bobbyesp.metadator.core.data.FileQualityStore
 import com.bobbyesp.metadator.core.data.createSettingsDataStore
 import com.bobbyesp.metadator.core.database.MetadatorDatabase
+import com.bobbyesp.metadator.core.database.RoomCoverCheckStore
 import com.bobbyesp.metadator.core.database.RoomTagBackupStore
 import com.bobbyesp.metadator.core.database.RoomTrackTagCache
 import com.bobbyesp.metadator.core.database.TagBackupFiles
+import com.bobbyesp.metadator.core.domain.artwork.CoverCheckStore
+import com.bobbyesp.metadator.core.domain.artwork.LibraryCoverScanner
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.cover.FindCoversUseCase
 import com.bobbyesp.metadator.core.domain.cover.ImageSampler
@@ -69,6 +72,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
@@ -121,6 +126,7 @@ private val engineModule = module {
     single { ActivityResultHost() }
     single<AudioFileOpener> { ContentResolverFileOpener(androidContext(), get()) }
     single<TrackTagCache> { RoomTrackTagCache(get<MetadatorDatabase>().trackTags()) }
+    single<CoverCheckStore> { RoomCoverCheckStore(get<MetadatorDatabase>().coverChecks()) }
     single<AudioLibrary> {
         TagCompletedAudioLibrary(
             source = MediaStoreAudioLibrary(androidContext(), get()),
@@ -156,6 +162,18 @@ private val domainModule = module {
     }
     // One for the app: the check of the library goes on while its screens come and go.
     single { LibraryQualityScanner(get(), get(), get(), get(AppScope)) }
+    // The same for covers, which wait while the lossless check or a batch is at the files.
+    single {
+        val checking = get<LibraryQualityScanner>().state.map { it.isRunning }
+        val saving = get<BatchRunner>().progress.map { it?.isRunning == true }
+        LibraryCoverScanner(
+            reader = get(),
+            store = get(),
+            dispatchers = get(),
+            scope = get(AppScope),
+            busy = combine(checking, saving) { quality, batch -> quality || batch },
+        )
+    }
     factory { FindCoversUseCase(get(), get(), get(), get()) }
     single {
         LookupService(
