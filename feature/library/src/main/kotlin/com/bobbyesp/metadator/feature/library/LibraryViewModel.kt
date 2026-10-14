@@ -167,6 +167,14 @@ data class LibraryState(
     val selecting: Boolean
         get() = selection.isNotEmpty()
 
+    /**
+     * Whether the check of covers is waiting for the lossless check to be done with the files,
+     * which it is given as work that matters more (`busy` in the app's modules): its share does not
+     * move meanwhile, which the first pass over a large lossless library makes an hour.
+     */
+    val coversWaiting: Boolean
+        get() = covers.isRunning && quality.isRunning
+
     val selectedTracks: List<Track>
         get() = tracks.filter { it.id in selection }
 

@@ -129,7 +129,10 @@ got beside its count while it runs, and a filter of the songs, the albums and th
 such song, each listed whole (`lackingCover`), since a cover is found for an album, not for those
 of its songs that lack one. The chip says which it is and counts it, and says it in full when
 pointed at. What the check finds lists the songs again only while they are narrowed to those
-without a cover: it finds more every few songs.
+without a cover: it finds more every few songs. While it waits for the lossless check to be done
+with the files, the list says it waits rather than how far it has got (`coversWaiting`): the
+lossless check's first pass over a large library can take an hour, and a share that did not move
+read as a slow check.
 
 **Albums are grouped by album artist and title** (the artist where there is no album artist), and
 known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives

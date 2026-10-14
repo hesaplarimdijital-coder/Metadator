@@ -98,6 +98,8 @@
     <string name="no_cover_albums_description">Albums with at least one song without a cover</string>
     <string name="no_cover_artists_description">Artists with at least one song without a cover</string>
     <string name="cover_progress">Checking covers: %1$s of %2$s</string>
+    <string name="cover_check_waiting">%1$s · waiting</string>
+    <string name="cover_progress_waiting">Covers are checked after the lossless files</string>
     <string name="no_missing_covers_title">No song without a cover</string>
     <string name="no_missing_covers_description">Every song in your library has a cover of its own.</string>
     <string name="no_missing_covers_yet_description" tools:ignore="PluralsCandidate">None so far: %1$d of %2$d songs checked. The rest are being checked in the background.</string>

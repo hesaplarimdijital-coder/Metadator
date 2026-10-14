@@ -103,6 +103,8 @@
     <string name="no_cover_albums_description">Álbumes con al menos una canción sin carátula</string>
     <string name="no_cover_artists_description">Artistas con al menos una canción sin carátula</string>
     <string name="cover_progress">Comprobando carátulas: %1$s de %2$s</string>
+    <string name="cover_check_waiting">%1$s · en espera</string>
+    <string name="cover_progress_waiting">Las carátulas se comprueban después de los archivos sin pérdidas</string>
     <string name="no_missing_covers_title">Ninguna canción sin carátula</string>
     <string name="no_missing_covers_description">Todas las canciones de tu biblioteca tienen su propia carátula.</string>
     <string name="no_missing_covers_yet_description">Ninguna por ahora: %1$d de %2$d canciones comprobadas. El resto se comprueba en segundo plano.</string>
