@@ -5,7 +5,7 @@
 | Level | What | Where |
 |---|---|---|
 | JVM unit | Tag merge and diff, pictures, multi-values (`TagChangesTest`) | `tags/api` |
-| JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
+| JVM unit | Save, verify, restore, failure paths, the backups a save and a batch keep, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`, `BatchTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
 | JVM unit | The check of the whole library: each lossless song once, again only once its file changed, a song added later, a verdict the editor made (`LibraryQualityScannerTest`) | `core/domain` |

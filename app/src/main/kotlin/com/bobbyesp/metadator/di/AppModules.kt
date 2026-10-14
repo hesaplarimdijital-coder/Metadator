@@ -163,7 +163,7 @@ private val domainModule = module {
             get(),
         )
     }
-    single { BatchRunner(get(AppScope), get()) }
+    single { BatchRunner(get(AppScope), get(), get()) }
 }
 
 val appModules =

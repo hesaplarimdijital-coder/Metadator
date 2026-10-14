@@ -28,8 +28,10 @@ difference, `TagChanges`: changed keys (an empty list removes a key) and an `Art
    touches only the front cover; back covers, artist pictures and the rest stay. Choosing the
    picture the file already has (the cover finder puts it first when a source has it too) is no
    change in the draft at all.
-4. Backs up the file's tags and pictures (`TagBackupStore`, Room plus picture files, the newest
-   100 kept).
+4. Backs up the file's tags and pictures (`TagBackupStore`, Room plus picture files) and drops
+   the oldest backups beyond the newest 100 (`BackupPolicy`). A batch (`BatchRunner`) drops them
+   only once, when it ends, cancelled or not, and keeps all of its own even past 100, so "Undo
+   all" can restore every one of its songs; the next save prunes back to 100.
 5. Writes. If the write fails, it writes the backup back; if that fails too, the backup is kept.
 6. Reads again and reports changed keys the format did not store (`SaveOutcome.Saved.notStored`).
 7. Asks MediaStore to rescan the file, so the library and other players see the new tags.
