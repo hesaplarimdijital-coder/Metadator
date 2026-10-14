@@ -54,7 +54,9 @@ selection that grows (a range, a drag) is shown once it has rested 300 ms, since
 read every song again; an ended selection shows at once what stands in for it. It never comes over
 unsaved changes (`Navigator.showSelection`): they stay in sight until saved or thrown away, and the
 selection is shown from its next change. A song or a file opened by hand stays until the selection
-changes. On a phone nothing follows: the selection is edited together from its bar.
+changes, and stays when the list changes under it: a search or a smart list that leaves out the
+song clicked before closes that song's editor, when it is what is beside the list, and nothing
+else. On a phone nothing follows: the selection is edited together from its bar.
 
 **A collection is a list with its own beside it.** Opening an album, an artist or a folder from
 the library starts it with nothing beside it (`Navigator.goTo` drops what the library showed there,

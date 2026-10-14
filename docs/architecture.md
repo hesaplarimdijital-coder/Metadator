@@ -209,7 +209,9 @@ as the entries' metadata tells list-detail), and the screens gone to from those.
   again comes up rather than twice. What came back with the stack after the process was gone is
   kept until it has said whether it holds anything.
 - `showSelection` is what a list shows on its own as its selection changes: the same, but never over
-  a detail that holds something, since nobody chose it.
+  a detail that holds something, since nobody chose it. Nothing selected takes away only what the
+  list asked for last, its selection or the song clicked in it: a file or a song opened by hand over
+  that stays when the list changes under it.
 - `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
 - `goBack` takes one step: what Back does.
 

@@ -42,6 +42,11 @@ interface Navigator {
      * [showDetail] for what a list shows on its own as its selection changes, with one difference:
      * nobody chose it, so it never comes over a detail that [hold]s something. Unsaved changes stay
      * in sight until they are saved or thrown away, rather than go under the selection unseen.
+     *
+     * Asked to show nothing, it takes away only what the list asked for last: its selection, or the
+     * song clicked in it. What was opened by hand over that, a file or a song from the player, was
+     * nobody's selection, and stays when the list changes under it: a search that left out the song
+     * clicked before closed the file with it.
      */
     fun showSelection(key: NavKey?)
 

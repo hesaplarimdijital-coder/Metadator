@@ -32,9 +32,25 @@ internal class BackStackNavigator(
     private val NavKey.isKept: Boolean
         get() = this in held || this in unheard
 
+    /**
+     * What the list on top last asked to have beside it ([showSelection]): its selection, or the
+     * song clicked in it. Only that is the list's to take away when it has nothing to show; what
+     * was opened by hand over it (a file, a song from the player) stays when the list changes under
+     * it. It is the song, not how it was opened: clicked again after something else, the song is
+     * still the one the list stands for, and the list says nothing new.
+     */
+    private var asked: NavKey? = null
+
+    private val NavKey.isAsked: Boolean
+        get() = this == asked || isSameSongAs(asked)
+
     override fun goTo(key: NavKey) {
         if (backStack.lastOrNull() == key) return
-        if (key.isList) dropDetails()
+        if (key.isList) {
+            dropDetails()
+            // What the list left asked for is not the new one's.
+            asked = null
+        }
         backStack.add(key)
     }
 
@@ -54,10 +70,16 @@ internal class BackStackNavigator(
 
     override fun showSelection(key: NavKey?) {
         val top = backStack.lastOrNull() ?: return
+        // Whether the list put what is beside it there, as it was before this asks again.
+        val listsOwn = top.isAsked
+        asked = key
         if (top.isDetail && top.isKept) return
         // The song in sight already stays, whatever it was opened to do there, as find its cover.
-        if (top is Editor && key is Editor && top.uri == key.uri) return
-        if (key == null) dropDetails() else showDetail(key)
+        if (top.isSameSongAs(key)) return
+        when {
+            key != null -> showDetail(key)
+            listsOwn -> dropDetails()
+        }
     }
 
     override fun hold(key: NavKey, held: Boolean) {
@@ -76,6 +98,7 @@ internal class BackStackNavigator(
             onExit()
             return
         }
+        asked = null
         for (index in backStack.lastIndex downTo at + 1) {
             val beside = backStack[index]
             if (beside.isDetail && !beside.isKept) {
@@ -120,3 +143,7 @@ internal class BackStackNavigator(
         }
     }
 }
+
+/** Whether this and [other] are editors of one song, whatever each was opened to do. */
+private fun NavKey.isSameSongAs(other: NavKey?): Boolean =
+    this is Editor && other is Editor && uri == other.uri

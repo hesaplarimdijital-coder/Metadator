@@ -152,8 +152,9 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
  * inspector then shows what was left there (a file opened, the song playing). A selection that
  * grows, row after row of a range or a drag, is shown once it has stopped for a moment: each step
  * would read every song again. A selection ended shows at once what stands in for it. Whatever has
- * unsaved changes stays ([Navigator.showSelection]). A phone has no inspector: there the selection
- * is edited together from its bar.
+ * unsaved changes stays, and so does what was opened by hand when the list changes under it
+ * ([Navigator.showSelection]). A phone has no inspector: there the selection is edited together
+ * from its bar.
  */
 @OptIn(FlowPreview::class)
 @Composable
