@@ -950,9 +950,18 @@ def same_cover_again():
     if not find(r"^\d+ changes?$", nodes):
         raise Failed(f"the foot says neither: {said_on(nodes)[:30]}")
     key(KEY_CTRL, KEY_S)
-    allow_system_dialog(40)
-    expect("^No changes$", 60)
-    return "the source gave another copy of the picture; saving it left nothing changed"
+    # The system asks once for each file whether the app may change it, and it was asked for
+    # this one at the save before: it may not ask again.
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        nodes = screen()
+        if not any(node.package == PACKAGE for node in nodes) and find(r"^(Allow|ALLOW)$", nodes):
+            tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+            continue
+        if find("^No changes$", nodes):
+            return "the source gave another copy of the picture; saving it left nothing changed"
+        time.sleep(1)
+    raise Failed(f"a minute after Ctrl+S the foot does not say No changes: {said_on(screen())[-12:]}")
 
 
 def check_written(file_names, folder=MUSIC):
