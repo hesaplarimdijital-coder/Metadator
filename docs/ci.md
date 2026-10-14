@@ -87,6 +87,9 @@ builds `:app:assembleFossRelease -Pmetadator.fork=one`:
 - **The APK is published as `metamatik.apk`, an asset of the `metamatik-apk` release**, with a
   `build-report.txt` of the errors, the warnings and the end of each step's output. A release
   asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
+  The APK it replaces stays as `metamatik-previous.apk` (`apk-commit.txt` says which commit the
+  latest was built from, so that a run started again does not take its own APK for the one
+  before).
 - **Where `ci.yml` does not run** (`metadator-one`), a job after the APK does what it does
   besides the unit tests: `spotlessCheck`, `lint` and the debug builds of both flavors, and
   publishes what they said, lint's findings errors first, as `checks-report.txt`. So master in
@@ -101,6 +104,10 @@ A second job installs the published APK on an emulator and uses it through `adb`
 desk would: nothing of the app is replaced or instrumented, so what is tried is what is installed
 on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it tries.
 
+- **An update first.** When there is an APK before this one, the run begins with it, as a phone
+  has it: it lists the songs, then this one is installed over it and has to open what that one
+  left, the library's database above all. Then it is uninstalled, and the rest of the run begins
+  from a new install.
 - `make_audio.sh` makes the songs with FFmpeg: four tracks of one album, each a different answer
   for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz),
   and two of another album for the SD card.

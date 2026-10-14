@@ -6,11 +6,14 @@ FLAC from one made out of an MP3, finds a cover, writes it without touching anyt
 its window as it changes, answers to a keyboard and a mouse, and does all of that for songs on an
 SD card too. Everything goes through adb, so the APK tried is the one that is published, untouched.
 
-Usage: smoke.py <apk> <songs dir> <out dir>
+Usage: smoke.py <apk> <songs dir> <out dir> [<the APK it replaces>]
 
 Each step is tried whatever became of the one before it, and leaves a screenshot and what was on
 screen. The report says which held. A step that needs the network, or a device this script has to
 make up (the mouse), is reported but does not fail the run: neither is this build's to answer for.
+
+Given the APK the build replaces, the run begins with it: it is installed and lists the songs, then
+this one is installed over it, as an update comes to a phone, and has to open what that one left.
 """
 
 import json
@@ -80,6 +83,7 @@ VERDICTS = (
 )
 
 apk_path, songs_dir, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+previous_apk = sys.argv[4] if len(sys.argv) > 4 else None
 os.makedirs(out_dir, exist_ok=True)
 log_file = open(os.path.join(out_dir, "log.txt"), "w", encoding="utf-8")
 results = []
@@ -554,11 +558,12 @@ before = {}
 NOT_READY = re.compile(r"Broken pipe|Can't find service|device offline|Failure calling service")
 
 
-def install():
+def install_apk(path):
+    """Installs [path] over what is installed, keeping its data, as an update does."""
     for attempt in range(4):
-        said = adb("install", "-r", apk_path, timeout=300)
+        said = adb("install", "-r", path, timeout=300)
         if "Success" in said:
-            break
+            return
         if attempt == 3 or not NOT_READY.search(said):
             raise Failed(said.strip()[-300:])
         log(f"    the package service is not ready: {said.strip().splitlines()[-1]}")
@@ -566,6 +571,59 @@ def install():
         while time.time() < deadline and "package:" not in shell("pm path android"):
             time.sleep(3)
         time.sleep(5)
+
+
+def updates_the_build_before():
+    """The build this one replaces lists the songs, as on the owner's phone; then this one is
+    installed over it. Its database, made by the build before, is this one's to open: a migration
+    that does not hold closes the app at its first query, and an APK signed otherwise is refused."""
+    try:
+        install_apk(previous_apk)
+        shell(f"am start -W -n {PACKAGE}/{MAIN}", timeout=90)
+        tap(expect("Allow access", 60))
+        allow_system_dialog()
+        try:
+            expect("One More Time", 45)
+        except Failed:
+            key(KEY_F5)
+            expect("One More Time", 60)
+    except Failed as reason:
+        raise Skipped(f"the build before did not list the songs: {reason}")
+    try:
+        # What the library read of each song is written to its database as it lists them.
+        time.sleep(10)
+        shell(f"am force-stop {PACKAGE}")
+        shell("logcat -b crash -c")
+        install_apk(apk_path)
+        dumped = shell(f"dumpsys package {PACKAGE}")
+        installed = re.search(r"firstInstallTime=([^\n]+)", dumped)
+        updated = re.search(r"lastUpdateTime=([^\n]+)", dumped)
+        shell(f"am start -W -n {PACKAGE}/{MAIN}", timeout=90)
+        # Still allowed to see the music: the songs, with no question first.
+        expect("One More Time", 60)
+        for place in PLACES:
+            open_place(place, "the app just updated")
+        crashes = adb("logcat", "-d", "-b", "crash", timeout=60)
+        with open(os.path.join(out_dir, "logcat-crash-update.txt"), "w", encoding="utf-8") as file:
+            file.write(crashes)
+        if any(PACKAGE in line or "metadator" in line for line in crashes.splitlines()):
+            raise Failed(f"the app just updated crashed: {crash_report()}")
+        if not shell(f"pidof {PACKAGE}").strip():
+            raise Failed("the app just updated is not running")
+        screen()
+        screenshot("updated")
+        return (
+            f"installed {installed.group(1).strip() if installed else '?'}, updated "
+            f"{updated.group(1).strip() if updated else '?'}: it lists the songs it was allowed to "
+            f"see, and {', '.join(PLACES)} open"
+        )
+    finally:
+        # The steps after this begin as a phone does with a new app: asked to see the music.
+        adb("uninstall", PACKAGE, timeout=120)
+
+
+def install():
+    install_apk(apk_path)
     # A device with a keyboard plugged in draws none on its screen. The emulator draws one all the
     # same, over half of every picture, so the ones it has are turned off: keys still type.
     for method in shell("ime list -s").split():
@@ -2501,10 +2559,15 @@ def no_crash():
 
 
 def main():
-    if not step("The APK installs", install):
-        return
     step("The device has an SD card", prepare_card, required=False)
     if not step("The songs are copied to the device", copy_songs):
+        return
+    if previous_apk:
+        step(
+            "Installed over the build before it, it opens what that one left",
+            updates_the_build_before,
+        )
+    if not step("The APK installs", install):
         return
     if not step("It opens, and asks to see the music", opens_and_asks):
         step("Nothing crashed", no_crash)

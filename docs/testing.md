@@ -28,6 +28,7 @@ says which held.
 
 | What is tried | How it is told |
 |---|---|
+| The build before this one lists the songs; this one is installed over it, as an update | The songs listed with no question first, every place of the library opens, nothing in the crash log. A migration of the database that does not hold closes the app at its first query |
 | The app opens, asks to see the music, and lists four songs copied to the device | What the screen says |
 | F1 lists the shortcuts; Ctrl+F searches; Ctrl+A, Ctrl+E, Ctrl+K, Ctrl+S and Ctrl+W do what the list says | What the screen says after each |
 | The lossless check: a genuine FLAC, one made from an MP3 of 128 kbps, one upsampled to 96 kHz, and an MP3 it has nothing to say about | The verdict on the card |
