@@ -90,7 +90,18 @@ one it replaced was cached under the old. Without that the lists kept showing th
 before it was saved, for as long as the app ran. A song whose file holds no picture, and whose
 folder has none, shows the note in its place, as the editor shows none; that it has none is
 remembered for that version of the file, so that its file is not opened again each time its row
-comes back in sight. A group (an album, an artist) shows its first song's.
+comes back in sight.
+
+**A group (an album, an artist) shows the first of its songs' covers there is**
+(`CollectionArtwork`, made once with the group in `core/model`): its first six songs, in its order,
+tried one after the other by a fetcher of its own (`CollectionArtworkFetcher`), each as a song's
+cover is. The first song's alone stood for the group, and an album whose first song had no picture
+showed the note in the grid and over its songs, though the rest of them had one. A song found to
+have none is remembered as above, so a grid flung back over an album asks for nothing it was
+already told; a request given up on stops before the next song. The group's cover is cached under
+a key of its own, made of the songs it is looked for in and their versions: which song it comes
+from is only known once it is found. A song's own cover, in the editor and the player, is still
+the song's alone.
 
 **Which songs have no cover is found in the background** (`LibraryCoverScanner`, one for the app,
 as the lossless check is): a row only learns it when it fails to show one. Each song's file is read

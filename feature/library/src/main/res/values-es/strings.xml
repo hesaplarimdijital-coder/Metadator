@@ -50,6 +50,23 @@
     <string name="collection_play">Reproducir</string>
     <string name="collection_shuffle">Aleatorio</string>
     <string name="collection_edit_all">Editar todas</string>
+    <string name="open_collection">Abrir</string>
+    <string name="merge_albums">Fusionar álbumes</string>
+    <plurals name="selected_albums">
+        <item quantity="one">%1$d álbum seleccionado</item>
+        <item quantity="many">%1$d álbumes seleccionados</item>
+        <item quantity="other">%1$d álbumes seleccionados</item>
+    </plurals>
+    <plurals name="selected_artists">
+        <item quantity="one">%1$d artista seleccionado</item>
+        <item quantity="many">%1$d artistas seleccionados</item>
+        <item quantity="other">%1$d artistas seleccionados</item>
+    </plurals>
+    <plurals name="selected_folders">
+        <item quantity="one">%1$d carpeta seleccionada</item>
+        <item quantity="many">%1$d carpetas seleccionadas</item>
+        <item quantity="other">%1$d carpetas seleccionadas</item>
+    </plurals>
     <string name="back">Atrás</string>
     <string name="no_song_open_title">Elige una canción</string>
     <string name="no_song_open_description">Sus etiquetas se abren aquí, junto a tu biblioteca.</string>

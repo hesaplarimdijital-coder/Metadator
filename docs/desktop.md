@@ -48,12 +48,13 @@ them went.
 
 **The inspector follows the selection** (`InspectorFollowsSelection` in the library): two songs or
 more selected are the batch editor for them, one is its editor, and with nothing selected it is the
-song last opened with a click while it is listed, or nothing. A selection that grows (a range, a
-drag) is shown once it has rested 300 ms, since each step would read every song again; an ended
-selection shows at once what stands in for it. It never comes over unsaved changes
-(`Navigator.showSelection`): they stay in sight until saved or thrown away, and the selection is
-shown from its next change. A song or a file opened by hand stays until the selection changes. On
-a phone nothing follows: the selection is edited together from its bar.
+song last opened with a click while it is listed, or nothing. Albums, artists or folders selected
+are their songs: two albums selected are the batch editor for both, which offers to merge them. A
+selection that grows (a range, a drag) is shown once it has rested 300 ms, since each step would
+read every song again; an ended selection shows at once what stands in for it. It never comes over
+unsaved changes (`Navigator.showSelection`): they stay in sight until saved or thrown away, and the
+selection is shown from its next change. A song or a file opened by hand stays until the selection
+changes. On a phone nothing follows: the selection is edited together from its bar.
 
 **A collection is a list with its own beside it.** Opening an album, an artist or a folder from
 the library starts it with nothing beside it (`Navigator.goTo` drops what the library showed there,
@@ -164,6 +165,9 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | | Ctrl+R, F5 | Rescans the music folders |
 | | Ctrl+, | Settings |
 | | Page Up, Page Down, Home, End | Move through the list of songs |
+| Albums, artists, folders | Ctrl+A | Selects every one listed |
+| | Ctrl+E, Enter | Edits the songs of those selected together |
+| | Esc | Ends the selection |
 | A collection | Ctrl+A | Selects every song of the album, artist or folder |
 | | Ctrl+E, Enter | Edits the selected songs together |
 | | Esc | Ends the selection |
@@ -189,11 +193,18 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 - **The second button opens a menu** (`ContextMenuArea`), where the pointer is, with what can be
   done with a song: edit, play, select, edit the selection together, open in a new window. The
   click is taken before the song sees it. Android does not tell the buttons of a mouse apart for a
-  tap, so left alone a right click would open the song.
+  tap, so left alone a right click would open the song. An album, an artist and a folder have one
+  too (`rememberCollectionMenu`): open, play, shuffle, edit all its songs, select; on one of several
+  selected, edit them together, and for albums, merge them.
 - **Ctrl and Shift change what a click selects** (`HeldKeys`, `Modifier.trackHeldKeys`): Ctrl adds
   or removes one song, Shift takes every song from the last one selected or opened to this one
   (`LibraryIntent.SelectRangeTo`), on a row and on its box alike, in the library and in a
-  collection, whose songs are taken in its own order. As in a file manager.
+  collection, whose songs are taken in its own order. As in a file manager. Albums, artists and
+  folders are selected the same way (`LibraryIntent.ToggleCollection`, `SelectCollectionsTo`), or
+  with a long press, and show a check while they are. Over them the panel's header then says how
+  many, with what can be done with them: play them, edit their songs together, and for albums,
+  merge them. Merging is editing together under another name: the batch editor opens beside the
+  library with every song of the albums, and offers to give them one album and one album artist.
 - **A rectangle dragged with the first button selects** (`Modifier.marqueeSelection`,
   `MarqueeSelection.kt`, for a lazy list), as in a file manager: pressed anywhere over the list, on
   a row or beside the rows, and dragged past the touch slop, a rectangle in the accent follows the
