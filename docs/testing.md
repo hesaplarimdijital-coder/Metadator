@@ -66,9 +66,10 @@ build works there; it does not say how the app feels, and it is not Samsung DeX.
 - Ports are tested with fakes, not mocks of the framework. `FakeTagFiles` behaves like TagLib:
   a write replaces the whole property map, and keys a format cannot hold are dropped.
 - The fakes are `core/domain`'s test fixtures (`src/testFixtures`), which every feature's tests
-  get too: a ViewModel is tested with the domain's real use cases on fake ports. A feature's own
-  port (the editor's `ImageSource`) is faked in its tests, and its `MainDispatcherRule` runs
-  what the ViewModel launches on the test's scheduler.
+  get too: a ViewModel is tested with the domain's real use cases on fake ports. A port of the
+  Android modules (`core:ui`'s `ImageSource`) is faked in the tests of the feature that uses it,
+  and each feature's `MainDispatcherRule` runs what the ViewModel launches on the test's
+  scheduler.
 - A bug gets a failing test before its fix.
 
 ## Not yet verified

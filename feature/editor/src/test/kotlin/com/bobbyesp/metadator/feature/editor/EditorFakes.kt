@@ -6,6 +6,9 @@ package com.bobbyesp.metadator.feature.editor
 import com.bobbyesp.metadator.core.domain.FakeTagFiles
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.Track
+import com.bobbyesp.metadator.core.ui.image.ImageInfo
+import com.bobbyesp.metadator.core.ui.image.ImageSource
+import com.bobbyesp.metadator.core.ui.image.PickedImage
 import com.bobbyesp.metadator.lyrics.api.LyricsProvider
 import com.bobbyesp.metadator.lyrics.api.LyricsQuery
 import com.bobbyesp.metadator.lyrics.api.LyricsResult

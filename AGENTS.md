@@ -22,7 +22,7 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:core:database` | Room: tag backups for undo, the tags read from files for the library, its cover checks. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
 | `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
-| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
+| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, a picked picture (`image`), track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
 | `:core:navigation` | Keys, `Navigator`, scenes, motion. | Every `NavKey` lives here. |
 | `:tags:api` / `:tags:taglib` | Reading and writing tags. | TagLib is an `implementation` dependency: no TagLib type leaves `:tags:taglib`. |
 | `:library:api` / `:library:mediastore` | The device's songs, file access, write permission, rescans. | |

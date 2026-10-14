@@ -29,6 +29,7 @@ import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
 import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.TrackId
+import com.bobbyesp.metadator.core.ui.image.ImageSource
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
 import com.bobbyesp.metadator.library.api.AccessResult
@@ -246,7 +247,7 @@ class BatchViewModel(
     private val restore: RestoreBackupUseCase,
     private val writeAccess: WriteAccess,
     private val settings: SettingsRepository,
-    private val images: CoverReader,
+    private val images: ImageSource,
     private val artwork: ArtworkDownloader,
     private val strings: StringProvider,
 ) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState(expected = ids.size)) {
@@ -266,7 +267,9 @@ class BatchViewModel(
                 setState { copy(edits = edits + (intent.key to intent.values)) }
             is BatchIntent.ResetField -> setState { copy(edits = edits - intent.key) }
             is BatchIntent.SetCoverFromUri ->
-                setCover(R.string.batch_cover_unreadable) { images.read(intent.uri) }
+                setCover(R.string.batch_cover_unreadable) {
+                    images.read(intent.uri)?.let { it.bytes to it.mimeType }
+                }
             is BatchIntent.SetCoverFromUrl ->
                 setCover(R.string.batch_cover_download_failed) {
                     artwork.download(intent.url)?.let { it.bytes to it.mimeType }

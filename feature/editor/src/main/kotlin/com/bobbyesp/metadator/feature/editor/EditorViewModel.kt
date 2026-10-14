@@ -27,6 +27,8 @@ import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
 import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.UserSettings
+import com.bobbyesp.metadator.core.ui.image.ImageInfo
+import com.bobbyesp.metadator.core.ui.image.ImageSource
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
 import com.bobbyesp.metadator.library.api.AccessResult
