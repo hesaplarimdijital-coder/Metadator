@@ -27,6 +27,8 @@
     <string name="batch_cover_will_replace">Todas las canciones tendrán esta portada</string>
     <string name="batch_cover_will_remove">Se quitará la portada de todas las canciones</string>
     <string name="batch_tools">Herramientas</string>
+    <string name="batch_repair_text">Corregir texto dañado</string>
+    <string name="batch_repair_text_preview">%1$s: %2$s → %3$s</string>
     <string name="batch_numbering">Numerar las pistas</string>
     <string name="batch_numbering_description">En el orden mostrado, como pista N de %1$d</string>
     <string name="batch_numbering_start">Empezar en</string>
@@ -157,5 +159,10 @@
         <item quantity="one">El formato de %1$d canción no pudo guardar: %2$s</item>
         <item quantity="many">Los formatos de %1$d canciones no pudieron guardar: %2$s</item>
         <item quantity="other">Los formatos de %1$d canciones no pudieron guardar: %2$s</item>
+    </plurals>
+    <plurals name="batch_repair_text_description">
+        <item quantity="one">Corrige el texto de %1$d canción, leído con la codificación equivocada</item>
+        <item quantity="many">Corrige el texto de %1$d canciones, leído con la codificación equivocada</item>
+        <item quantity="other">Corrige el texto de %1$d canciones, leído con la codificación equivocada</item>
     </plurals>
 </resources>

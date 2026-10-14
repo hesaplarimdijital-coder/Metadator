@@ -25,6 +25,8 @@
     <string name="batch_cover_will_replace">Every song will get this cover</string>
     <string name="batch_cover_will_remove">Every song\'s cover will be removed</string>
     <string name="batch_tools">Tools</string>
+    <string name="batch_repair_text">Repair garbled text</string>
+    <string name="batch_repair_text_preview">%1$s: %2$s → %3$s</string>
     <string name="batch_numbering">Number the tracks</string>
     <string name="batch_numbering_description">In the order shown, as track N of %1$d</string>
     <string name="batch_numbering_start">Start at</string>
@@ -139,5 +141,9 @@
     <plurals name="batch_not_stored">
         <item quantity="one">%1$d song\'s format couldn\'t keep: %2$s</item>
         <item quantity="other">%1$d songs\' formats couldn\'t keep: %2$s</item>
+    </plurals>
+    <plurals name="batch_repair_text_description">
+        <item quantity="one">Puts right the text of %1$d song, read with the wrong character set</item>
+        <item quantity="other">Puts right the text of %1$d songs, read with the wrong character set</item>
     </plurals>
 </resources>

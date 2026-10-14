@@ -25,6 +25,8 @@
     <string name="batch_cover_will_replace">Her şarkı bu kapağı alacak</string>
     <string name="batch_cover_will_remove">Her şarkının kapağı kaldırılacak</string>
     <string name="batch_tools">Araçlar</string>
+    <string name="batch_repair_text">Bozuk karakterleri düzelt</string>
+    <string name="batch_repair_text_preview">%1$s: %2$s → %3$s</string>
     <string name="batch_numbering">Parçaları numarala</string>
     <string name="batch_numbering_description">Gösterilen sırayla, %1$d parçadan N. parça olarak</string>
     <string name="batch_numbering_start">Başlangıç</string>
@@ -139,5 +141,9 @@
     <plurals name="batch_not_stored">
         <item quantity="one">%1$d şarkının biçimi şunları tutamadı: %2$s</item>
         <item quantity="other">%1$d şarkının biçimi şunları tutamadı: %2$s</item>
+    </plurals>
+    <plurals name="batch_repair_text_description">
+        <item quantity="one">%1$d şarkının bozuk karakterlerini düzeltir</item>
+        <item quantity="other">%1$d şarkının bozuk karakterlerini düzeltir</item>
     </plurals>
 </resources>

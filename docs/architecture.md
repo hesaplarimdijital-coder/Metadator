@@ -77,7 +77,12 @@ version of the file like the rest (`track_tags` keeps the title for it), and the
 file's text where it looks less garbled than MediaStore's. Where the file itself is garbled, as
 TagLib reads it too, the editor says so above the fields, with what each field most likely says
 ("Album artist: Moğollar?"), and one action that puts them right as changes to save
-(`TagMap.textRepairs`, which a batch can write as well).
+(`TagMap.textRepairs`). Those songs are the library's "Garbled text" list (`Track.hasGarbledText`,
+worked out once for each version of the library, not at each letter typed in the search), and the
+batch editor puts all of theirs right at once: "Repair garbled text", first of its options where
+any of its songs has some (`BatchEdit.repairText`), writes each file's own text put right, backed up
+and undone as any batch. Selecting the whole list (Ctrl+A) is what the inspector beside it shows as
+that batch.
 
 **A list shows each song's own cover** (`TrackArtwork`, `Track.artwork`): MediaStore's thumbnail
 of the picture in the song's file (`ContentResolver.loadThumbnail`, which reads it out of the file
@@ -109,13 +114,21 @@ with TagLib for its pictures, a picture of any kind counting, since the app show
 where there is no front cover. What was found is kept in Room (`cover_checks`) against the song and
 the version of its file, its modification date and size: a restart reads nothing again, and a song
 saved with a cover is read again first, before the songs not read yet. A file TagLib reads no tags
-of is kept as unknown; one that could not be opened is tried again at the next start. The scanner
-is given the library (`submit`) and works through it one file at a time, yielding between two, and
-waits while the lossless check of the library or a batch is at the files. Its state
-(`LibraryCoverState`) is the songs without a cover and how far it has got. The TagLib binding has
-no read of pictures that skips their bytes (`getPictures` copies them too, and cannot tell a format
-it does not read from a file without pictures), so it reads the tags with their pictures, as the
-editor does.
+of is kept as unknown; one that could not be opened is tried again at the next start. The library
+hands it every song it lists (`submit`, beside the lossless check's, in its own list and not in a
+collection's), and it works through them one file at a time, yielding between two, and waits while
+the lossless check of the library or a batch is at the files. The TagLib binding has no read of
+pictures that skips their bytes (`getPictures` copies them too, and cannot tell a format it does
+not read from a file without pictures), so it reads the tags with their pictures, as the editor
+does.
+
+What it found (`LibraryCoverState`) is the library's "No cover" list, with how far the check has
+got beside its count while it runs, and a filter of the songs, the albums and the artists
+(`LibraryFilter.noCover`): the songs without a cover; the albums and artists with at least one
+such song, each listed whole (`lackingCover`), since a cover is found for an album, not for those
+of its songs that lack one. The chip says which it is and counts it, and says it in full when
+pointed at. What the check finds lists the songs again only while they are narrowed to those
+without a cover: it finds more every few songs.
 
 **Albums are grouped by album artist and title** (the artist where there is no album artist), and
 known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives

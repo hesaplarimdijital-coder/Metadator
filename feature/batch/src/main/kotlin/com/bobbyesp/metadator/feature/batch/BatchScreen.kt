@@ -199,6 +199,7 @@ private fun BatchForm(
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (state.garbledSongs > 0) RepairTextCard(state, onIntent)
             state.merge?.let { merge ->
                 MergeAlbumsCard(
                     merge = merge,
@@ -555,6 +556,46 @@ private fun CoverChoice(
                         style = StudioButtonStyle.Ghost,
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Puts right the songs' garbled text, each song its own, as the editor does for one. First of all
+ * where any song has some: a list of garbled songs, selected whole, is edited for this. What it
+ * does is shown on a few of the fields, before it is switched on.
+ */
+@Composable
+private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
+    ToolCard(
+        title = stringResource(R.string.batch_repair_text),
+        description =
+            pluralStringResource(
+                R.plurals.batch_repair_text_description,
+                state.garbledSongs,
+                state.garbledSongs,
+            ),
+        checked = state.repairText,
+        onCheckedChange = { onIntent(BatchIntent.RepairText(it)) },
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            state.repairs.forEach { repair ->
+                Text(
+                    stringResource(
+                        R.string.batch_repair_text_preview,
+                        fieldLabel(repair.key),
+                        repair.before,
+                        repair.after,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
