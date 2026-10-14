@@ -24,6 +24,8 @@
     <string name="play_unavailable">Solo se pueden reproducir las canciones de tu biblioteca</string>
 
     <string name="needs_attention_title">Necesita atención</string>
+    <string name="garbled_text_suggestion">%1$s: ¿%2$s?</string>
+    <string name="garbled_text_repair">Corregir</string>
     <string name="section_main">Canción</string>
     <string name="section_credits">Créditos</string>
     <string name="section_more">Más</string>
@@ -152,5 +154,10 @@
         <item quantity="one">%1$d cambio</item>
         <item quantity="many">%1$d cambios</item>
         <item quantity="other">%1$d cambios</item>
+    </plurals>
+    <plurals name="garbled_text_title">
+        <item quantity="one">Este texto parece dañado</item>
+        <item quantity="many">Estos textos parecen dañados</item>
+        <item quantity="other">Estos textos parecen dañados</item>
     </plurals>
 </resources>

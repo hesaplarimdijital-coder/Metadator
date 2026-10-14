@@ -5,15 +5,24 @@ package com.bobbyesp.metadator.feature.batch
 
 import androidx.lifecycle.viewModelScope
 import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.domain.batch.AlbumMerge
 import com.bobbyesp.metadator.core.domain.batch.BatchEdit
 import com.bobbyesp.metadator.core.domain.batch.BatchItem
 import com.bobbyesp.metadator.core.domain.batch.BatchProgress
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.batch.FileNamePattern
+import com.bobbyesp.metadator.core.domain.batch.FilePositions
+import com.bobbyesp.metadator.core.domain.batch.PositionEdit
 import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
 import com.bobbyesp.metadator.core.domain.batch.changesFor
 import com.bobbyesp.metadator.core.domain.cover.CoverRequest
+import com.bobbyesp.metadator.core.domain.editor.TrackPositions
 import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
+import com.bobbyesp.metadator.core.domain.lookup.AlbumProposal
+import com.bobbyesp.metadator.core.domain.lookup.AlbumQuery
+import com.bobbyesp.metadator.core.domain.lookup.AlbumSong
+import com.bobbyesp.metadator.core.domain.lookup.ReleasePosition
+import com.bobbyesp.metadator.core.domain.lookup.positionsFor
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
@@ -51,7 +60,13 @@ sealed interface CommonValue {
     data object Empty : CommonValue
 }
 
-data class BatchFile(val item: BatchItem, val title: String, val tags: TagMap)
+/** @param durationMs how long the song is, as the library says; null where it does not know */
+data class BatchFile(
+    val item: BatchItem,
+    val title: String,
+    val tags: TagMap,
+    val durationMs: Long? = null,
+)
 
 data class BatchState(
     val loading: Boolean = true,
@@ -61,6 +76,11 @@ data class BatchState(
     val common: Map<String, CommonValue> = emptyMap(),
     /** The fields the user set, and to what. Untouched fields keep each file's own value. */
     val edits: Map<String, List<String>> = emptyMap(),
+    /**
+     * Track and disc numbers for some songs, each its own: from the release a lookup found, or the
+     * discs a merge read from the albums' names. Untouched songs keep theirs.
+     */
+    val positions: Map<ContentRef, FilePositions> = emptyMap(),
     val cover: ArtworkChange = ArtworkChange.Unchanged,
     /** A cover was chosen and is being fetched: it is not in [cover] yet. */
     val loadingCover: Boolean = false,
@@ -69,6 +89,8 @@ data class BatchState(
     val usePattern: Boolean = false,
     val progress: BatchProgress? = null,
     val separator: String = "; ",
+    /** The albums the songs are on, as they are in the files, when they are on more than one. */
+    val merge: AlbumMerge? = null,
 ) {
     /** How many songs are being edited: the ones read, or until then the ones to read. */
     val count: Int
@@ -84,7 +106,18 @@ data class BatchState(
                 artwork = cover,
                 numbering = numbering,
                 fileNamePattern = fileNamePattern,
+                positions = positions,
             )
+
+    /**
+     * Whether the edits make the songs one album: one title and one album artist for all, which is
+     * what the library groups an album by.
+     */
+    val mergesAlbums: Boolean
+        get() =
+            merge != null &&
+                edits[TagField.Album.key].orEmpty().any { it.isNotBlank() } &&
+                edits[TagField.AlbumArtist.key].orEmpty().isNotEmpty()
 
     /** How the first files would read with the pattern, for a live preview. */
     val patternPreview: List<Pair<String, Map<String, List<String>>?>>
@@ -130,6 +163,28 @@ sealed interface BatchIntent {
     /** Asks for the covers the online sources have for these songs. */
     data object FindCover : BatchIntent
 
+    /** Asks for the releases the online sources have these songs on. */
+    data object FindMetadata : BatchIntent
+
+    /**
+     * Fills the fields with what is known of [proposal], and the songs found on it with their track
+     * and disc numbers: to be checked, and written with the rest.
+     */
+    data class UseAlbum(val proposal: AlbumProposal) : BatchIntent
+
+    /**
+     * Makes the songs one album, called [album], by [albumArtists]; with [discNumbers], each song
+     * also gets the disc its album's name said.
+     */
+    data class MergeAlbums(
+        val album: String,
+        val albumArtists: List<String>,
+        val discNumbers: Boolean,
+    ) : BatchIntent
+
+    /** Each song keeps its own track and disc numbers. */
+    data object ResetPositions : BatchIntent
+
     data object RemoveCovers : BatchIntent
 
     data object KeepCovers : BatchIntent
@@ -154,6 +209,9 @@ sealed interface BatchEffect {
 
     /** Show the covers there are for [request], for one of them to be chosen. */
     class FindCover(val request: CoverRequest) : BatchEffect
+
+    /** Show the releases there are for [query], for one of them to be chosen. */
+    class FindMetadata(val query: AlbumQuery) : BatchEffect
 }
 
 class BatchViewModel(
@@ -191,6 +249,10 @@ class BatchViewModel(
                     artwork.download(intent.url)?.let { it.bytes to it.mimeType }
                 }
             BatchIntent.FindCover -> findCover()
+            BatchIntent.FindMetadata -> findMetadata()
+            is BatchIntent.UseAlbum -> useAlbum(intent.proposal)
+            is BatchIntent.MergeAlbums -> mergeAlbums(intent)
+            BatchIntent.ResetPositions -> setState { copy(positions = emptyMap()) }
             BatchIntent.RemoveCovers -> setState { copy(cover = ArtworkChange.Remove) }
             BatchIntent.KeepCovers -> setState { copy(cover = ArtworkChange.Unchanged) }
             is BatchIntent.SetNumbering -> setState { copy(numbering = intent.numbering) }
@@ -227,7 +289,12 @@ class BatchViewModel(
                                             ?.snapshot
                                             ?.tags
                                     tags?.let {
-                                        BatchFile(BatchItem(ref, name), track?.title ?: name, it)
+                                        BatchFile(
+                                            BatchItem(ref, name),
+                                            track?.title ?: name,
+                                            it,
+                                            track?.durationMs?.takeIf { ms -> ms > 0 },
+                                        )
                                     }
                                 }
                             }
@@ -235,7 +302,14 @@ class BatchViewModel(
                         .awaitAll()
                         .filterNotNull()
                 }
-            setState { copy(loading = false, files = files, common = commonValues(files)) }
+            setState {
+                copy(
+                    loading = false,
+                    files = files,
+                    common = commonValues(files),
+                    merge = AlbumMerge.of(files.map { it.tags }),
+                )
+            }
         }
 
     /**
@@ -287,6 +361,86 @@ class BatchViewModel(
         }
     }
 
+    /**
+     * Has the screen show the releases there are for these songs, looked for by the album most of
+     * them will be on once the edit is applied, and its artist: corrected here, they are searched
+     * under the new names.
+     */
+    private fun findMetadata() {
+        val state = currentState
+        if (state.files.isEmpty()) return
+        val edited = state.editedTags
+        val artists =
+            edited.mostCommon(TagField.AlbumArtist.key) ?: edited.mostCommon(TagField.Artist.key)
+        sendEffect(
+            BatchEffect.FindMetadata(
+                AlbumQuery(
+                    album = edited.mostCommon(TagField.Album.key).orEmpty(),
+                    artist = artists.orEmpty(),
+                    songs = albumSongs(state, edited),
+                )
+            )
+        )
+    }
+
+    /**
+     * Fills the fields the release knows, for every song, and the numbers of the songs found on it.
+     * Its title is not taken: the songs keep theirs. Nothing is written before "Apply to all".
+     */
+    private fun useAlbum(proposal: AlbumProposal) {
+        val state = currentState
+        val found = proposal.positionsFor(albumSongs(state, state.editedTags))
+        val fields =
+            buildMap<String, List<String>> {
+                put(TagField.Album.key, listOf(proposal.album))
+                if (proposal.albumArtists.isNotEmpty()) {
+                    put(TagField.AlbumArtist.key, proposal.albumArtists)
+                }
+                proposal.date?.let { put(TagField.Date.key, listOf(it)) }
+                if (proposal.genres.isNotEmpty()) put(TagField.Genre.key, proposal.genres)
+            }
+        val numbers =
+            state.files
+                .zip(found)
+                .mapNotNull { (file, position) ->
+                    position?.let { file.item.ref to it.asFilePositions() }
+                }
+                .filterNot { (_, set) -> set.isEmpty }
+                .toMap()
+        setState { copy(edits = edits + fields, positions = positions.merged(numbers)) }
+        showMessage(UiMessage(strings.get(R.string.batch_lookup_applied, proposal.album)))
+    }
+
+    /** Sets the one title and album artist the merged album will have, and the discs if asked. */
+    private fun mergeAlbums(intent: BatchIntent.MergeAlbums) {
+        val album = intent.album.trim()
+        val artists = intent.albumArtists.map { it.trim() }.filter { it.isNotEmpty() }
+        if (album.isEmpty() || artists.isEmpty()) return
+        setState {
+            val discs =
+                if (intent.discNumbers) {
+                    merge
+                        ?.discs
+                        .orEmpty()
+                        .mapNotNull { (index, disc) ->
+                            files.getOrNull(index)?.let {
+                                it.item.ref to FilePositions(disc = PositionEdit(number = disc))
+                            }
+                        }
+                        .toMap()
+                } else emptyMap()
+            copy(
+                edits =
+                    edits +
+                        mapOf(
+                            TagField.Album.key to listOf(album),
+                            TagField.AlbumArtist.key to artists,
+                        ),
+                positions = positions.merged(discs),
+            )
+        }
+    }
+
     private fun commonValues(files: List<BatchFile>): Map<String, CommonValue> =
         EditableFields.associate { field ->
             val values = files.map { it.tags[field.key] }.distinct()
@@ -324,6 +478,17 @@ class BatchViewModel(
         }
     }
 
+    /** The songs as an album search sees them, as they will be once the edit is applied. */
+    private fun albumSongs(state: BatchState, edited: List<TagMap>): List<AlbumSong> =
+        state.files.zip(edited) { file, tags ->
+            AlbumSong(
+                title = tags.first(TagField.Title.key)?.ifBlank { null } ?: file.title,
+                durationMs = file.durationMs,
+                trackNumber = TrackPositions.read(tags, TagField.TrackNumber).number.toIntOrNull(),
+                discNumber = TrackPositions.read(tags, TagField.DiscNumber).number.toIntOrNull(),
+            )
+        }
+
     companion object {
         val EditableFields =
             listOf(
@@ -344,3 +509,25 @@ class BatchViewModel(
         showMessage(unexpectedErrorMessage(strings))
     }
 }
+
+/** The value most of these songs have in [key], the first of them on a tie; null where none has. */
+private fun List<TagMap>.mostCommon(key: String): String? = mapNotNull { tags ->
+    tags.first(key)?.trim()?.ifEmpty { null }
+}
+    .groupingBy { it }
+    .eachCount()
+    .maxByOrNull { it.value }
+    ?.key
+
+/** These positions, with [other]'s parts in place of theirs for the songs it has. */
+private fun Map<ContentRef, FilePositions>.merged(
+    other: Map<ContentRef, FilePositions>
+): Map<ContentRef, FilePositions> =
+    this + other.mapValues { (ref, positions) -> (this[ref] ?: FilePositions()) + positions }
+
+/** What of a place on a release a song gets: what is known, the rest kept as the file has it. */
+private fun ReleasePosition.asFilePositions(): FilePositions =
+    FilePositions(
+        track = PositionEdit(number = track, total = trackTotal).takeUnless { it.isEmpty },
+        disc = PositionEdit(number = disc, total = discTotal).takeUnless { it.isEmpty },
+    )

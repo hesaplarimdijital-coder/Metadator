@@ -10,6 +10,7 @@ app ──────────────► every module (the only place i
 feature:* ────────► core:*, *:api
 core:ui ──────────► core:designsystem, core:domain (what two features show alike)
 core:domain ──────► core:model, core:common, tags:api, library:api, lookup:api, lyrics:api
+core:database ────► core:domain, tags:api, library:api (the ports its stores implement)
 tags:taglib ──────► tags:api, library:api (opens files through AudioFileOpener)
 lookup:* , lyrics:lrclib ─► their api, core:network
 ```
@@ -28,13 +29,19 @@ or on another feature fails the build.
 - **Domain** (`core:domain`): use cases and pure logic. `SaveTagChangesUseCase`,
   `RestoreBackupUseCase`, `LoadTrackUseCase`, `LookupService`, `BatchRunner`, `TrackPositions`,
   `FileNamePattern`, library filtering and grouping, `CheckLosslessUseCase` with the FLAC decoder
-  and the spectrum it reads ([lossless-check.md](lossless-check.md)), and `FindCoversUseCase` with
-  the scoring of covers ([cover-finder.md](cover-finder.md)).
+  and the spectrum it reads ([lossless-check.md](lossless-check.md)), `FindCoversUseCase` with
+  the scoring of covers ([cover-finder.md](cover-finder.md)), what the batch editor finds and
+  merges (`FindAlbumUseCase` with the releases it proposes, and `AlbumMerge`: [Editing several
+  songs](#editing-several-songs)), `GarbledText`, which tells text decoded with the wrong
+  character set and puts it right (`text`), and `LibraryCoverScanner`, which finds the songs
+  without a cover (`artwork`).
 - **Ports** (`*:api`): `TagReader`, `TagWriter`, `TagBackupStore`, `AudioLibrary`, `TrackTagCache`,
   `AudioFileOpener`, `AudioFileInfo`, `WriteAccess`, `MediaIndexer`, `MetadataProvider`,
-  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. One port is the domain's own, having no
-  engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
-  (`AndroidImageSampler` in `core:data`).
+  `ArtworkDownloader`, `LyricsProvider`, `PlayerController`. A few ports are the domain's own,
+  having no engine to belong to: `ImageSampler`, which decodes pictures for the cover finder
+  (`AndroidImageSampler` in `core:data`), and the stores of what the checks of the library found,
+  `QualityStore` (`FileQualityStore` in `core:data`) and `CoverCheckStore` (`RoomCoverCheckStore`
+  in `core:database`).
 - **Implementations**: TagLib, MediaStore, Room, DataStore, Ktor, Media3.
 - **Presentation** (`feature:*`): screens and ViewModels. What two features show alike is in
   `core:ui`, since a feature cannot depend on another: the cover finder's sheet and its ViewModel
@@ -44,8 +51,33 @@ The library is MediaStore's, completed from the files (`TagCompletedAudioLibrary
 scanner does not index every tag of every format: a FLAC's `DATE` never becomes a year, and before
 Android 11 there is no album artist or genre at all. A song with a field MediaStore has no value
 for has its tags read once, and what was read is cached in Room (`track_tags`) against the file's
-modification date and size. MediaStore's values always win; the file only fills the gaps, so
-"Needs attention" means the file itself lacks the field.
+modification date and size. MediaStore's values win where they read right, and the file fills the
+gaps, so "Needs attention" means the file itself lacks the field.
+
+**Text MediaStore decoded wrong is the file's own.** Android's scanner decodes a tag marked Latin-1
+with a guess at its real character set, and old taggers wrote whatever bytes they had under that
+mark: Turkish in Windows-1254, or UTF-8. A wrong guess shows "MoÄŸollar" for "Moğollar", or Chinese
+characters in a Turkish name, and split an album in two when its songs gave their album artist both
+ways. `GarbledText` (`core:domain`, `text`) tells such text from text that is right:
+
+- UTF-8 read as Windows-1252 or Latin-1 ("Ã¶" for "ö"), when the bytes the text stands for are
+  UTF-8 without a fault and decode to letters of one script per word. Text that is right almost
+  never is: it would need an accented capital followed by a symbol.
+- Turkish in Windows-1254 read as Latin-1 ("Moðollar"), when swapping the six letters the two
+  differ in (ð Ð þ Þ ý Ý for ğ Ğ ş Ş ı İ) gives text that is Turkish by its letters and its shape:
+  only Turkish letters, ğ after exactly one vowel, and something only Turkish has (ç or ü, a ğ in a
+  word of one vowel harmony, an ş before a consonant…). Icelandic, which has those six letters
+  itself, is left as it is; a short word both could spell ("Kýr") too.
+- Characters of another script against Latin letters, in text that is mostly Latin: what a wrong
+  guess at an Asian character set gives ("Mo" and a Chinese character and "llar"). That cannot be
+  undone from the text; only the file can say what it was.
+
+A song whose title, artist, album or album artist looks garbled has its file read too, once per
+version of the file like the rest (`track_tags` keeps the title for it), and the library shows the
+file's text where it looks less garbled than MediaStore's. Where the file itself is garbled, as
+TagLib reads it too, the editor says so above the fields, with what each field most likely says
+("Album artist: Moğollar?"), and one action that puts them right as changes to save
+(`TagMap.textRepairs`, which a batch can write as well).
 
 **A list shows each song's own cover** (`TrackArtwork`, `Track.artwork`): MediaStore's thumbnail
 of the picture in the song's file (`ContentResolver.loadThumbnail`, which reads it out of the file
@@ -58,7 +90,32 @@ one it replaced was cached under the old. Without that the lists kept showing th
 before it was saved, for as long as the app ran. A song whose file holds no picture, and whose
 folder has none, shows the note in its place, as the editor shows none; that it has none is
 remembered for that version of the file, so that its file is not opened again each time its row
-comes back in sight. A group (an album, an artist) shows its first song's.
+comes back in sight.
+
+**A group (an album, an artist) shows the first of its songs' covers there is**
+(`CollectionArtwork`, made once with the group in `core/model`): its first six songs, in its order,
+tried one after the other by a fetcher of its own (`CollectionArtworkFetcher`), each as a song's
+cover is. The first song's alone stood for the group, and an album whose first song had no picture
+showed the note in the grid and over its songs, though the rest of them had one. A song found to
+have none is remembered as above, so a grid flung back over an album asks for nothing it was
+already told; a request given up on stops before the next song. The group's cover is cached under
+a key of its own, made of the songs it is looked for in and their versions: which song it comes
+from is only known once it is found. A song's own cover, in the editor and the player, is still
+the song's alone.
+
+**Which songs have no cover is found in the background** (`LibraryCoverScanner`, one for the app,
+as the lossless check is): a row only learns it when it fails to show one. Each song's file is read
+with TagLib for its pictures, a picture of any kind counting, since the app shows the first one
+where there is no front cover. What was found is kept in Room (`cover_checks`) against the song and
+the version of its file, its modification date and size: a restart reads nothing again, and a song
+saved with a cover is read again first, before the songs not read yet. A file TagLib reads no tags
+of is kept as unknown; one that could not be opened is tried again at the next start. The scanner
+is given the library (`submit`) and works through it one file at a time, yielding between two, and
+waits while the lossless check of the library or a batch is at the files. Its state
+(`LibraryCoverState`) is the songs without a cover and how far it has got. The TagLib binding has
+no read of pictures that skips their bytes (`getPictures` copies them too, and cannot tell a format
+it does not read from a file without pictures), so it reads the tags with their pictures, as the
+editor does.
 
 **Albums are grouped by album artist and title** (the artist where there is no album artist), and
 known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives
@@ -339,6 +396,59 @@ The player's sheet does it to what its bar and its full screen do not share.
 
 Below Android 12 nothing blurs: a frosted surface falls back to its container color, nearly opaque,
 and what would go out of focus is only dimmed, and more.
+
+## Editing several songs
+
+The batch editor (`feature/batch`) is opened for a selection ("Edit together"), an album ("Edit
+all"), or by the inspector, for the songs selected beside it, and edits its songs as one: a field
+set there is set on every song, and a field left alone keeps each song's own value (`BatchEdit`).
+Besides the fields, it sets one cover for all, picked or found online
+([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
+gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
+differs from song to song, from the release found online or the disc a merged album's title said.
+A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a
+total or a number, the file keeps.
+
+- **A field of several values** (artists, album artists, genres, composers) shows them joined with
+  the separator of the settings, and takes what is typed split on it, a list from then on
+  (`splitValues`). What is typed is shown as typed while the screen holds the values it was taken
+  for, and while they are still on their way to it (`TypedValues`): shown joined again from the
+  values, "Daft Punk; " was "Daft Punk", and the separator typed for a second value was gone before
+  it could be typed.
+- **Find metadata** (Ctrl+L, the editor's key) finds the release the songs are from. The sources
+  know tracks, each with its album, not albums, so `FindAlbumUseCase` asks them for the album under
+  its own name, which finds the songs of an album in the iTunes Store and the title track
+  elsewhere, then for up to eight of the songs, spread over the batch: one search at a time, a
+  second apart, as MusicBrainz asks, and few enough not to have the iTunes Store turn the app away.
+  The query starts from the album and album artist most songs will have, and can be changed in the
+  sheet. Each search sends what a search for one song sends: a title, the artist and the album.
+- **The releases** (`albumProposals`) are the tracks found grouped by album title and first
+  credited artist, as they compare: a track crediting a featured artist ("Daft Punk, Romanthony &
+  Todd Edwards") is still on Daft Punk's album. Each source has one say in what a release is (its
+  album artists, its date, the year agreed first and then the most precise day, its genres, its
+  track count), and a tie goes to the better match. They are ranked by how well their title and
+  artist match what was searched, how many of the songs are on them, how close their track count
+  is to the number of songs, how many sources have them and whether they have a cover.
+- **Choosing a release** fills the album, album artists, date and genres for every song, those it
+  has, and gives the songs found on it their track and disc numbers (`positionsFor`): a song is
+  found when a track has its title, compared without featured artists and remaster notes, and is
+  the same recording by its length, or where a length is missing sits where the file already says.
+  A song not found keeps its numbers, and gets only the track total, where the file says its disc
+  or the release has one. Sources that disagree on where a song is say nothing: a number is never
+  guessed. The titles are left alone. It is all shown as changed, and written with "Apply to all".
+- **Merging albums**: when the songs are on more than one album, as the library tells albums apart
+  (title, and album artist or else artist), a card at the top lists them with their songs. One
+  album spelled two ways, with an album artist on some songs only, or split into "CD1" and "CD2",
+  is several albums there. "Merge into one album" sets one title and one album artist for every
+  song, those of the album with the most songs unless others are chosen from the albums' or typed
+  (`AlbumMerge`). When the titles differ only by a disc suffix ("CD 2", "(Disc 1)"), the title is
+  proposed without it, and each song the disc its album's title said. The inspector shows the card
+  for any songs selected across albums, as they are selected, so it only proposes, and lists the
+  largest three of more than four albums until asked for the rest.
+- **Applying** writes it all through `BatchRunner`, file by file, each backed up first and undone
+  together ([saving-tags.md](saving-tags.md)). A field a song's format cannot hold is dropped by
+  the format and the song still saved; the dialog after the batch says which fields some songs
+  dropped (`BatchProgress.notStored`).
 
 ## The player
 

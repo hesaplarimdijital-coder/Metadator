@@ -6,18 +6,22 @@ package com.bobbyesp.metadator.core.domain.batch
 import com.bobbyesp.metadator.core.domain.FakeBackupStore
 import com.bobbyesp.metadator.core.domain.FakeIndexer
 import com.bobbyesp.metadator.core.domain.FakeTagFiles
+import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.model.ContentRef
+import com.bobbyesp.metadator.core.model.MultiValueMode
 import com.bobbyesp.metadator.tags.api.TagChanges
 import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -163,5 +167,169 @@ class BatchTest {
         assertEquals(2, progress.saved.size)
         assertEquals(1, songs.backups.prunes.size)
         assertEquals(progress.backups.toSet(), songs.backups.backups.keys)
+    }
+
+    /** The path the batch editor's "Apply to all" takes, with the multi-value mode applied last. */
+    private suspend fun TestScope.applyToAll(
+        files: FakeTagFiles,
+        edit: BatchEdit,
+        mode: MultiValueMode = MultiValueMode.Separate,
+    ): BatchProgress {
+        val backups = FakeBackupStore()
+        val runner =
+            BatchRunner(this, SaveTagChangesUseCase(files, files, backups, FakeIndexer()), backups)
+        runner.start(files.files.keys.map { BatchItem(it, it.uri.substringAfterLast('/')) }, edit) {
+            it.withMultiValueMode(mode, "; ")
+        }
+        advanceUntilIdle()
+        // Whatever runs this scope's coroutines, the batch is done before its files are read.
+        while (runner.isRunning) yield()
+        return runner.progress.value!!
+    }
+
+    private fun albumArtistFiles() =
+        FakeTagFiles(
+            linkedMapOf(
+                ContentRef("content://1/a.flac") to
+                    TagSnapshot(TagMap.of("ALBUMARTIST" to listOf("Old")), emptyList()),
+                ContentRef("content://2/b.mp3") to
+                    TagSnapshot(TagMap.of("ARTIST" to listOf("Daft Punk")), emptyList()),
+                ContentRef("content://3/c.m4a") to
+                    TagSnapshot(TagMap.of("ALBUMARTIST" to listOf("A", "B")), emptyList()),
+                ContentRef("content://4/d.flac") to
+                    TagSnapshot(TagMap.of("ALBUMARTIST" to listOf("Daft Punk")), emptyList()),
+            )
+        )
+
+    @Test
+    fun `an album artist set for all reaches every file, whatever each had`() = runTest {
+        val files = albumArtistFiles()
+
+        val progress =
+            applyToAll(
+                files,
+                BatchEdit(fields = mapOf("ALBUMARTIST" to listOf("Daft Punk", "Pharrell"))),
+            )
+
+        assertEquals(4, progress.saved.size)
+        files.files.values.forEach { snapshot ->
+            assertEquals(listOf("Daft Punk", "Pharrell"), snapshot.tags["ALBUMARTIST"])
+        }
+        assertEquals(listOf("Daft Punk"), files.files.values.elementAt(1).tags["ARTIST"])
+    }
+
+    @Test
+    fun `an album artist set for all is joined in every file when values are joined`() = runTest {
+        val files = albumArtistFiles()
+
+        applyToAll(
+            files,
+            BatchEdit(fields = mapOf("ALBUMARTIST" to listOf("Daft Punk", "Pharrell"))),
+            MultiValueMode.Joined,
+        )
+
+        files.files.values.forEach { snapshot ->
+            assertEquals(listOf("Daft Punk; Pharrell"), snapshot.tags["ALBUMARTIST"])
+        }
+    }
+
+    @Test
+    fun `a field a format drops is told, not counted as kept`() = runTest {
+        val files =
+            FakeTagFiles(
+                mapOf(ContentRef("content://1/a.wav") to TagSnapshot(TagMap.Empty, emptyList())),
+                unsupportedKeys = setOf("ALBUMARTIST"),
+            )
+
+        val progress =
+            applyToAll(
+                files,
+                BatchEdit(
+                    fields = mapOf("ALBUM" to listOf("X"), "ALBUMARTIST" to listOf("Daft Punk"))
+                ),
+            )
+
+        assertEquals(1, progress.saved.size)
+        assertEquals(mapOf("ALBUMARTIST" to 1), progress.notStored)
+    }
+
+    @Test
+    fun `positions are set file by file, in each file's style, the rest kept`() = runTest {
+        val mp3 = ContentRef("content://1/a.mp3")
+        val flac = ContentRef("content://2/b.flac")
+        val other = ContentRef("content://3/c.mp3")
+        val files =
+            FakeTagFiles(
+                linkedMapOf(
+                    mp3 to
+                        TagSnapshot(
+                            TagMap.of(
+                                "TRACKNUMBER" to listOf("5/10"),
+                                "DISCNUMBER" to listOf("1/2"),
+                            ),
+                            emptyList(),
+                        ),
+                    flac to
+                        TagSnapshot(
+                            TagMap.of("TRACKNUMBER" to listOf("5"), "TRACKTOTAL" to listOf("10")),
+                            emptyList(),
+                        ),
+                    other to TagSnapshot(TagMap.of("TRACKNUMBER" to listOf("7")), emptyList()),
+                )
+            )
+
+        applyToAll(
+            files,
+            BatchEdit(
+                positions =
+                    mapOf(
+                        mp3 to FilePositions(track = PositionEdit(3, 12), disc = PositionEdit(2)),
+                        flac to FilePositions(track = PositionEdit(total = 12)),
+                    )
+            ),
+        )
+
+        val first = files.files.getValue(mp3).tags
+        assertEquals(listOf("3/12"), first["TRACKNUMBER"])
+        assertEquals(listOf("2/2"), first["DISCNUMBER"])
+        val second = files.files.getValue(flac).tags
+        assertEquals(listOf("5"), second["TRACKNUMBER"])
+        assertEquals(listOf("12"), second["TRACKTOTAL"])
+        assertEquals(listOf("7"), files.files.getValue(other).tags["TRACKNUMBER"])
+    }
+
+    @Test
+    fun `a track total keeps the number read from the file name`() {
+        val ref = ContentRef("content://1")
+        val edit =
+            BatchEdit(
+                fileNamePattern = FileNamePattern("{track} - {title}"),
+                positions = mapOf(ref to FilePositions(track = PositionEdit(total = 12))),
+            )
+
+        val changes =
+            edit.changesFor(
+                BatchItem(ref, "03 - Digital Love.mp3"),
+                0,
+                1,
+                TagSnapshot(TagMap.of("TRACKNUMBER" to listOf("9/9")), emptyList()),
+            )
+
+        assertEquals(listOf("03/12"), changes.fields["TRACKNUMBER"])
+        assertEquals(listOf("Digital Love"), changes.fields["TITLE"])
+    }
+
+    @Test
+    fun `positions that set nothing are no edit`() {
+        assertTrue(
+            BatchEdit(positions = mapOf(ContentRef("content://1") to FilePositions())).isEmpty
+        )
+        assertFalse(
+            BatchEdit(
+                    positions =
+                        mapOf(ContentRef("content://1") to FilePositions(disc = PositionEdit(1)))
+                )
+                .isEmpty
+        )
     }
 }

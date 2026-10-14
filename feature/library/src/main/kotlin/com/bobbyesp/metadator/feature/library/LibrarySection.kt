@@ -159,7 +159,10 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
 @Composable
 private fun InspectorFollowsSelection(state: LibraryState, navigator: Navigator) {
     if (LocalPaneContext.current.isSolePane) return
-    val inspected = remember(state.listing, state.selection, state.clicked) { Inspected.of(state) }
+    val inspected =
+        remember(state.listing, state.selection, state.clicked, state.collectionSelection) {
+            Inspected.of(state)
+        }
     val latest = rememberUpdatedState(inspected)
     LaunchedEffect(navigator) {
         snapshotFlow { latest.value }
@@ -173,7 +176,10 @@ private fun InspectorFollowsSelection(state: LibraryState, navigator: Navigator)
 private data class Inspected(val key: NavKey?, val selected: Boolean) {
     companion object {
         fun of(state: LibraryState): Inspected {
-            val selected = state.selectedTracks
+            // Albums, artists or folders selected are their songs, as the songs selected are.
+            val selected =
+                if (state.selectingCollections) state.selectedCollectionTracks
+                else state.selectedTracks
             return when {
                 selected.size > 1 -> Inspected(BatchEditor(selected.map { it.ref.uri }), true)
                 selected.size == 1 -> Inspected(Editor(selected.single().ref.uri), true)
