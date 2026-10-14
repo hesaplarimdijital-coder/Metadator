@@ -23,6 +23,13 @@ env:
   # base branch and cannot fill the repository's quota, or the cache others read, with its own.
   GRADLE_CACHE_READ_ONLY: ${{ github.event_name != 'push' }}
 
+# Named, the shell runs with pipefail (`bash -eo pipefail`): a step that pipes Gradle through `tee`
+# fails when Gradle does. The shell GitHub uses when none is named has no pipefail, and every such
+# step passed whatever Gradle said.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   format:
     name: Format
