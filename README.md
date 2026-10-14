@@ -34,9 +34,12 @@ files that are not.
   table of songs, and a Fake FLAC list of the ones made from a lossy file.
 - **Lyrics**: find plain or synced lyrics on LRCLIB.
 - **Edit many songs at once**: set an album artist or a cover for a whole album, find that cover
-  online for all of its songs in one go, number tracks, read tags from file names.
+  online for all of its songs in one go, number tracks, read tags from file names, put garbled
+  text right.
 - **A library that shows what to fix**: search everything, sort, filter by format, and lists of
-  the songs that need attention and of the fake FLACs, first among the filters.
+  the songs that need attention, of the fake FLACs, of the songs without a cover and of those whose
+  text is garbled ("MoÄŸollar" for "Moğollar"), first among the filters. Songs, albums and artists
+  missing a cover can be filtered too.
 - **A simple music player**, with background playback and the system's media controls.
 - **Edit tags** from any file manager or player, no library permission needed.
 - **The look of a studio tool**: neutral panels on a darker ground and one accent, with a sidebar,

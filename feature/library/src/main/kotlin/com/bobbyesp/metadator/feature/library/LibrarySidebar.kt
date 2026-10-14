@@ -17,11 +17,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.HideImage
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.SdCard
 import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.MaterialTheme
@@ -44,8 +46,9 @@ import com.bobbyesp.metadator.core.ui.input.shortcutHint
 
 /**
  * The library's sidebar on a wide window: the ways of browsing it, the lists of songs it keeps
- * (what needs attention, the fake lossless files), and the volumes the songs are on; settings and
- * the keyboard's shortcuts at the foot. Each place says how many things are there.
+ * (what needs attention, the fake lossless files, the songs without a cover, those whose text is
+ * garbled), and the volumes the songs are on; settings and the keyboard's shortcuts at the foot.
+ * Each place says how many things are there.
  *
  * @param appName the name the app goes by in this build, for the head of the sidebar
  */
@@ -130,6 +133,26 @@ internal fun LibrarySidebar(
                                 "${state.quality.checked * 100 / state.quality.total.coerceAtLeast(1)}%"
                         } else numbers.format(state.fakeCount),
                     onClick = { show(LibrarySection.FakeLossless) },
+                )
+                SidebarItem(
+                    label = stringResource(R.string.no_cover),
+                    icon = Icons.Outlined.HideImage,
+                    selected = section == LibrarySection.NoCover,
+                    // While the songs are still being checked for a cover, how far that has got.
+                    count =
+                        if (state.covers.isRunning) {
+                            "${numbers.format(state.noCoverCount)} · " +
+                                "${state.covers.checked * 100 / state.covers.total.coerceAtLeast(1)}%"
+                        } else numbers.format(state.noCoverCount),
+                    onClick = { show(LibrarySection.NoCover) },
+                )
+                SidebarItem(
+                    label = stringResource(R.string.garbled_text),
+                    icon = Icons.Outlined.Translate,
+                    iconTint = colors.warning,
+                    selected = section == LibrarySection.GarbledText,
+                    count = numbers.format(state.garbledCount),
+                    onClick = { show(LibrarySection.GarbledText) },
                 )
             }
 

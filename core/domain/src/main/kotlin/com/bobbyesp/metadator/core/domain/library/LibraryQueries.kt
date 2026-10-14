@@ -4,6 +4,8 @@
 package com.bobbyesp.metadator.core.domain.library
 
 import com.bobbyesp.metadator.core.common.normalizedForComparison
+import com.bobbyesp.metadator.core.domain.text.hasGarbledText
+import com.bobbyesp.metadator.core.model.CollectionType
 import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
@@ -22,6 +24,13 @@ data class LibraryFilter(
     val fakeLossless: Boolean = false,
     /** Only the songs on one volume; null for all of them. */
     val storage: Storage? = null,
+    /**
+     * Only the songs whose files hold no cover; albums, artists and folders whole, when any of
+     * their songs has none ([lackingCover]).
+     */
+    val noCover: Boolean = false,
+    /** Only the songs whose title, artist, album or album artist looks garbled. */
+    val garbledText: Boolean = false,
 ) {
     val isActive: Boolean
         get() =
@@ -29,7 +38,9 @@ data class LibraryFilter(
                 needsAttention ||
                 formats.isNotEmpty() ||
                 fakeLossless ||
-                storage != null
+                storage != null ||
+                noCover ||
+                garbledText
 }
 
 /** A volume songs are on: the device's own storage, or one that can be taken out. */
@@ -60,11 +71,14 @@ fun List<Track>.countByStorage(): List<Pair<Storage, Int>> {
 
 /**
  * The songs [filter] lets through. [isFake] says whether a song's audio was found to have come from
- * a lossy file: what the library knows of that is not in the song itself.
+ * a lossy file, and [lacksCover] whether its file holds no cover: what the library knows of those
+ * is not in the song itself. [isGarbled] is there for a caller that knows it already.
  */
 fun List<Track>.filtered(
     filter: LibraryFilter,
     isFake: (Track) -> Boolean = { false },
+    lacksCover: (Track) -> Boolean = { false },
+    isGarbled: (Track) -> Boolean = { it.hasGarbledText },
 ): List<Track> {
     val terms = filter.search.normalizedForComparison().split(' ').filter { it.isNotEmpty() }
     return filter { track ->
@@ -72,9 +86,24 @@ fun List<Track>.filtered(
             (filter.formats.isEmpty() || track.fileExtension in filter.formats) &&
             (filter.storage == null || track.storage == filter.storage) &&
             (!filter.fakeLossless || isFake(track)) &&
+            (!filter.noCover || lacksCover(track)) &&
+            (!filter.garbledText || isGarbled(track)) &&
             (terms.isEmpty() || track.matches(terms))
     }
 }
+
+/**
+ * The albums, artists or folders with a song without a cover, each whole: under "No cover" a
+ * collection is listed with all of its songs, since a cover is found for an album, not for those of
+ * its songs that lack one.
+ */
+fun <C : TrackCollection> List<C>.lackingCover(lacksCover: (Track) -> Boolean): List<C> = filter {
+    it.tracks.any(lacksCover)
+}
+
+/** How many albums, artists or folders of [type] have a song without a cover. */
+fun List<Track>.countLackingCover(type: CollectionType, lacksCover: (Track) -> Boolean): Int =
+    asSequence().filter(lacksCover).mapNotNullTo(HashSet()) { it.collectionKey(type) }.size
 
 /** Every term must appear in one of the fields: "beatles abbey" finds Come Together. */
 private fun Track.matches(terms: List<String>): Boolean {

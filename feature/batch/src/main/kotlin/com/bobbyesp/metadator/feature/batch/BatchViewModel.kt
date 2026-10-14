@@ -26,6 +26,7 @@ import com.bobbyesp.metadator.core.domain.lookup.positionsFor
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
@@ -60,6 +61,9 @@ sealed interface CommonValue {
     data object Empty : CommonValue
 }
 
+/** A field of a song as it reads, and as it will once its garbled text is put right. */
+data class TextRepair(val key: String, val before: String, val after: String)
+
 /** @param durationMs how long the song is, as the library says; null where it does not know */
 data class BatchFile(
     val item: BatchItem,
@@ -91,6 +95,12 @@ data class BatchState(
     val separator: String = "; ",
     /** The albums the songs are on, as they are in the files, when they are on more than one. */
     val merge: AlbumMerge? = null,
+    /** How many of the songs have text garbled in a way it can be put right from. */
+    val garbledSongs: Int = 0,
+    /** A few of the fields that would be put right, to show what that does. */
+    val repairs: List<TextRepair> = emptyList(),
+    /** Whether each song's garbled text is put right, each in its own way. */
+    val repairText: Boolean = false,
 ) {
     /** How many songs are being edited: the ones read, or until then the ones to read. */
     val count: Int
@@ -107,6 +117,7 @@ data class BatchState(
                 numbering = numbering,
                 fileNamePattern = fileNamePattern,
                 positions = positions,
+                repairText = repairText,
             )
 
     /**
@@ -195,6 +206,9 @@ sealed interface BatchIntent {
 
     data class UsePattern(val enabled: Boolean) : BatchIntent
 
+    /** Puts right, or leaves, each song's garbled text. */
+    data class RepairText(val enabled: Boolean) : BatchIntent
+
     data object Apply : BatchIntent
 
     data object Cancel : BatchIntent
@@ -258,6 +272,7 @@ class BatchViewModel(
             is BatchIntent.SetNumbering -> setState { copy(numbering = intent.numbering) }
             is BatchIntent.SetPattern -> setState { copy(pattern = intent.pattern) }
             is BatchIntent.UsePattern -> setState { copy(usePattern = intent.enabled) }
+            is BatchIntent.RepairText -> setState { copy(repairText = intent.enabled) }
             BatchIntent.Apply -> apply()
             BatchIntent.Cancel -> runner.cancel()
             BatchIntent.UndoAll -> undoAll()
@@ -302,12 +317,30 @@ class BatchViewModel(
                         .awaitAll()
                         .filterNotNull()
                 }
+            // What putting garbled text right would do: offered where any song has some.
+            val repairs = files.map { it.tags.textRepairs() }
+            val shown =
+                files
+                    .zip(repairs)
+                    .flatMap { (file, fixes) ->
+                        fixes.map { (key, values) ->
+                            TextRepair(
+                                key,
+                                file.tags[key].joinToString(", "),
+                                values.joinToString(", "),
+                            )
+                        }
+                    }
+                    .distinct()
+                    .take(REPAIRS_SHOWN)
             setState {
                 copy(
                     loading = false,
                     files = files,
                     common = commonValues(files),
                     merge = AlbumMerge.of(files.map { it.tags }),
+                    garbledSongs = repairs.count { it.isNotEmpty() },
+                    repairs = shown,
                 )
             }
         }
@@ -501,6 +534,7 @@ class BatchViewModel(
                 TagField.Comment,
             )
         private const val PARALLEL_READS = 4
+        private const val REPAIRS_SHOWN = 3
     }
 
     /** A failure of what the user pressed (Apply, Undo all) is said on screen, not only logged. */
