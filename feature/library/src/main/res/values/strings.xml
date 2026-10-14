@@ -90,6 +90,20 @@
     <string name="no_fake_title">No fake FLAC found</string>
     <string name="no_fake_description">Every lossless file in your library looks like what it says it is.</string>
     <string name="no_fake_yet_description" tools:ignore="PluralsCandidate">None so far: %1$d of %2$d lossless files checked. The rest are being checked in the background.</string>
+    <string name="no_cover">No cover</string>
+    <string name="no_cover_filter">No cover (%1$d)</string>
+    <string name="missing_covers_filter">Missing covers (%1$d)</string>
+    <string name="no_cover_songs_description">Songs whose files hold no cover</string>
+    <string name="no_cover_albums_description">Albums with at least one song without a cover</string>
+    <string name="no_cover_artists_description">Artists with at least one song without a cover</string>
+    <string name="cover_progress">Checking covers: %1$s of %2$s</string>
+    <string name="no_missing_covers_title">No song without a cover</string>
+    <string name="no_missing_covers_description">Every song in your library has a cover of its own.</string>
+    <string name="no_missing_covers_yet_description" tools:ignore="PluralsCandidate">None so far: %1$d of %2$d songs checked. The rest are being checked in the background.</string>
+    <string name="garbled_text">Garbled text</string>
+    <string name="garbled_text_filter">Garbled text (%1$d)</string>
+    <string name="no_garbled_title">No garbled text</string>
+    <string name="no_garbled_description">Every title, artist and album in your library reads right.</string>
     <string name="find_cover">Find cover</string>
     <plurals name="selected_songs">
         <item quantity="one">%1$d song selected</item>

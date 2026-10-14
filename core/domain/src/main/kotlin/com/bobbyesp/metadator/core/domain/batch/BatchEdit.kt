@@ -8,6 +8,7 @@ import com.bobbyesp.metadator.core.domain.editor.PositionStyle
 import com.bobbyesp.metadator.core.domain.editor.TrackPositions
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.tags.api.ArtworkChange
 import com.bobbyesp.metadator.tags.api.BackupId
@@ -46,6 +47,12 @@ data class BatchEdit(
      * numbers every track.
      */
     val positions: Map<ContentRef, FilePositions> = emptyMap(),
+    /**
+     * Puts right each file's text garbled in a way the text itself can undo ([textRepairs]): what
+     * each file holds, so each its own. Applied first; a field set in [fields] or read from the
+     * file's name wins.
+     */
+    val repairText: Boolean = false,
 ) {
     val isEmpty: Boolean
         get() =
@@ -53,7 +60,8 @@ data class BatchEdit(
                 artwork == ArtworkChange.Unchanged &&
                 numbering == null &&
                 fileNamePattern == null &&
-                positions.values.all { it.isEmpty }
+                positions.values.all { it.isEmpty } &&
+                !repairText
 }
 
 data class TrackNumbering(val startAt: Int = 1, val writeTotal: Boolean = true)
@@ -85,6 +93,7 @@ fun BatchEdit.changesFor(
     snapshot: TagSnapshot,
 ): TagChanges {
     val fields = linkedMapOf<String, List<String>>()
+    if (repairText) fields += snapshot.tags.textRepairs()
     fileNamePattern?.parse(item.displayName)?.let { fields += it }
     fields += this.fields
     positions[item.ref]?.let { position ->

@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bobbyesp.metadator.core.common.AppDispatchers
 import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.domain.artwork.LibraryCoverScanner
+import com.bobbyesp.metadator.core.domain.artwork.LibraryCoverState
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.library.LibraryFilter
 import com.bobbyesp.metadator.core.domain.library.Storage
@@ -14,11 +16,14 @@ import com.bobbyesp.metadator.core.domain.library.albums
 import com.bobbyesp.metadator.core.domain.library.artists
 import com.bobbyesp.metadator.core.domain.library.collection
 import com.bobbyesp.metadator.core.domain.library.countByStorage
+import com.bobbyesp.metadator.core.domain.library.countLackingCover
 import com.bobbyesp.metadator.core.domain.library.filtered
 import com.bobbyesp.metadator.core.domain.library.folders
+import com.bobbyesp.metadator.core.domain.library.lackingCover
 import com.bobbyesp.metadator.core.domain.library.sorted
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityState
+import com.bobbyesp.metadator.core.domain.text.hasGarbledText
 import com.bobbyesp.metadator.core.model.CollectionType
 import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
@@ -31,6 +36,7 @@ import com.bobbyesp.metadator.library.api.AudioLibrary
 import com.bobbyesp.metadator.player.api.PlayerController
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +44,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -60,6 +68,12 @@ sealed interface LibrarySection {
 
     /** The lossless files found to have come from lossy ones. */
     data object FakeLossless : LibrarySection
+
+    /** The songs whose files hold no cover. */
+    data object NoCover : LibrarySection
+
+    /** The songs whose text still looks garbled once the library has read their files. */
+    data object GarbledText : LibrarySection
 
     /** The songs on one volume: the device's own storage, an SD card. */
     data class OnStorage(val storage: Storage) : LibrarySection
@@ -102,6 +116,14 @@ data class LibraryState(
     val fakeCount: Int = 0,
     /** How many songs each volume holds. */
     val storages: List<Pair<Storage, Int>> = emptyList(),
+    /** What the check of covers found, and how far it has got. */
+    val covers: LibraryCoverState = LibraryCoverState(),
+    /** How many of the library's songs, albums and artists lack a cover, of those checked. */
+    val noCoverCount: Int = 0,
+    val albumsWithoutCover: Int = 0,
+    val artistsWithoutCover: Int = 0,
+    /** How many of the library's songs have text that still looks garbled. */
+    val garbledCount: Int = 0,
     /**
      * The album, artist or folder this lists, on its screen ([LibraryIntent.ShowCollection]): its
      * songs are [tracks], in its own order. Null in the library.
@@ -168,7 +190,9 @@ data class LibraryState(
             val storage = filter.storage
             return when {
                 filter.fakeLossless -> LibrarySection.FakeLossless
+                filter.garbledText && tab == LibraryTab.Songs -> LibrarySection.GarbledText
                 filter.needsAttention && tab == LibraryTab.Songs -> LibrarySection.NeedsAttention
+                filter.noCover && tab == LibraryTab.Songs -> LibrarySection.NoCover
                 storage != null && tab == LibraryTab.Songs -> LibrarySection.OnStorage(storage)
                 else -> LibrarySection.Browse(tab)
             }
@@ -185,6 +209,11 @@ sealed interface LibraryIntent {
     data object ToggleNeedsAttention : LibraryIntent
 
     data object ToggleFakeLossless : LibraryIntent
+
+    /** Narrows to the songs without a cover; the albums and artists with one such song. */
+    data object ToggleNoCover : LibraryIntent
+
+    data object ToggleGarbledText : LibraryIntent
 
     /** Goes to a place of the sidebar: its tab, with the songs narrowed as it narrows them. */
     data class ShowSection(val section: LibrarySection) : LibraryIntent
@@ -261,6 +290,7 @@ class LibraryViewModel(
     private val library: AudioLibrary,
     private val player: PlayerController,
     private val quality: LibraryQualityScanner,
+    private val covers: LibraryCoverScanner,
     private val batches: BatchRunner,
     private val strings: StringProvider,
     private val dispatchers: AppDispatchers,
@@ -289,6 +319,18 @@ class LibraryViewModel(
 
     private data class Query(val filter: LibraryFilter, val sort: SortOrder)
 
+    /** A query, with the songs without a cover when it is narrowed to them. */
+    private data class Listed(val query: Query, val withoutCover: Set<TrackId>)
+
+    /** The library as last listed, for what is counted of it apart from the listing. */
+    private val latest = MutableStateFlow<List<Track>>(emptyList())
+
+    /**
+     * The songs whose text looks garbled, worked out once for each version of the library, not at
+     * each letter typed in the search ([garbledIn]).
+     */
+    private var garbled: Pair<List<Track>, Set<TrackId>>? = null
+
     init {
         savedState
             .get<List<String>>(KEY_HISTORY)
@@ -305,6 +347,30 @@ class LibraryViewModel(
                         fakeCount =
                             if (listsCollection) 0
                             else checked.qualities.values.count { it.isFake },
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+        // What the sidebar and the chips count of covers: the songs, and the albums and artists
+        // with one, as the check finds them. Nothing listed changes with it, unless narrowed to
+        // them.
+        combine(latest, covers.state) { all, found ->
+                val lacks = { track: Track -> track.id in found.withoutCover }
+                CoverCounts(
+                    state = found,
+                    songs = all.count(lacks),
+                    albums = all.countLackingCover(CollectionType.Album, lacks),
+                    artists = all.countLackingCover(CollectionType.Artist, lacks),
+                )
+            }
+            .flowOn(dispatchers.default)
+            .onEach { counts ->
+                setState {
+                    copy(
+                        covers = counts.state,
+                        noCoverCount = counts.songs,
+                        albumsWithoutCover = counts.albums,
+                        artistsWithoutCover = counts.artists,
                     )
                 }
             }
@@ -352,6 +418,10 @@ class LibraryViewModel(
                 updateQuery { copy(filter = filter.copy(needsAttention = !filter.needsAttention)) }
             LibraryIntent.ToggleFakeLossless ->
                 updateQuery { copy(filter = filter.copy(fakeLossless = !filter.fakeLossless)) }
+            LibraryIntent.ToggleNoCover ->
+                updateQuery { copy(filter = filter.copy(noCover = !filter.noCover)) }
+            LibraryIntent.ToggleGarbledText ->
+                updateQuery { copy(filter = filter.copy(garbledText = !filter.garbledText)) }
             is LibraryIntent.ShowSection -> showSection(intent.section)
             is LibraryIntent.ToggleFormat ->
                 updateQuery {
@@ -507,6 +577,8 @@ class LibraryViewModel(
                         needsAttention = section == LibrarySection.NeedsAttention,
                         fakeLossless = section == LibrarySection.FakeLossless,
                         storage = (section as? LibrarySection.OnStorage)?.storage,
+                        noCover = section == LibrarySection.NoCover,
+                        garbledText = section == LibrarySection.GarbledText,
                     )
             )
         }
@@ -565,6 +637,7 @@ class LibraryViewModel(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startObserving() {
         if (observing?.isActive == true) return
         // Only which songs are fake bears on what is listed; the rest of what the check finds is
@@ -573,11 +646,23 @@ class LibraryViewModel(
             quality.state
                 .map { checked -> checked.qualities.filterValues { it.isFake }.keys }
                 .distinctUntilChanged()
+        // Which songs lack a cover bears on what is listed only while it is narrowed to them: the
+        // check finds more every few songs, which is not worth listing everything again for.
+        val queried = query.flatMapLatest { current ->
+            if (current.filter.noCover) {
+                covers.state
+                    .map { it.withoutCover }
+                    .distinctUntilChanged()
+                    .map { Listed(current, it) }
+            } else flowOf(Listed(current, emptySet()))
+        }
         observing =
-            combine(library.observeTracks(), query, fakes) { tracks, query, fake ->
-                    // The whole library, not what is listed: the check goes through all of it.
+            combine(library.observeTracks(), queried, fakes) { tracks, listed, fake ->
+                    // The whole library, not what is listed: the checks go through all of it.
                     quality.submit(tracks)
-                    present(tracks, query, fake)
+                    covers.submit(tracks)
+                    latest.value = tracks
+                    present(tracks, listed.query, fake, listed.withoutCover)
                 }
                 .flowOn(dispatchers.default)
                 .catch {
@@ -593,11 +678,26 @@ class LibraryViewModel(
         all: List<Track>,
         query: Query,
         fakes: Set<String>,
+        withoutCover: Set<TrackId>,
     ): LibraryState.() -> LibraryState {
-        val visible = all.filtered(query.filter) { it.ref.uri in fakes }.sorted(query.sort)
-        val albums = visible.albums()
-        val artists = visible.artists()
-        val folders = visible.folders()
+        val filter = query.filter
+        val isFake = { track: Track -> track.ref.uri in fakes }
+        val lacksCover = { track: Track -> track.id in withoutCover }
+        val garbledIds = garbledIn(all)
+        val isGarbled = { track: Track -> track.id in garbledIds }
+        val visible = all.filtered(filter, isFake, lacksCover, isGarbled).sorted(query.sort)
+        // Narrowed to the songs without a cover, an album, an artist or a folder is listed whole:
+        // a cover is found for the album, not for those of its songs that lack one.
+        val grouped =
+            if (filter.noCover)
+                all.filtered(filter.copy(noCover = false), isFake, isGarbled = isGarbled)
+            else visible
+        val albums =
+            grouped.albums().let { if (filter.noCover) it.lackingCover(lacksCover) else it }
+        val artists =
+            grouped.artists().let { if (filter.noCover) it.lackingCover(lacksCover) else it }
+        val folders =
+            grouped.folders().let { if (filter.noCover) it.lackingCover(lacksCover) else it }
         val formats = all.map { it.fileExtension }.filter { it.isNotEmpty() }.distinct().sorted()
         val needsAttention = all.count { it.needsAttention }
         val storages = all.countByStorage()
@@ -621,6 +721,7 @@ class LibraryViewModel(
                     ),
                 formats = formats,
                 needsAttentionCount = needsAttention,
+                garbledCount = garbledIds.size,
                 storages = storages,
                 selection = selection.filterTo(mutableSetOf()) { it in visibleIds },
                 clicked = clicked?.takeIf { it in visibleIds },
@@ -628,6 +729,14 @@ class LibraryViewModel(
                     collectionSelection.filterTo(mutableSetOf()) { it in listedKeys },
             )
         }
+    }
+
+    /** The songs of [all] whose text looks garbled, worked out again only for another library. */
+    private fun garbledIn(all: List<Track>): Set<TrackId> {
+        garbled?.let { (of, ids) -> if (of === all) return ids }
+        val ids = all.filter { it.hasGarbledText }.mapTo(HashSet()) { it.id }
+        garbled = all to ids
+        return ids
     }
 
     /**
@@ -667,6 +776,8 @@ private val LibrarySection.saved: String
             is LibrarySection.Browse -> "browse:${tab.name}"
             LibrarySection.NeedsAttention -> "attention"
             LibrarySection.FakeLossless -> "fake"
+            LibrarySection.NoCover -> "nocover"
+            LibrarySection.GarbledText -> "garbled"
             is LibrarySection.OnStorage ->
                 when (storage) {
                     Storage.Device -> "device"
@@ -682,8 +793,18 @@ private fun String.toPlace(): LibrarySection? =
                 ?.let { LibrarySection.Browse(it) }
         this == "attention" -> LibrarySection.NeedsAttention
         this == "fake" -> LibrarySection.FakeLossless
+        this == "nocover" -> LibrarySection.NoCover
+        this == "garbled" -> LibrarySection.GarbledText
         this == "device" -> LibrarySection.OnStorage(Storage.Device)
         startsWith("removable:") ->
             LibrarySection.OnStorage(Storage.Removable(removePrefix("removable:")))
         else -> null
     }
+
+/** What the check of covers found, as the sidebar and the chips count it. */
+private data class CoverCounts(
+    val state: LibraryCoverState,
+    val songs: Int,
+    val albums: Int,
+    val artists: Int,
+)

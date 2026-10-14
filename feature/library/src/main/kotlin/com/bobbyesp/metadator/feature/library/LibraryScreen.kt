@@ -38,6 +38,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.HideImage
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -103,6 +105,7 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioMenuDivider
 import com.bobbyesp.metadator.core.designsystem.component.StudioMenuItem
 import com.bobbyesp.metadator.core.designsystem.component.StudioSearchField
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
 import com.bobbyesp.metadator.core.designsystem.component.heldWhileClosing
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
@@ -353,8 +356,8 @@ private fun PanelToolbar(
 
 /**
  * The filters: the lists of songs that ask for something to be done, where nothing else offers
- * them, then the formats. The lists come first: they are what is looked for here, a format is a way
- * to narrow down.
+ * them, then the songs without a cover, then the formats. The lists come first: they are what is
+ * looked for here, a format is a way to narrow down.
  */
 @Composable
 private fun FilterChips(
@@ -381,7 +384,17 @@ private fun FilterChips(
                 iconTint = Studio.colors.danger,
             )
         }
+        if (state.garbledCount > 0 || state.filter.garbledText) {
+            ToggleChip(
+                selected = state.filter.garbledText,
+                onClick = { onIntent(LibraryIntent.ToggleGarbledText) },
+                label = stringResource(R.string.garbled_text_filter, state.garbledCount),
+                icon = Icons.Outlined.Translate,
+                iconTint = Studio.colors.warning,
+            )
+        }
     }
+    NoCoverChip(state, onIntent)
     if (state.formats.size > 1) {
         state.formats.forEach { format ->
             ToggleChip(
@@ -390,6 +403,46 @@ private fun FilterChips(
                 label = format.uppercase(),
             )
         }
+    }
+}
+
+/**
+ * The songs without a cover, and in the albums and the artists those with one such song: an album
+ * missing covers is what a cover is found for. What it counts and says follows the tab, and what it
+ * means exactly is said when it is pointed at.
+ */
+@Composable
+private fun NoCoverChip(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
+    val (count, label, description) =
+        when (state.tab) {
+            LibraryTab.Songs ->
+                Triple(
+                    state.noCoverCount,
+                    R.string.no_cover_filter,
+                    R.string.no_cover_songs_description,
+                )
+            LibraryTab.Albums ->
+                Triple(
+                    state.albumsWithoutCover,
+                    R.string.missing_covers_filter,
+                    R.string.no_cover_albums_description,
+                )
+            LibraryTab.Artists ->
+                Triple(
+                    state.artistsWithoutCover,
+                    R.string.missing_covers_filter,
+                    R.string.no_cover_artists_description,
+                )
+            LibraryTab.Folders -> return
+        }
+    if (count == 0 && !state.filter.noCover) return
+    Tooltip(stringResource(description)) {
+        ToggleChip(
+            selected = state.filter.noCover,
+            onClick = { onIntent(LibraryIntent.ToggleNoCover) },
+            label = stringResource(label, count),
+            icon = Icons.Outlined.HideImage,
+        )
     }
 }
 
@@ -618,12 +671,15 @@ internal fun sectionTitle(state: LibraryState): String =
         is LibrarySection.Browse -> stringResource(section.tab.label)
         LibrarySection.NeedsAttention -> stringResource(R.string.needs_attention)
         LibrarySection.FakeLossless -> stringResource(R.string.fake_lossless)
+        LibrarySection.NoCover -> stringResource(R.string.no_cover)
+        LibrarySection.GarbledText -> stringResource(R.string.garbled_text)
         is LibrarySection.OnStorage -> section.storage.label()
     }
 
 /**
  * How many songs are listed, how much room they take, and how many of them are on a card; while the
- * lossless files are being checked, how far that has got.
+ * lossless files are being checked, how far that has got, and so for the covers while the songs are
+ * narrowed to those without one.
  */
 @Composable
 internal fun sectionStats(state: LibraryState): String {
@@ -681,6 +737,14 @@ internal fun sectionStats(state: LibraryState): String {
                 R.string.quality_progress,
                 numbers.format(state.quality.checked),
                 numbers.format(state.quality.total),
+            )
+    }
+    if (state.filter.noCover && state.covers.isRunning) {
+        parts +=
+            stringResource(
+                R.string.cover_progress,
+                numbers.format(state.covers.checked),
+                numbers.format(state.covers.total),
             )
     }
     return parts.joinToString(" · ")
@@ -1005,6 +1069,29 @@ private fun LibraryContent(state: LibraryState, actions: LibraryActions, wide: B
                                         state.quality.total,
                                     )
                                 } else stringResource(R.string.no_fake_description),
+                            icon = Icons.Rounded.TaskAlt,
+                        )
+                    }
+                listing.tracks.isEmpty() && listing.filter.noCover ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_missing_covers_title),
+                            description =
+                                if (state.covers.isRunning) {
+                                    stringResource(
+                                        R.string.no_missing_covers_yet_description,
+                                        state.covers.checked,
+                                        state.covers.total,
+                                    )
+                                } else stringResource(R.string.no_missing_covers_description),
+                            icon = Icons.Rounded.TaskAlt,
+                        )
+                    }
+                listing.tracks.isEmpty() && listing.filter.garbledText ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_garbled_title),
+                            description = stringResource(R.string.no_garbled_description),
                             icon = Icons.Rounded.TaskAlt,
                         )
                     }
