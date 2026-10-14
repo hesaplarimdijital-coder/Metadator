@@ -200,7 +200,10 @@ is beside it (`LocalShownDetail`), and marks that song.
 A feature moves through the stack with its `Navigator` and nothing else (`BackStackNavigator`,
 tested on the JVM). The stack is the library at its root, a collection gone to from it, what is
 shown beside each (an editor or the batch editor: `isList` and `isDetail` in `Keys.kt` say which,
-as the entries' metadata tells list-detail), and the screens gone to from those.
+as the entries' metadata tells list-detail), and the screens gone to from those. A collection's
+screen has a `LibraryViewModel` of its own (`LibraryIntent.ShowCollection`), which lists that
+collection's songs alone (`List<Track>.collection`): it groups nothing else, hands no song to the
+checks of the library, and counts nothing for the sidebar.
 
 - `goTo` adds a destination. A list gone to from a list starts with nothing beside it: what was
   beside the one left was chosen there.

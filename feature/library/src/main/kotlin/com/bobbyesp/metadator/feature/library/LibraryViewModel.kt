@@ -325,6 +325,7 @@ class LibraryViewModel(
     /** Whether this lists one collection, for its screen ([LibraryIntent.ShowCollection]). */
     private var listsCollection = false
     private var observing: Job? = null
+    private var coverCounts: Job? = null
 
     /** The song a range is selected from: the last one selected on its own, or opened. */
     private var selectionAnchor: TrackId? = null
@@ -362,30 +363,6 @@ class LibraryViewModel(
                         fakeCount =
                             if (listsCollection) 0
                             else checked.qualities.values.count { it.isFake },
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
-        // What the sidebar and the chips count of covers: the songs, and the albums and artists
-        // with one, as the check finds them. Nothing listed changes with it, unless narrowed to
-        // them.
-        combine(latest, covers.state) { all, found ->
-                val lacks = { track: Track -> track.id in found.withoutCover }
-                CoverCounts(
-                    state = found,
-                    songs = all.count(lacks),
-                    albums = all.countLackingCover(CollectionType.Album, lacks),
-                    artists = all.countLackingCover(CollectionType.Artist, lacks),
-                )
-            }
-            .flowOn(dispatchers.default)
-            .onEach { counts ->
-                setState {
-                    copy(
-                        covers = counts.state,
-                        noCoverCount = counts.songs,
-                        albumsWithoutCover = counts.albums,
-                        artistsWithoutCover = counts.artists,
                     )
                 }
             }
@@ -654,6 +631,7 @@ class LibraryViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startObserving() {
         if (observing?.isActive == true) return
+        countCovers()
         // Only which songs are fake bears on what is listed; the rest of what the check finds is
         // shown, not filtered by, and comes on its own above.
         val fakes =
@@ -684,6 +662,38 @@ class LibraryViewModel(
                     showMessage(UiMessage(strings.get(R.string.library_load_failed)))
                 }
                 .onEach { presented -> setState { presented(this) } }
+                .launchIn(viewModelScope)
+    }
+
+    /**
+     * What the sidebar and the chips count of covers: the songs, and the albums and artists with
+     * one, as the check finds them. Nothing listed changes with it, unless narrowed to them. The
+     * library's alone: a collection's screen shows none of it, and counted at every step of the
+     * check, its songs were handed to it again for nothing.
+     */
+    private fun countCovers() {
+        if (coverCounts?.isActive == true) return
+        coverCounts =
+            combine(latest, covers.state) { all, found ->
+                    val lacks = { track: Track -> track.id in found.withoutCover }
+                    CoverCounts(
+                        state = found,
+                        songs = all.count(lacks),
+                        albums = all.countLackingCover(CollectionType.Album, lacks),
+                        artists = all.countLackingCover(CollectionType.Artist, lacks),
+                    )
+                }
+                .flowOn(dispatchers.default)
+                .onEach { counts ->
+                    setState {
+                        copy(
+                            covers = counts.state,
+                            noCoverCount = counts.songs,
+                            albumsWithoutCover = counts.albums,
+                            artistsWithoutCover = counts.artists,
+                        )
+                    }
+                }
                 .launchIn(viewModelScope)
     }
 
