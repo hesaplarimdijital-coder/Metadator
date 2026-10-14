@@ -146,4 +146,8 @@
         <item quantity="one">%1$d şarkının bozuk karakterlerini düzeltir</item>
         <item quantity="other">%1$d şarkının bozuk karakterlerini düzeltir</item>
     </plurals>
+    <plurals name="batch_repair_text_more">
+        <item quantity="one">%1$d değişiklik daha: %2$s</item>
+        <item quantity="other">%1$d değişiklik daha: %2$s</item>
+    </plurals>
 </resources>

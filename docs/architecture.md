@@ -81,7 +81,8 @@ TagLib reads it too, the editor says so above the fields, with what each field m
 worked out once for each version of the library, not at each letter typed in the search), and the
 batch editor puts all of theirs right at once: "Repair garbled text", first of its options where
 any of its songs has some (`BatchEdit.repairText`), writes each file's own text put right, backed up
-and undone as any batch. Selecting the whole list (Ctrl+A) is what the inspector beside it shows as
+and undone as any batch. Its card shows three of the changes, then how many more there are and in
+which fields: the lyrics and the comment are put right too, where a wrong repair shows least. Selecting the whole list (Ctrl+A) is what the inspector beside it shows as
 that batch.
 
 **A list shows each song's own cover** (`TrackArtwork`, `Track.artwork`): MediaStore's thumbnail

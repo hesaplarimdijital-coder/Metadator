@@ -146,4 +146,8 @@
         <item quantity="one">Puts right the text of %1$d song, read with the wrong character set</item>
         <item quantity="other">Puts right the text of %1$d songs, read with the wrong character set</item>
     </plurals>
+    <plurals name="batch_repair_text_more">
+        <item quantity="one">%1$d more change: %2$s</item>
+        <item quantity="other">%1$d more changes: %2$s</item>
+    </plurals>
 </resources>

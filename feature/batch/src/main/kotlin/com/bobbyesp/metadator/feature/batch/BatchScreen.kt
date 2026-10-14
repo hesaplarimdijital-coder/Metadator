@@ -530,7 +530,8 @@ private fun CoverChoice(
 /**
  * Puts right the songs' garbled text, each song its own, as the editor does for one. First of all
  * where any song has some: a list of garbled songs, selected whole, is edited for this. What it
- * does is shown on a few of the fields, before it is switched on.
+ * does is shown on a few of the fields, before it is switched on, with how many more it changes and
+ * in which fields.
  */
 @Composable
 private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
@@ -560,6 +561,22 @@ private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = Studio.colors.textSecondary,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (state.moreRepairs > 0) {
+                // Labels first: a composable cannot be called from joinToString's lambda.
+                val fields = state.moreRepairKeys.map { fieldLabel(it) }
+                Text(
+                    pluralStringResource(
+                        R.plurals.batch_repair_text_more,
+                        state.moreRepairs,
+                        state.moreRepairs,
+                        fields.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
