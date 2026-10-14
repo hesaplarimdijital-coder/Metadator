@@ -5,7 +5,6 @@ package com.bobbyesp.metadator.feature.library
 
 import android.text.format.Formatter
 import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -22,6 +21,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,6 +81,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.ActionChip
 import com.bobbyesp.metadator.core.designsystem.component.ActionMenu
 import com.bobbyesp.metadator.core.designsystem.component.Choice
@@ -111,6 +114,7 @@ import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
 import com.bobbyesp.metadator.core.model.TrackSort
+import com.bobbyesp.metadator.core.navigation.LocalShownDetail
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
 import com.bobbyesp.metadator.core.ui.input.Shortcut
@@ -142,7 +146,20 @@ internal fun LibraryScreen(
     val permission = rememberAudioPermissionState()
     val granted = permission.status == PermissionStatus.Granted
     LaunchedEffect(permission.status) { if (granted) onIntent(LibraryIntent.Start) }
-    BackHandler(enabled = state.selecting) { onIntent(LibraryIntent.ClearSelection) }
+    // Back ends the selection first.
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = state.selecting,
+        onBackCompleted = { onIntent(LibraryIntent.ClearSelection) },
+    )
+    // Then the place visited before this one, as a browser's Back: once nothing is beside the
+    // library, which Back closes first, and before the library is left.
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled =
+            state.history.isNotEmpty() && !state.selecting && LocalShownDetail.current == null,
+        onBackCompleted = { onIntent(LibraryIntent.BackToPlace) },
+    )
 
     val searchFocus = remember { FocusRequester() }
     LibraryShortcuts(
@@ -502,36 +519,7 @@ private fun PanelHeader(state: LibraryState, actions: LibraryActions) {
             verticalAlignment = Alignment.Bottom,
         ) {
             if (selecting) {
-                Text(
-                    pluralStringResource(
-                        R.plurals.selected_songs,
-                        state.selection.size,
-                        state.selection.size,
-                    ),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Studio.colors.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                StudioButton(
-                    text = stringResource(R.string.edit_together),
-                    onClick = { actions.onEditTracks(state.selectedTracks) },
-                    icon = Icons.Rounded.EditNote,
-                    style = StudioButtonStyle.Primary,
-                    shortcut = shortcutHint(KeyEvent.KEYCODE_E, ctrl = true),
-                )
-                StudioButton(
-                    text = stringResource(R.string.play_selection),
-                    onClick = { onIntent(LibraryIntent.PlaySelection) },
-                    icon = Icons.Rounded.PlayArrow,
-                )
-                StudioButton(
-                    text = stringResource(R.string.close_selection),
-                    onClick = { onIntent(LibraryIntent.ClearSelection) },
-                    style = StudioButtonStyle.Ghost,
-                    shortcut = shortcutHint(KeyEvent.KEYCODE_ESCAPE),
-                )
+                SelectionActions(state, actions)
             } else {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -570,6 +558,41 @@ private fun PanelHeader(state: LibraryState, actions: LibraryActions) {
             }
         }
     }
+}
+
+/**
+ * How many songs are selected, and what to do with them: edit them together, play them, or stop
+ * selecting. Over the library's songs on a wide window, and over a collection's.
+ */
+@Composable
+internal fun RowScope.SelectionActions(state: LibraryState, actions: LibraryActions) {
+    val onIntent = actions.onIntent
+    Text(
+        pluralStringResource(R.plurals.selected_songs, state.selection.size, state.selection.size),
+        modifier = Modifier.weight(1f),
+        style = MaterialTheme.typography.titleLarge,
+        color = Studio.colors.text,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+    StudioButton(
+        text = stringResource(R.string.edit_together),
+        onClick = { actions.onEditTracks(state.selectedTracks) },
+        icon = Icons.Rounded.EditNote,
+        style = StudioButtonStyle.Primary,
+        shortcut = shortcutHint(KeyEvent.KEYCODE_E, ctrl = true),
+    )
+    StudioButton(
+        text = stringResource(R.string.play_selection),
+        onClick = { onIntent(LibraryIntent.PlaySelection) },
+        icon = Icons.Rounded.PlayArrow,
+    )
+    StudioButton(
+        text = stringResource(R.string.close_selection),
+        onClick = { onIntent(LibraryIntent.ClearSelection) },
+        style = StudioButtonStyle.Ghost,
+        shortcut = shortcutHint(KeyEvent.KEYCODE_ESCAPE),
+    )
 }
 
 /**
@@ -758,7 +781,7 @@ private fun PhoneLibrary(
  * together, which is what selecting them is mostly for.
  */
 @Composable
-private fun SelectionBar(
+internal fun SelectionBar(
     state: LibraryState,
     actions: LibraryActions,
     onIntent: (LibraryIntent) -> Unit,
@@ -829,7 +852,7 @@ private fun PhoneHead(state: LibraryState, actions: LibraryActions, granted: Boo
 
 /** The head of the phone's library while songs are selected. */
 @Composable
-private fun PhoneSelectionHead(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
+internal fun PhoneSelectionHead(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
     Row(
         modifier =
             Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
