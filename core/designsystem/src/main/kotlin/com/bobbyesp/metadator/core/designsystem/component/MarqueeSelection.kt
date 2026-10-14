@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -61,6 +62,20 @@ import kotlinx.coroutines.launch
  */
 
 /**
+ * What a marquee touches, as its list is told ([rememberMarqueeSelectionState]).
+ *
+ * @property keys the keys of the items it touches, in the list's order: those scrolled out of sight
+ *   under it too
+ * @property anchor the key of the touched item nearest where it began, for a range taken with Shift
+ *   next to start from; null when it touches none
+ * @property additive whether Ctrl was down as the button went down: [keys] are then added to what
+ *   was selected as the drag began, and otherwise are all that is selected, as in a file manager
+ */
+@Immutable
+class MarqueeSelection
+internal constructor(val keys: Set<Any>, val anchor: Any?, val additive: Boolean)
+
+/**
  * A rectangle dragged with the mouse over a lazy list: where it began, which items it touches, and
  * whom to tell. Made by [rememberMarqueeSelectionState]; [Modifier.marqueeSelection] on the list
  * draws it and drives it.
@@ -71,7 +86,7 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
     var isActive: Boolean by mutableStateOf(false)
         private set
 
-    internal var onSelect: (keys: Set<Any>, additive: Boolean) -> Unit = { _, _ -> }
+    internal var onSelect: (MarqueeSelection) -> Unit = {}
     internal var selectable: (key: Any, contentType: Any?) -> Boolean = { _, _ -> true }
     internal var onStart: () -> Unit = {}
     internal var onEnd: () -> Unit = {}
@@ -81,9 +96,9 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
     private var additive = false
 
     // Where the button went down, held in the content so that it moves with it as the list
-    // scrolls: the slot it fell in (MarqueeGeometry.kt), and an item it is measured from, with
-    // how far below that item's top it was. In a list with no items it stays where it was in the
-    // list's bounds. Across, a list does not scroll.
+    // scrolls: the slot it fell in (MarqueeGeometry.kt), and an item of the list's flow it is
+    // measured from, with how far below that item's top it was. In a list with no items it stays
+    // where it was in the list's bounds. Across, a list does not scroll.
     private var anchorSlot = 0
     private var anchorItem = NoItem
     private var anchorBelowItem = 0f
@@ -98,6 +113,8 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
     internal var pointerY = 0f
         private set
 
+    private var pointerSlot = 0
+
     // The items last told, first to last; none when the last is before the first.
     private var first = 0
     private var last = NoItem
@@ -108,19 +125,33 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
     private val keys = ArrayDeque<Any?>()
     private var keysFrom = 0
 
-    /** The button went down at ([x], [y]): where a marquee begins, if it is dragged. */
-    internal fun press(x: Float, y: Float, ctrl: Boolean) {
-        additive = ctrl
-        anchorX = x
-        pressY = y
+    /**
+     * The button went down at ([x], [y]). Says whether a marquee may begin there: not on an item
+     * that cannot be selected, a header or a bar pinned at the top, which keeps its own clicks.
+     */
+    internal fun press(x: Float, y: Float, ctrl: Boolean): Boolean {
         val layout = listState.layoutInfo
         val items = layout.visibleItemsInfo
         val inList = y + layout.viewportStartOffset
+        // An item held at the top comes first, and is drawn over the flow: it is what is pressed.
+        val pressed = items.fastFirstOrNull { inList >= it.offset && inList < it.offset + it.size }
+        if (pressed != null && !selectable(pressed.key, pressed.contentType)) return false
+        additive = ctrl
+        anchorX = x
+        pressY = y
         anchorSlot = slotOf(inList, items)
-        // The item it is on, or else the first one below it, or else the last of all.
-        val from = items.fastFirstOrNull { inList < it.offset + it.size } ?: items.lastOrNull()
+        // The item of the flow it is on, or else the first one below it, or else the last of all.
+        var from: LazyListItemInfo? = null
+        for (k in flowStart(items) until items.size) {
+            if (inList < items[k].offset + items[k].size) {
+                from = items[k]
+                break
+            }
+        }
+        if (from == null) from = items.lastOrNull()
         anchorItem = from?.index ?: NoItem
         anchorBelowItem = if (from == null) 0f else inList - from.offset
+        return true
     }
 
     /** The drag went past the slop, with the pointer at ([x], [y]): the marquee begins. */
@@ -151,11 +182,13 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
         val items = layout.visibleItemsInfo
         learn(items)
         // Past an edge, the pointer stands for the edge: what lies beyond comes into sight as the
-        // list scrolls, and is taken then.
+        // list scrolls, and is taken then. A bar held at the top is an edge too: what scrolls on
+        // under it is out of sight.
         val bottom = (layout.viewportSize.height - 1).coerceAtLeast(0).toFloat()
-        val slot = slotOf(pointerY.coerceIn(0f, bottom) + layout.viewportStartOffset, items)
-        var newFirst = firstTouched(anchorSlot, slot)
-        var newLast = lastTouched(anchorSlot, slot)
+        val top = flowTop(layout).coerceAtMost(bottom)
+        pointerSlot = slotOf(pointerY.coerceIn(top, bottom) + layout.viewportStartOffset, items)
+        var newFirst = firstTouched(anchorSlot, pointerSlot)
+        var newLast = lastTouched(anchorSlot, pointerSlot)
         if (newLast < newFirst) {
             newFirst = 0
             newLast = NoItem
@@ -163,7 +196,7 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
         if (!force && newFirst == first && newLast == last) return
         first = newFirst
         last = newLast
-        onSelect(touchedKeys(), additive)
+        onSelect(touched())
     }
 
     internal fun end() {
@@ -177,21 +210,31 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
     internal fun anchorY(layout: LazyListLayoutInfo): Float {
         if (anchorItem == NoItem) return pressY
         val items = layout.visibleItemsInfo
-        var aboveSight = true
-        for (k in items.indices) {
+        val flow = flowStart(items)
+        if (flow >= items.size) return Float.NEGATIVE_INFINITY
+        for (k in flow until items.size) {
             val item = items[k]
             if (item.index == anchorItem) {
                 return item.offset + anchorBelowItem - layout.viewportStartOffset
             }
-            if (item.index < anchorItem) aboveSight = false
         }
-        return if (aboveSight) Float.NEGATIVE_INFINITY else Float.POSITIVE_INFINITY
+        return if (anchorItem < items[flow].index) Float.NEGATIVE_INFINITY
+        else Float.POSITIVE_INFINITY
+    }
+
+    /** Where the list's flow shows from, in its bounds: below a bar held at its top. */
+    internal fun flowTop(layout: LazyListLayoutInfo): Float {
+        val items = layout.visibleItemsInfo
+        val start = layout.viewportStartOffset
+        val bottom = heldBottom(items.size, start, { items[it].offset }, { items[it].size })
+        return (bottom - start).toFloat()
     }
 
     private fun learn(items: List<LazyListItemInfo>) {
-        if (items.isEmpty()) return
-        if (keys.isEmpty()) keysFrom = items[0].index
-        for (k in items.indices) {
+        val flow = flowStart(items)
+        if (flow >= items.size) return
+        if (keys.isEmpty()) keysFrom = items[flow].index
+        for (k in flow until items.size) {
             val item = items[k]
             while (item.index < keysFrom) {
                 keys.addFirst(null)
@@ -205,14 +248,16 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
         }
     }
 
-    private fun touchedKeys(): Set<Any> {
-        if (last < first) return emptySet()
+    private fun touched(): MarqueeSelection {
+        if (last < first) return MarqueeSelection(emptySet(), null, additive)
         val touched = LinkedHashSet<Any>()
         for (index in first..last) {
             val key = keys.getOrNull(index - keysFrom)
             if (key != null && key !== Excluded) touched += key
         }
-        return touched
+        // Nearest where it began: the first when it was drawn down from there, else the last.
+        val anchor = if (anchorSlot <= pointerSlot) touched.firstOrNull() else touched.lastOrNull()
+        return MarqueeSelection(touched, anchor, additive)
     }
 }
 
@@ -229,26 +274,24 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
  *     rememberMarqueeSelectionState(
  *         listState = listState,
  *         onStart = { before = selection },
- *         onSelect = { keys, additive ->
- *             val touched = keys.mapTo(mutableSetOf()) { it as Long }
- *             select(if (additive) before + touched else touched)
+ *         onSelect = { touched ->
+ *             val ids = touched.keys.mapTo(mutableSetOf()) { it as Long }
+ *             select(if (touched.additive) before + ids else ids, from = touched.anchor as Long?)
  *         },
- *         selectable = { _, contentType -> contentType == "song" },
+ *         selectable = { key, _ -> key is Long },
  *     )
  * LazyColumn(Modifier.marqueeSelection(marquee), state = listState) {
- *     item(contentType = "header") { Header() }
- *     items(songs, key = { it.id }, contentType = { "song" }) { SongRow(it) }
+ *     item(key = "header") { Header() }
+ *     items(songs, key = { it.id }) { SongRow(it) }
  * }
  * ```
  *
  * @param listState the state given to the list
- * @param onSelect the keys of the items the marquee touches, in the list's order: each time they
- *   change while it is dragged, and once as it begins (none, when it begins beside every item).
- *   Items scrolled out of sight under it are still among them. `additive` says whether Ctrl was
- *   down as the button went down: the keys are then added to what was selected when the drag began,
- *   and otherwise are all that is selected, as in a file manager.
- * @param selectable whether an item can be selected, from its key and its content type: a header
- *   among the items says no, and is left out of the keys
+ * @param onSelect what the marquee touches ([MarqueeSelection]): each time it changes while it is
+ *   dragged, and once as it begins (nothing, when it begins beside every item)
+ * @param selectable whether an item can be selected, from its key and its content type. One that
+ *   cannot (a header, a bar pinned at the top) is left out of the keys, and a press on it is left
+ *   to it.
  * @param onStart called as a drag becomes a marquee, before the first [onSelect]: the moment to
  *   take what is selected, for a marquee with Ctrl to add to
  * @param onEnd called as it ends: the button released, Esc pressed, or the pointer lost. What it
@@ -257,7 +300,7 @@ class MarqueeSelectionState internal constructor(internal val listState: LazyLis
 @Composable
 fun rememberMarqueeSelectionState(
     listState: LazyListState,
-    onSelect: (keys: Set<Any>, additive: Boolean) -> Unit,
+    onSelect: (MarqueeSelection) -> Unit,
     selectable: (key: Any, contentType: Any?) -> Boolean = { _, _ -> true },
     onStart: () -> Unit = {},
     onEnd: () -> Unit = {},
@@ -283,11 +326,12 @@ fun rememberMarqueeSelectionState(
  * Nothing else changes. A finger and a stylus scroll the list as they did, and the wheel does, even
  * during a drag; a click that does not move still reaches the row under it (to open it, or to
  * select it with Ctrl or Shift), and the second button still opens its menu ([ContextMenuArea]).
- * The pointer resting on a row, and a tooltip, are as they were.
+ * The pointer resting on a row, and a tooltip, are as they were. An item that cannot be selected
+ * keeps its press, and a sticky one held at the top is the list's top edge while it is there.
  *
- * It goes on the list itself, a `LazyColumn` laid out from the top down, without sticky headers,
- * and with nothing between the two that pads or moves the list: the press, the pointer and the
- * rectangle are all measured in the list's bounds.
+ * It goes on the list itself, a `LazyColumn` laid out from the top down, with nothing between the
+ * two that pads or moves the list: the press, the pointer and the rectangle are all measured in the
+ * list's bounds.
  */
 fun Modifier.marqueeSelection(state: MarqueeSelectionState): Modifier =
     this then MarqueeSelectionElement(state)
@@ -352,11 +396,8 @@ private class MarqueeSelectionNode(private var state: MarqueeSelectionState) :
                     !buttons.isSecondaryPressed &&
                     !buttons.isTertiaryPressed
             if (down.type != PointerType.Mouse || !primaryAlone) return@awaitEachGesture
-            state.press(
-                down.position.x,
-                down.position.y,
-                currentEvent.keyboardModifiers.isCtrlPressed,
-            )
+            val ctrl = currentEvent.keyboardModifiers.isCtrlPressed
+            if (!state.press(down.position.x, down.position.y, ctrl)) return@awaitEachGesture
             val slop = viewConfiguration.touchSlop
             var dragging = false
             try {
@@ -442,16 +483,21 @@ private class MarqueeSelectionNode(private var state: MarqueeSelectionState) :
         }
     }
 
-    /** How fast the list is to scroll now, for where the pointer is; not past either end. */
+    /**
+     * How fast the list is to scroll now, for where the pointer is; not past either end. Its top
+     * edge is the bottom of a bar held there, under which the rows are out of sight.
+     */
     private fun scrollSpeed(): Float {
         val state = state
         if (!isAttached || !state.isActive) return 0f
         val list = state.listState
+        val layout = list.layoutInfo
+        val top = state.flowTop(layout)
         val speed =
             with(requireDensity()) {
                 marqueeScrollSpeed(
-                    y = state.pointerY,
-                    height = list.layoutInfo.viewportSize.height.toFloat(),
+                    y = state.pointerY - top,
+                    height = layout.viewportSize.height - top,
                     zone = ScrollZone.toPx(),
                     reach = ScrollReach.toPx(),
                     maxSpeed = MaxScrollSpeed.toPx(),
@@ -468,18 +514,20 @@ private class MarqueeSelectionNode(private var state: MarqueeSelectionState) :
         drawContent()
         val state = state
         if (!state.isActive) return
+        val layout = state.listState.layoutInfo
+        // Not over a bar held at the top: the rows go under it, and so does the rectangle.
+        val flowTop = state.flowTop(layout).coerceIn(0f, size.height)
         val width = BorderWidth.toPx()
         // Past an edge by no more than the border, so that the side out of sight is not drawn.
-        val anchorY =
-            state.anchorY(state.listState.layoutInfo).coerceIn(-width, size.height + width)
+        val anchorY = state.anchorY(layout).coerceIn(flowTop - width, size.height + width)
         val pointerX = state.pointerX.coerceIn(-width, size.width + width)
-        val pointerY = state.pointerY.coerceIn(-width, size.height + width)
+        val pointerY = state.pointerY.coerceIn(flowTop - width, size.height + width)
         val left = min(state.anchorX, pointerX)
         val top = min(anchorY, pointerY)
         val right = max(state.anchorX, pointerX)
         val bottom = max(anchorY, pointerY)
         val colors = currentValueOf(LocalStudioColors)
-        clipRect {
+        clipRect(top = flowTop) {
             drawRect(colors.accentSoft, Offset(left, top), Size(right - left, bottom - top))
             drawRect(
                 color = colors.accent,
@@ -493,6 +541,9 @@ private class MarqueeSelectionNode(private var state: MarqueeSelectionState) :
     private fun strokeOf(width: Float): Stroke =
         stroke?.takeIf { it.width == width } ?: Stroke(width).also { stroke = it }
 }
+
+private fun flowStart(items: List<LazyListItemInfo>): Int =
+    firstInFlow(items.size, { items[it].offset }, { items[it].size })
 
 private fun slotOf(y: Float, items: List<LazyListItemInfo>): Int =
     marqueeSlot(y, items.size, { items[it].index }, { items[it].offset }, { items[it].size })

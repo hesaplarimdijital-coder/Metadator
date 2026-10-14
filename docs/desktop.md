@@ -192,7 +192,11 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 - **Ctrl and Shift change what a click selects** (`HeldKeys`, `Modifier.trackHeldKeys`): Ctrl adds
   or removes one song, Shift takes every song from the last one selected or opened to this one
   (`LibraryIntent.SelectRangeTo`), on a row and on its box alike, in the library and in a
-  collection, whose songs are taken in its own order. As in a file manager.
+  collection, whose songs are taken in its own order. As in a file manager. Without either, a
+  click with the mouse opens the song and ends the selection there was, as a file manager does; a
+  finger's, while songs are selected, adds the song to them or takes it away, as on a phone. The
+  pointer that clicked tells them apart (`HeldKeys.mouse`), not the window: a phone has a mouse
+  plugged in, and a narrow window on a desktop is still clicked with one.
 - **A rectangle dragged with the first button selects** (`Modifier.marqueeSelection`,
   `MarqueeSelection.kt`, for a lazy list), as in a file manager: pressed anywhere over the list, on
   a row or beside the rows, and dragged past the touch slop, a rectangle in the accent follows the
@@ -201,7 +205,11 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
   scrolls, faster the further out, and the rectangle keeps hold of where it began. A click that
   does not move is still the row's, the second button still opens the menu, and a finger, a stylus
   and the wheel do what they did. A release, Esc or the pointer lost end it, and what it selected
-  stays. No list has it yet: the lists of songs are to take it up.
+  stays. The songs have it, the library's and a collection's, in the table and in rows
+  (`LibraryIntent.SelectIds`, the whole selection each time, with a Shift+click next taking its
+  range from the song where the drag began). A collection's cover and name and its pinned bar are
+  not songs and keep their own clicks; while the bar is pinned at the top it is the list's top
+  edge, under which the rows scroll out of sight.
 - **A button that is only an icon says what it does** when the pointer rests on it (`Tooltip`). The
   text is the one a screen reader was already given. The pointer is an arrow over it, even at the
   end of a text field, whose I-beam would otherwise reach it.

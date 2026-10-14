@@ -9,10 +9,32 @@ import org.junit.Test
 
 class MarqueeGeometryTest {
     /** The items in sight, from item [first] down: each one's top and height. */
-    private class InSight(val first: Int, val tops: IntArray, val sizes: IntArray) {
+    private class InSight(
+        val first: Int,
+        val tops: IntArray,
+        val sizes: IntArray,
+        val indices: IntArray = IntArray(tops.size) { first + it },
+    ) {
         fun slot(y: Float): Int =
-            marqueeSlot(y, tops.size, { first + it }, { tops[it] }, { sizes[it] })
+            marqueeSlot(y, tops.size, { indices[it] }, { tops[it] }, { sizes[it] })
+
+        fun firstInFlow(): Int = firstInFlow(tops.size, { tops[it] }, { sizes[it] })
+
+        fun heldBottom(start: Int = 0): Int =
+            heldBottom(tops.size, start, { tops[it] }, { sizes[it] })
     }
+
+    /**
+     * A collection scrolled down: its pinned bar (item 1, 80 tall) held at the top, over songs 15
+     * to 18 scrolling on under it.
+     */
+    private val pinned =
+        InSight(
+            first = 1,
+            tops = intArrayOf(0, -10, 30, 70, 110),
+            sizes = intArrayOf(80, 40, 40, 40, 40),
+            indices = intArrayOf(1, 15, 16, 17, 18),
+        )
 
     /** Rows 40 tall, touching, the first of them at the top of the list. */
     private val rows =
@@ -60,6 +82,40 @@ class MarqueeGeometryTest {
     @Test
     fun `an empty list has nothing but slot 0`() {
         assertEquals(0, InSight(first = 0, tops = intArrayOf(), sizes = intArrayOf()).slot(50f))
+    }
+
+    @Test
+    fun `every item of a plain list is in its flow`() {
+        assertEquals(0, rows.firstInFlow())
+        assertEquals(0, rows.heldBottom())
+        assertEquals(0, InSight(first = 0, tops = intArrayOf(), sizes = intArrayOf()).firstInFlow())
+    }
+
+    @Test
+    fun `a sticky item held at the top is out of the flow, down to its bottom`() {
+        assertEquals(1, pinned.firstInFlow())
+        assertEquals(80, pinned.heldBottom())
+    }
+
+    @Test
+    fun `a sticky item in its own place is in the flow`() {
+        // The collection's header above its pinned bar, then songs 2 and 3, nothing scrolled.
+        val atTop =
+            InSight(
+                first = 0,
+                tops = intArrayOf(0, 200, 280, 320),
+                sizes = intArrayOf(200, 80, 40, 40),
+            )
+        assertEquals(0, atTop.firstInFlow())
+        assertEquals(0, atTop.heldBottom())
+    }
+
+    @Test
+    fun `over an item held at the top, the slot is what scrolls under it`() {
+        assertEquals(31, pinned.slot(20f))
+        assertEquals(33, pinned.slot(50f))
+        assertEquals(37, pinned.slot(149f))
+        assertEquals(38, pinned.slot(400f))
     }
 
     @Test

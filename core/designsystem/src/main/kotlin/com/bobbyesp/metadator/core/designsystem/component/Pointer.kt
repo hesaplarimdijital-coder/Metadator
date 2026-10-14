@@ -24,7 +24,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
@@ -33,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
+import androidx.compose.ui.util.fastAny
 
 /*
  * What a mouse adds to a screen made for fingers. A pointer rests on things, so a button that is
@@ -117,7 +120,10 @@ fun ContextMenuArea(
     }
 }
 
-/** Which modifier keys were down the last time the pointer did something over an element. */
+/**
+ * Which modifier keys were down the last time the pointer did something over an element, and what
+ * pressed it last.
+ */
 @Stable
 class HeldKeys {
     var ctrl: Boolean = false
@@ -127,26 +133,38 @@ class HeldKeys {
         internal set
 
     /**
+     * Whether it was last pressed with a mouse: a click with one is a desktop's, whatever the
+     * window's width, as on a phone a mouse is plugged into. A finger's is a phone's.
+     */
+    var mouse: Boolean = false
+        internal set
+
+    /**
      * Forgets them once a click has been acted on. The next press says them again; a key pressed
      * instead says nothing, and must not be taken for a click with what the last one held.
      */
     fun clear() {
         ctrl = false
         shift = false
+        mouse = false
     }
 }
 
 /**
  * Keeps [keys] up to date with every press, move and release over this element, without taking any
- * of them: what is clicked can then ask what was held as it was.
+ * of them: what is clicked can then ask what was held as it was, and what pressed it.
  */
 fun Modifier.trackHeldKeys(keys: HeldKeys): Modifier =
     pointerInput(keys) {
         awaitPointerEventScope {
             while (true) {
-                val modifiers = awaitPointerEvent(PointerEventPass.Initial).keyboardModifiers
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val modifiers = event.keyboardModifiers
                 keys.ctrl = modifiers.isCtrlPressed
                 keys.shift = modifiers.isShiftPressed
+                if (event.type == PointerEventType.Press) {
+                    keys.mouse = event.changes.fastAny { it.type == PointerType.Mouse }
+                }
             }
         }
     }
