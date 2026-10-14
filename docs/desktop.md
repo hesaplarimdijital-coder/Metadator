@@ -193,6 +193,15 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
   or removes one song, Shift takes every song from the last one selected or opened to this one
   (`LibraryIntent.SelectRangeTo`), on a row and on its box alike, in the library and in a
   collection, whose songs are taken in its own order. As in a file manager.
+- **A rectangle dragged with the first button selects** (`Modifier.marqueeSelection`,
+  `MarqueeSelection.kt`, for a lazy list), as in a file manager: pressed anywhere over the list, on
+  a row or beside the rows, and dragged past the touch slop, a rectangle in the accent follows the
+  pointer and every item it touches is selected; with Ctrl held as the button went down, what it
+  touches is added to what was selected. Near the top or bottom edge, and past it, the list
+  scrolls, faster the further out, and the rectangle keeps hold of where it began. A click that
+  does not move is still the row's, the second button still opens the menu, and a finger, a stylus
+  and the wheel do what they did. A release, Esc or the pointer lost end it, and what it selected
+  stays. No list has it yet: the lists of songs are to take it up.
 - **A button that is only an icon says what it does** when the pointer rests on it (`Tooltip`). The
   text is the one a screen reader was already given. The pointer is an arrow over it, even at the
   end of a text field, whose I-beam would otherwise reach it.
