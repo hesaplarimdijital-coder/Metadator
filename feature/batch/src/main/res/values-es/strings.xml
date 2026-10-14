@@ -71,4 +71,85 @@
         <item quantity="many">Se escribirá en %1$d canciones</item>
         <item quantity="other">Se escribirá en %1$d canciones</item>
     </plurals>
+    <string name="batch_lookup_find">Buscar metadatos</string>
+    <string name="batch_lookup_title">Buscar los metadatos del álbum</string>
+    <string name="batch_lookup_search">Buscar</string>
+    <string name="batch_lookup_searching">Buscando el álbum y sus canciones…</string>
+    <string name="batch_lookup_asking">Consultando las fuentes…</string>
+    <plurals name="batch_lookup_progress">
+        <item quantity="one">%1$d de %2$d canción buscada…</item>
+        <item quantity="many">%1$d de %2$d canciones buscadas…</item>
+        <item quantity="other">%1$d de %2$d canciones buscadas…</item>
+    </plurals>
+    <string name="batch_lookup_results">Álbumes encontrados</string>
+    <plurals name="batch_lookup_how">
+        <item quantity="one">Al elegir uno, su álbum, artistas del álbum, año y géneros pasan a %1$d canción, y también su número de pista si está en él. No se escribe nada hasta que lo apliques.</item>
+        <item quantity="many">Al elegir uno, su álbum, artistas del álbum, año y géneros pasan a las %1$d canciones, y cada canción que está en él recibe su número de pista. No se escribe nada hasta que lo apliques.</item>
+        <item quantity="other">Al elegir uno, su álbum, artistas del álbum, año y géneros pasan a las %1$d canciones, y cada canción que está en él recibe su número de pista. No se escribe nada hasta que lo apliques.</item>
+    </plurals>
+    <plurals name="batch_lookup_tracks">
+        <item quantity="one">%1$d pista</item>
+        <item quantity="many">%1$d pistas</item>
+        <item quantity="other">%1$d pistas</item>
+    </plurals>
+    <plurals name="batch_lookup_songs_found">
+        <item quantity="one">Tiene %1$d de %2$d canción</item>
+        <item quantity="many">Tiene %1$d de %2$d canciones</item>
+        <item quantity="other">Tiene %1$d de %2$d canciones</item>
+    </plurals>
+    <string name="batch_lookup_match_good">Buena coincidencia</string>
+    <string name="batch_lookup_match_possible">Posible coincidencia</string>
+    <string name="batch_lookup_match_weak">Coincidencia débil</string>
+    <string name="batch_lookup_no_results">No se encontraron álbumes. Prueba con menos palabras.</string>
+    <string name="batch_lookup_no_sources">Todas las fuentes están desactivadas. Activa alguna en Ajustes.</string>
+    <string name="batch_lookup_offline">No tienes conexión</string>
+    <string name="batch_lookup_busy">Las fuentes están ocupadas. Inténtalo de nuevo en un momento.</string>
+    <string name="batch_lookup_failed">La búsqueda falló. Inténtalo de nuevo.</string>
+    <string name="batch_lookup_partial">%1$s no respondió</string>
+    <string name="batch_lookup_applied">Rellenado con “%1$s”. Revisa los campos y aplica a todas.</string>
+    <plurals name="batch_albums_title">
+        <item quantity="one">Estas canciones están en %1$d álbum</item>
+        <item quantity="many">Estas canciones están en %1$d álbumes</item>
+        <item quantity="other">Estas canciones están en %1$d álbumes</item>
+    </plurals>
+    <string name="batch_albums_why">La biblioteca las muestra separadas, como álbumes distintos. Únelos para que sean uno solo.</string>
+    <string name="batch_merge_pending">Serán un solo álbum cuando apliques.</string>
+    <plurals name="batch_album_songs">
+        <item quantity="one">%1$d canción</item>
+        <item quantity="many">%1$d canciones</item>
+        <item quantity="other">%1$d canciones</item>
+    </plurals>
+    <plurals name="batch_albums_without">
+        <item quantity="one">%1$d canción no tiene álbum: al unirlos, también pasa a estar en él</item>
+        <item quantity="many">%1$d canciones no tienen álbum: al unirlos, también pasan a estar en él</item>
+        <item quantity="other">%1$d canciones no tienen álbum: al unirlos, también pasan a estar en él</item>
+    </plurals>
+    <string name="batch_album_no_artist">Sin artista</string>
+    <string name="batch_merge">Unir en un solo álbum</string>
+    <string name="batch_merge_apply">Unir</string>
+    <string name="batch_merge_cancel">Cancelar</string>
+    <string name="batch_merge_discs">Numerar los discos según el nombre de los álbumes</string>
+    <string name="batch_merge_discs_description">“CD 2” pasa a ser el disco 2 y sale del nombre del álbum</string>
+    <string name="batch_numbers">Números de pista y de disco</string>
+    <plurals name="batch_numbers_tracks">
+        <item quantity="one">Número de pista para %1$d canción</item>
+        <item quantity="many">Números de pista para %1$d canciones</item>
+        <item quantity="other">Números de pista para %1$d canciones</item>
+    </plurals>
+    <plurals name="batch_numbers_totals">
+        <item quantity="one">Solo el total de pistas para %1$d canción</item>
+        <item quantity="many">Solo el total de pistas para %1$d canciones</item>
+        <item quantity="other">Solo el total de pistas para %1$d canciones</item>
+    </plurals>
+    <plurals name="batch_numbers_discs">
+        <item quantity="one">Número de disco para %1$d canción</item>
+        <item quantity="many">Números de disco para %1$d canciones</item>
+        <item quantity="other">Números de disco para %1$d canciones</item>
+    </plurals>
+    <string name="batch_numbers_reset">Mantener los números de cada canción</string>
+    <plurals name="batch_not_stored">
+        <item quantity="one">El formato de %1$d canción no pudo guardar: %2$s</item>
+        <item quantity="many">Los formatos de %1$d canciones no pudieron guardar: %2$s</item>
+        <item quantity="other">Los formatos de %1$d canciones no pudieron guardar: %2$s</item>
+    </plurals>
 </resources>

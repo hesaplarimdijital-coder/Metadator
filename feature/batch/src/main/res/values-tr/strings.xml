@@ -65,4 +65,74 @@
         <item quantity="one">%1$d şarkıya yazılacak</item>
         <item quantity="other">%1$d şarkıya yazılacak</item>
     </plurals>
+    <string name="batch_lookup_find">Meta veri bul</string>
+    <string name="batch_lookup_title">Albümün meta verilerini bul</string>
+    <string name="batch_lookup_search">Ara</string>
+    <string name="batch_lookup_searching">Albüm ve şarkıları aranıyor…</string>
+    <string name="batch_lookup_asking">Kaynaklara soruluyor…</string>
+    <plurals name="batch_lookup_progress">
+        <item quantity="one">%2$d şarkının %1$d tanesi arandı…</item>
+        <item quantity="other">%2$d şarkının %1$d tanesi arandı…</item>
+    </plurals>
+    <string name="batch_lookup_results">Bulunan albümler</string>
+    <plurals name="batch_lookup_how">
+        <item quantity="one">Birini seçtiğinizde albüm adı, albüm sanatçıları, yıl ve türler %1$d şarkı için doldurulur; şarkı albümde bulunursa parça numarası da verilir. Siz uygulayana kadar dosyaya hiçbir şey yazılmaz.</item>
+        <item quantity="other">Birini seçtiğinizde albüm adı, albüm sanatçıları, yıl ve türler %1$d şarkının hepsi için doldurulur; albümde bulunan her şarkıya parça numarası da verilir. Siz uygulayana kadar dosyalara hiçbir şey yazılmaz.</item>
+    </plurals>
+    <plurals name="batch_lookup_tracks">
+        <item quantity="one">%1$d parça</item>
+        <item quantity="other">%1$d parça</item>
+    </plurals>
+    <plurals name="batch_lookup_songs_found">
+        <item quantity="one">%2$d şarkıdan %1$d tanesi bunda</item>
+        <item quantity="other">%2$d şarkıdan %1$d tanesi bunda</item>
+    </plurals>
+    <string name="batch_lookup_match_good">İyi eşleşme</string>
+    <string name="batch_lookup_match_possible">Olası eşleşme</string>
+    <string name="batch_lookup_match_weak">Zayıf eşleşme</string>
+    <string name="batch_lookup_no_results">Albüm bulunamadı. Daha az sözcük deneyin.</string>
+    <string name="batch_lookup_no_sources">Tüm kaynaklar kapalı. Ayarlar\'dan birini açın.</string>
+    <string name="batch_lookup_offline">Çevrimdışısınız</string>
+    <string name="batch_lookup_busy">Kaynaklar meşgul. Birazdan yeniden deneyin.</string>
+    <string name="batch_lookup_failed">Arama başarısız oldu. Yeniden deneyin.</string>
+    <string name="batch_lookup_partial">%1$s yanıt vermedi</string>
+    <string name="batch_lookup_applied">“%1$s” bilgileri dolduruldu. Alanları kontrol edip hepsine uygulayın.</string>
+    <plurals name="batch_albums_title">
+        <item quantity="one">Bu şarkılar %1$d albümde</item>
+        <item quantity="other">Bu şarkılar %1$d albümde</item>
+    </plurals>
+    <string name="batch_albums_why">Kitaplık bunları ayrı albümler olarak gösteriyor. Tek albüm olmaları için birleştirin.</string>
+    <string name="batch_merge_pending">Uyguladığınızda tek albüm olacaklar.</string>
+    <plurals name="batch_album_songs">
+        <item quantity="one">%1$d şarkı</item>
+        <item quantity="other">%1$d şarkı</item>
+    </plurals>
+    <plurals name="batch_albums_without">
+        <item quantity="one">%1$d şarkının albümü yok: birleştirince o da bu albüme girer</item>
+        <item quantity="other">%1$d şarkının albümü yok: birleştirince onlar da bu albüme girer</item>
+    </plurals>
+    <string name="batch_album_no_artist">Sanatçı yok</string>
+    <string name="batch_merge">Tek albümde birleştir</string>
+    <string name="batch_merge_apply">Birleştir</string>
+    <string name="batch_merge_cancel">Vazgeç</string>
+    <string name="batch_merge_discs">Disk numaralarını albüm adlarından al</string>
+    <string name="batch_merge_discs_description">“CD 2” disk 2 olur ve albüm adından çıkar</string>
+    <string name="batch_numbers">Parça ve disk numaraları</string>
+    <plurals name="batch_numbers_tracks">
+        <item quantity="one">%1$d şarkıya parça numarası</item>
+        <item quantity="other">%1$d şarkıya parça numarası</item>
+    </plurals>
+    <plurals name="batch_numbers_totals">
+        <item quantity="one">%1$d şarkıya yalnızca toplam parça sayısı</item>
+        <item quantity="other">%1$d şarkıya yalnızca toplam parça sayısı</item>
+    </plurals>
+    <plurals name="batch_numbers_discs">
+        <item quantity="one">%1$d şarkıya disk numarası</item>
+        <item quantity="other">%1$d şarkıya disk numarası</item>
+    </plurals>
+    <string name="batch_numbers_reset">Her şarkının kendi numaralarını koru</string>
+    <plurals name="batch_not_stored">
+        <item quantity="one">%1$d şarkının biçimi şunları tutamadı: %2$s</item>
+        <item quantity="other">%1$d şarkının biçimi şunları tutamadı: %2$s</item>
+    </plurals>
 </resources>
