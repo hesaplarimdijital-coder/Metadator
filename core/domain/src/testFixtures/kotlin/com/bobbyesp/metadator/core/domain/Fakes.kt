@@ -28,6 +28,7 @@ import com.bobbyesp.metadator.tags.api.TagReader
 import com.bobbyesp.metadator.tags.api.TagSnapshot
 import com.bobbyesp.metadator.tags.api.TagWriteResult
 import com.bobbyesp.metadator.tags.api.TagWriter
+import java.io.IOException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -86,6 +87,11 @@ class FakeBackupStore : TagBackupStore {
     val backups = mutableMapOf<BackupId, TagBackup>()
     /** What each [prune] was asked to keep, in order. */
     val prunes = mutableListOf<Int>()
+    /** Which [save], counted from 1, fails as Room's does on a full disk. */
+    var failingSave: Int? = null
+    /** What [prune] throws, if anything. */
+    var pruneFailure: Throwable? = null
+    private var saves = 0
     private var nextId = 1L
 
     override suspend fun save(
@@ -94,6 +100,7 @@ class FakeBackupStore : TagBackupStore {
         createdAtMillis: Long,
     ): BackupId {
         currentCoroutineContext().ensureActive()
+        if (++saves == failingSave) throw IOException("No space left on device")
         val id = BackupId(nextId++)
         backups[id] = TagBackup(id, ref, snapshot, createdAtMillis)
         return id
@@ -111,6 +118,7 @@ class FakeBackupStore : TagBackupStore {
 
     override suspend fun prune(keep: Int) {
         currentCoroutineContext().ensureActive()
+        pruneFailure?.let { throw it }
         prunes += keep
         backups.keys.sortedByDescending { it.value }.drop(keep).forEach(backups::remove)
     }

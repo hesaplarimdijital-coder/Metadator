@@ -20,6 +20,7 @@ import com.bobbyesp.metadator.tags.api.TagField
 import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagSnapshot
 import com.bobbyesp.metadator.tags.api.applying
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -156,6 +157,11 @@ data class BatchProgress(
     val results: List<BatchItemResult> = emptyList(),
     val isRunning: Boolean = true,
     val wasCancelled: Boolean = false,
+    /**
+     * What stopped the batch before its end, other than Cancel: what no song's outcome says, as a
+     * backup that could not be kept on a full disk or in a broken database.
+     */
+    val failure: Throwable? = null,
 ) {
     val done: Int
         get() = results.size
@@ -220,6 +226,7 @@ class BatchRunner(
         hold.hold()
         _progress.value = BatchProgress(total = items.size)
         job = scope.launch {
+            var failure: Throwable? = null
             try {
                 items.forEachIndexed { index, item ->
                     if (!isActive) return@forEachIndexed
@@ -231,12 +238,23 @@ class BatchRunner(
                         it?.copy(results = it.results + BatchItemResult(item, outcome))
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                // The app's scope has no handler: thrown on, a failure ended the app halfway
+                // through, and nothing said how far the batch had got. It stops there instead.
+                failure = error
             } finally {
-                // Every backup begun since the batch started, a failed song's too (kept when the
-                // original could not be put back), and those of the saves made beside it.
-                withContext(NonCancellable) { backups.prune(hold.keeping(keep)) }
+                withContext(NonCancellable) {
+                    // Every backup begun since the batch started, a failed song's too (kept when
+                    // the original could not be put back), and those of the saves made beside it.
+                    val pruned = runCatching { backups.prune(hold.keeping(keep)) }
+                    // Here, however the batch ends, or its dialog would wait for it forever.
+                    _progress.update {
+                        it?.copy(isRunning = false, failure = failure ?: pruned.exceptionOrNull())
+                    }
+                }
             }
-            _progress.update { it?.copy(isRunning = false) }
         }
     }
 

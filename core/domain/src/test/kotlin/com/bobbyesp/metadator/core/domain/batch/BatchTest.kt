@@ -20,6 +20,7 @@ import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagSnapshot
 import com.bobbyesp.metadator.tags.api.TagWriteResult
 import com.bobbyesp.metadator.tags.api.TagWriter
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -252,6 +253,41 @@ class BatchTest {
         assertEquals(2, progress.saved.size)
         assertEquals(1, songs.backups.prunes.size)
         assertEquals(progress.backups.toSet(), songs.backups.backups.keys)
+    }
+
+    @Test
+    fun `a backup that fails stops the batch where it got to, and keeps the app`() = runTest {
+        // Thrown on, the failure ended the app's scope, and the app with it, halfway.
+        val songs = Songs(this, keep = 1)
+        songs.backups.failingSave = 2
+
+        songs.runner.start(songs.items, songs.edit)
+        finish(songs.runner)
+
+        val progress = songs.runner.progress.value!!
+        assertFalse(progress.isRunning)
+        assertTrue(progress.failure is IOException)
+        assertEquals(1, progress.saved.size)
+        assertEquals(1, songs.backups.prunes.size)
+        assertEquals(songs.originals.getValue(songs.refs[1]), songs.files.files[songs.refs[1]])
+        assertEquals(songs.originals.getValue(songs.refs[2]), songs.files.files[songs.refs[2]])
+        // What it saved can still be undone.
+        val restore = RestoreBackupUseCase(songs.backups, songs.files, songs.indexer)
+        assertEquals(RestoreOutcome.Restored, restore(progress.backups.single()))
+    }
+
+    @Test
+    fun `a prune that fails at the end still ends the batch`() = runTest {
+        val songs = Songs(this, keep = 1)
+        songs.backups.pruneFailure = IOException("Database disk image is malformed")
+
+        songs.runner.start(songs.items, songs.edit)
+        finish(songs.runner)
+
+        val progress = songs.runner.progress.value!!
+        assertFalse(progress.isRunning)
+        assertEquals(3, progress.saved.size)
+        assertTrue(progress.failure is IOException)
     }
 
     /** The path the batch editor's "Apply to all" takes, with the multi-value mode applied last. */

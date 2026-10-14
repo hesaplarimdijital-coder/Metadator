@@ -463,7 +463,11 @@ total or a number, the file keeps.
 - **Applying** writes it all through `BatchRunner`, file by file, each backed up first and undone
   together ([saving-tags.md](saving-tags.md)). A field a song's format cannot hold is dropped by
   the format and the song still saved; the dialog after the batch says which fields some songs
-  dropped (`BatchProgress.notStored`).
+  dropped (`BatchProgress.notStored`). What no song's outcome says, a backup that cannot be kept
+  on a full disk or in a broken database, stops the batch where it got to
+  (`BatchProgress.failure`): the dialog counts the songs saved, says "Something went wrong", and
+  "Undo all" still puts them back. The runner works in the app's scope, which has no handler: a
+  failure thrown on from there ended the app.
 
 ## The player
 

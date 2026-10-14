@@ -96,6 +96,7 @@ import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
 import com.bobbyesp.metadator.core.domain.editor.splitValues
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.model.ContentRef
+import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
@@ -832,6 +833,14 @@ private fun ProgressDialog(progress: BatchProgress, onIntent: (BatchIntent) -> U
                             )
                         )
                         if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
+                        // A backup that could not be kept stopped it: the songs saved before it
+                        // are counted above, and "Undo all" still puts them back.
+                        if (progress.failure != null) {
+                            Text(
+                                stringResource(CoreUiR.string.error_unexpected),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                         NotStored(progress.notStored)
                         if (progress.failed.isNotEmpty()) {
                             Text(
