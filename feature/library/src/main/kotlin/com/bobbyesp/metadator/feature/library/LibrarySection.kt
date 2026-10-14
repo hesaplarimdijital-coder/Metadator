@@ -58,7 +58,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.drop
 import org.koin.androidx.compose.koinViewModel
 
 /** The library's destinations: the root list and the collections reached from it. */
@@ -188,14 +187,21 @@ private fun InspectorFollowsSelection(
     if (LocalPaneContext.current.isSolePane) return
     val inspected =
         remember(state.listing, state.selection, state.clicked, state.collectionSelection) {
-            Inspected.of(state)
+            Inspected(state)
         }
     val latest = rememberUpdatedState(inspected)
     LaunchedEffect(navigator) {
+        // What it stood for when the list came into sight: only a change of it moves the inspector.
+        var shown = latest.value.target()
         snapshotFlow { latest.value }
-            .drop(1)
             .debounce { if (it.selected) SelectionSettles else Duration.ZERO }
-            .collect { navigator.showSelection(it.key) }
+            .collect { settled ->
+                val target = settled.target()
+                if (target != shown) {
+                    shown = target
+                    navigator.showSelection(target.key)
+                }
+            }
     }
     val current = rememberUpdatedState(state)
     val owner = remember { Any() }
@@ -208,27 +214,42 @@ private fun InspectorFollowsSelection(
 }
 
 /**
- * What the inspector shows of a list, and whether that is its selection; [unfollowed] is how many
- * songs are selected when they are too many to show.
+ * A list's selection as the inspector follows it, made at each step of it: a drag over the rows
+ * changes it at every row it crosses. It only counts; what the inspector is to show ([target]) goes
+ * through every song listed, and is worked out once the selection has rested.
  */
-internal data class Inspected(val key: NavKey?, val selected: Boolean, val unfollowed: Int = 0) {
-    companion object {
-        fun of(state: LibraryState): Inspected {
-            val selected = state.selectedSongs
-            return when {
-                selected.size > FollowedAtMost -> Inspected(null, true, unfollowed = selected.size)
-                selected.size > 1 -> Inspected(BatchEditor(selected.map { it.id.value }), true)
-                selected.size == 1 -> Inspected(Editor(selected.single().ref.uri), true)
-                else ->
-                    Inspected(
-                        state.clicked
-                            ?.let { id -> state.tracks.firstOrNull { it.id == id } }
-                            ?.let { Editor(it.ref.uri) },
-                        selected = false,
-                    )
+internal class Inspected(private val state: LibraryState) {
+    /** How many songs are selected: of albums, artists or folders selected, their songs. */
+    private val count: Int =
+        if (state.selectingCollections) {
+            // Each song is in one album, one artist and one folder: none is counted twice.
+            state.shownCollections.sumOf {
+                if (it.key in state.collectionSelection) it.tracks.size else 0
             }
+        } else state.selection.size
+
+    /** Whether what the inspector shows is a selection, rather than the song clicked. */
+    val selected: Boolean = count > 0
+
+    /** How many songs are selected when they are too many to follow; else 0. */
+    val unfollowed: Int = if (count > FollowedAtMost) count else 0
+
+    /** What the inspector shows, and whether that is the selection. */
+    fun target(): Target {
+        if (!selected) {
+            val clicked = state.clicked?.let { id -> state.tracks.firstOrNull { it.id == id } }
+            return Target(clicked?.let { Editor(it.ref.uri) }, selected = false)
         }
+        if (unfollowed > 0) return Target(null, selected = true)
+        val songs = state.selectedSongs
+        val key =
+            if (songs.size > 1) BatchEditor(songs.map { it.id.value })
+            else songs.singleOrNull()?.let { Editor(it.ref.uri) }
+        return Target(key, selected = true)
     }
+
+    /** What the inspector shows of a list ([key]), and whether that is its selection. */
+    data class Target(val key: NavKey?, val selected: Boolean)
 }
 
 /**
