@@ -471,12 +471,13 @@ total or a number, the file keeps.
 system's media notification and lock-screen controls. Its player is built with the audio renderer
 and the audio containers only (FLAC, WAV, MP4, AMR, Ogg, Matroska, ADTS, AC-3, AC-4, MP3), so R8
 drops the rest of Media3; a new container is one more line there. `Media3PlayerController`
-connects to it on first use and exposes a `StateFlow<PlaybackState>`. It is driven from the main
-thread, as Media3 requires. The position is shown as a desktop player shows it (`SeekLine`): a
-thin line, which a click, a drag or the arrow keys move, with a knob while the pointer is over it;
-between the times in the bar docked on a wide window, with the times under it in the full player,
-where there is room, and alone in the controls floating over a phone on its side, where there is
-none. The bar on a phone shows it as a hairline along the foot of its glass.
+connects to it on first use, and again on the first use after its session went away (the service
+stopped), and exposes a `StateFlow<PlaybackState>`, empty while there is no session. It is driven
+from the main thread, as Media3 requires. The position is shown as a desktop player shows it
+(`SeekLine`): a thin line, which a click, a drag or the arrow keys move, with a knob while the
+pointer is over it; between the times in the bar docked on a wide window, with the times under it
+in the full player, where there is room, and alone in the controls floating over a phone on its
+side, where there is none. The bar on a phone shows it as a hairline along the foot of its glass.
 
 The position is reported twice a second while a song plays, and is read apart from the rest
 (`PlaybackPosition`): the sheet hands its bars and screens what plays without it, which stays the
