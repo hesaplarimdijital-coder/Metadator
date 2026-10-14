@@ -465,7 +465,7 @@ private fun rememberMirroredTextFieldState(
 }
 
 /** What a field and its screen have said to each other, so that neither takes its echo for news. */
-private class TextMirror(initial: String) {
+internal class TextMirror(initial: String) {
     /** What the field said last, or the screen set last. */
     var said: String = initial
         private set

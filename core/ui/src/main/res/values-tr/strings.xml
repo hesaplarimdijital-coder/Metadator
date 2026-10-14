@@ -129,4 +129,5 @@
     <string name="column_quality">Kalite</string>
     <string name="column_duration">Süre</string>
     <string name="field_total">Toplam</string>
+    <string name="error_unexpected">Bir şeyler ters gitti</string>
 </resources>

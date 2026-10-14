@@ -6,11 +6,13 @@ package com.bobbyesp.metadator.core.domain.batch
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.PositionStyle
 import com.bobbyesp.metadator.core.domain.editor.TrackPositions
+import com.bobbyesp.metadator.core.domain.save.BackupPolicy
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.tags.api.ArtworkChange
 import com.bobbyesp.metadator.tags.api.BackupId
+import com.bobbyesp.metadator.tags.api.TagBackupStore
 import com.bobbyesp.metadator.tags.api.TagChanges
 import com.bobbyesp.metadator.tags.api.TagField
 import com.bobbyesp.metadator.tags.api.TagMap
@@ -18,12 +20,14 @@ import com.bobbyesp.metadator.tags.api.TagSnapshot
 import com.bobbyesp.metadator.tags.api.applying
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** A file in a batch: where it is, and what it is called (for patterns and the report). */
 data class BatchItem(val ref: ContentRef, val displayName: String) {
@@ -175,10 +179,16 @@ data class BatchProgress(
 /**
  * Runs batch edits in the application's scope, so leaving the screen does not stop one halfway. One
  * batch at a time; its progress is observable until the next one starts.
+ *
+ * The oldest backups are dropped once, when the batch ends, however it ends, and never one of its
+ * own. Dropped after each song, as a single save drops them, a batch of more than [keep] songs lost
+ * its first songs' backups while it ran, and "Undo all" could not restore them.
  */
 class BatchRunner(
     private val scope: CoroutineScope,
     private val save: SaveTagChangesUseCase,
+    private val backups: TagBackupStore,
+    private val keep: Int = BackupPolicy.KEEP,
 ) {
     private val _progress = MutableStateFlow<BatchProgress?>(null)
     val progress: StateFlow<BatchProgress?> = _progress.asStateFlow()
@@ -197,13 +207,23 @@ class BatchRunner(
         if (isRunning) return
         _progress.value = BatchProgress(total = items.size)
         job = scope.launch {
-            items.forEachIndexed { index, item ->
-                if (!isActive) return@forEachIndexed
-                val outcome =
-                    save(item.ref) { snapshot ->
-                        finalize(edit.changesFor(item, index, items.size, snapshot))
+            // Each save backs up one file at most, a failed one too (its backup is kept when the
+            // original could not be put back): keeping as many as were started keeps them all.
+            var started = 0
+            try {
+                items.forEachIndexed { index, item ->
+                    if (!isActive) return@forEachIndexed
+                    started++
+                    val outcome =
+                        save(item.ref, pruneAfter = false) { snapshot ->
+                            finalize(edit.changesFor(item, index, items.size, snapshot))
+                        }
+                    _progress.update {
+                        it?.copy(results = it.results + BatchItemResult(item, outcome))
                     }
-                _progress.update { it?.copy(results = it.results + BatchItemResult(item, outcome)) }
+                }
+            } finally {
+                withContext(NonCancellable) { backups.prune(maxOf(keep, started)) }
             }
             _progress.update { it?.copy(isRunning = false) }
         }
