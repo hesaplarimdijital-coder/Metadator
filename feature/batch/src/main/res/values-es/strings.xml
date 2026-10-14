@@ -112,7 +112,13 @@
         <item quantity="many">Estas canciones están en %1$d álbumes</item>
         <item quantity="other">Estas canciones están en %1$d álbumes</item>
     </plurals>
-    <string name="batch_albums_why">La biblioteca las muestra separadas, como álbumes distintos. Únelos para que sean uno solo.</string>
+    <string name="batch_albums_why">Al unirlos, todas reciben un mismo título y artista del álbum, y la biblioteca las muestra como un solo álbum.</string>
+    <plurals name="batch_albums_more">
+        <item quantity="one">Mostrar %1$d álbum más</item>
+        <item quantity="many">Mostrar %1$d álbumes más</item>
+        <item quantity="other">Mostrar %1$d álbumes más</item>
+    </plurals>
+    <string name="batch_albums_fewer">Mostrar menos</string>
     <string name="batch_merge_pending">Serán un solo álbum cuando apliques.</string>
     <plurals name="batch_album_songs">
         <item quantity="one">%1$d canción</item>

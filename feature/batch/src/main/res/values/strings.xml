@@ -101,7 +101,12 @@
         <item quantity="one">These songs are in %1$d album</item>
         <item quantity="other">These songs are in %1$d albums</item>
     </plurals>
-    <string name="batch_albums_why">The library shows them apart, as different albums. Merge them to make them one.</string>
+    <string name="batch_albums_why">Merged, they get one title and one album artist, and the library shows them as one album.</string>
+    <plurals name="batch_albums_more">
+        <item quantity="one">Show %1$d more album</item>
+        <item quantity="other">Show %1$d more albums</item>
+    </plurals>
+    <string name="batch_albums_fewer">Show fewer</string>
     <string name="batch_merge_pending">They will be one album once you apply.</string>
     <plurals name="batch_album_songs">
         <item quantity="one">%1$d song</item>

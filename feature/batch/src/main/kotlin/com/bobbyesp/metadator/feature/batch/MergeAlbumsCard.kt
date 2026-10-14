@@ -112,7 +112,24 @@ internal fun MergeAlbumsCard(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            merge.albums.forEach { album -> AlbumLine(album) }
+            // The inspector shows this for any songs selected across albums: a long list would
+            // push the fields down at every selection, so it is folded past a few.
+            var every by rememberSaveable(merge) { mutableStateOf(false) }
+            val folds = merge.albums.size > MAX_UNFOLDED
+            val folded = folds && !every
+            (if (folded) merge.albums.take(FOLDED) else merge.albums).forEach { album ->
+                AlbumLine(album)
+            }
+            if (folds) {
+                val more = merge.albums.size - FOLDED
+                StudioButton(
+                    text =
+                        if (folded) pluralStringResource(R.plurals.batch_albums_more, more, more)
+                        else stringResource(R.string.batch_albums_fewer),
+                    onClick = { every = !every },
+                    style = StudioButtonStyle.Ghost,
+                )
+            }
             if (merge.songsWithoutAlbum > 0) {
                 Text(
                     pluralStringResource(
@@ -281,6 +298,10 @@ private fun MergeChoices(
         }
     }
 }
+
+/** As many albums as are listed whole; past them, [FOLDED] are, and a way to see the rest. */
+private const val MAX_UNFOLDED = 4
+private const val FOLDED = 3
 
 /** The values the albums have, one chip each, the one in the field marked. */
 @OptIn(ExperimentalLayoutApi::class)

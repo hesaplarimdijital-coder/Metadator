@@ -340,14 +340,15 @@ and what would go out of focus is only dimmed, and more.
 
 ## Editing several songs
 
-The batch editor (`feature/batch`) is opened for a selection ("Edit together") or an album ("Edit
-all"), and edits its songs as one: a field set there is set on every song, and a field left alone
-keeps each song's own value (`BatchEdit`). Besides the fields, it sets one cover for all, picked
-or found online ([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from
-file names, and gives some songs **numbers of their own**
-(`BatchEdit.positions`): a track or disc number that differs from song to song, from the release
-found online or the disc a merged album's title said. A number is written in each file's own style
-(`TrackPositions`), and what a position leaves out, a total or a number, the file keeps.
+The batch editor (`feature/batch`) is opened for a selection ("Edit together"), an album ("Edit
+all"), or by the inspector, for the songs selected beside it, and edits its songs as one: a field
+set there is set on every song, and a field left alone keeps each song's own value (`BatchEdit`).
+Besides the fields, it sets one cover for all, picked or found online
+([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
+gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
+differs from song to song, from the release found online or the disc a merged album's title said.
+A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a
+total or a number, the file keeps.
 
 - **A field of several values** (artists, album artists, genres, composers) shows them joined with
   the separator of the settings, and takes what is typed split on it, a list from then on
@@ -382,7 +383,9 @@ found online or the disc a merged album's title said. A number is written in eac
   is several albums there. "Merge into one album" sets one title and one album artist for every
   song, those of the album with the most songs unless others are chosen from the albums' or typed
   (`AlbumMerge`). When the titles differ only by a disc suffix ("CD 2", "(Disc 1)"), the title is
-  proposed without it, and each song the disc its album's title said.
+  proposed without it, and each song the disc its album's title said. The inspector shows the card
+  for any songs selected across albums, as they are selected, so it only proposes, and lists the
+  largest three of more than four albums until asked for the rest.
 - **Applying** writes it all through `BatchRunner`, file by file, each backed up first and undone
   together ([saving-tags.md](saving-tags.md)). A field a song's format cannot hold is dropped by
   the format and the song still saved; the dialog after the batch says which fields some songs

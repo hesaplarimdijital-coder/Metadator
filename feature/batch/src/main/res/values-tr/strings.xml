@@ -101,7 +101,12 @@
         <item quantity="one">Bu şarkılar %1$d albümde</item>
         <item quantity="other">Bu şarkılar %1$d albümde</item>
     </plurals>
-    <string name="batch_albums_why">Kitaplık bunları ayrı albümler olarak gösteriyor. Tek albüm olmaları için birleştirin.</string>
+    <string name="batch_albums_why">Birleştirilince hepsi aynı adı ve albüm sanatçısını alır, kitaplık da onları tek albüm olarak gösterir.</string>
+    <plurals name="batch_albums_more">
+        <item quantity="one">%1$d albüm daha göster</item>
+        <item quantity="other">%1$d albüm daha göster</item>
+    </plurals>
+    <string name="batch_albums_fewer">Daha az göster</string>
     <string name="batch_merge_pending">Uyguladığınızda tek albüm olacaklar.</string>
     <plurals name="batch_album_songs">
         <item quantity="one">%1$d şarkı</item>
