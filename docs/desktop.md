@@ -133,6 +133,9 @@ What follows from asking last, after the views:
 - A text field takes what it types and its own shortcuts first. A shortcut made of a plain key
   (Space, Enter, Page Down) never fires while typing, and Ctrl+A in a field selects its text, not
   every song.
+- The library's search field takes Esc too (`StudioSearchField`): it clears what is typed, and with
+  nothing typed gives up the focus. An Esc nobody takes is Back, and Back in the library goes to
+  the place visited before: an Esc meant for the field changed the list under it.
 - A dialog, a sheet and a menu are windows of their own. What is under them gets no keys, so
   Ctrl+S does not save behind a dialog.
 - Esc closes them. A dialog and a menu do it themselves; Material's sheet does not, since its
@@ -164,6 +167,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | Player | Space | Plays or pauses |
 | | Ctrl+→, Ctrl+← | Next and previous song |
 | Library | Ctrl+F | Goes to the search field |
+| | Esc, in the search field | Clears it; with nothing typed, leaves it |
 | | Ctrl+A | Selects every song |
 | | Ctrl+E, Enter | Edits the selected songs together |
 | | Esc | Ends the selection |
