@@ -76,5 +76,6 @@ the app does not ask for that.
 
 ## Process death
 
-The editor's text changes are kept in the `SavedStateHandle` as JSON and reapplied on a freshly
-read file. A new cover is not: its bytes are too large for saved state.
+The editor's text changes are kept in the `SavedStateHandle`, as the map of lists they are, and
+reapplied on a freshly read file. Nothing is encoded as a key is typed: the system writes the map
+out when it saves the state. A new cover is not kept: its bytes are too large for saved state.
