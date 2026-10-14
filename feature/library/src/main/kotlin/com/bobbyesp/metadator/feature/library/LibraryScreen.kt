@@ -99,6 +99,7 @@ import com.bobbyesp.metadator.core.designsystem.component.PopupMenu
 import com.bobbyesp.metadator.core.designsystem.component.PopupMenuGroup
 import com.bobbyesp.metadator.core.designsystem.component.StudioButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.component.StudioDivider
 import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioMenuDivider
@@ -245,9 +246,6 @@ internal class LibraryActions(
     val onShowShortcuts: (() -> Unit)?,
 )
 
-/** The narrowest library that has room for its sidebar beside the songs. */
-private val SidebarFrom = 900.dp
-
 /**
  * The library on a wide window: its sidebar when there is room for one, and its panel, whose
  * toolbar holds the search, the filters and the order, and over whose songs a title says what they
@@ -266,7 +264,7 @@ private fun PanelLibrary(
     val appName =
         remember(context) { context.applicationInfo.loadLabel(context.packageManager).toString() }
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val sidebar = maxWidth >= SidebarFrom
+        val sidebar = maxWidth >= StudioDefaults.SidebarLibraryWidth
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (sidebar) {
                 LibrarySidebar(

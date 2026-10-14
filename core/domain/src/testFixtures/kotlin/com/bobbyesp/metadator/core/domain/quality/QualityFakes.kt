@@ -38,6 +38,18 @@ class FakeFileOpener(private val files: Map<ContentRef, ByteArray>) : AudioFileO
         files[ref]?.let { OpenResult.Opened(MemoryAudioFile(it)) } ?: OpenResult.NotFound
 }
 
+/** Verdicts kept in memory, the newest for each song. */
+class MemoryQualityStore(initial: List<StoredVerdict> = emptyList()) : QualityStore {
+    val saved = initial.toMutableList()
+
+    override suspend fun load(): List<StoredVerdict> = saved.toList()
+
+    override suspend fun save(verdict: StoredVerdict) {
+        saved.removeAll { it.uri == verdict.uri }
+        saved += verdict
+    }
+}
+
 /** One of the FLAC files of `src/test/resources/quality`. */
 fun fixture(name: String): ByteArray =
     checkNotNull(MemoryAudioFile::class.java.getResourceAsStream("/quality/$name")) {
@@ -49,7 +61,7 @@ fun fixture(name: String): ByteArray =
  * Audio made for a test: [period] played over and over for [seconds], in one channel. A period of
  * [noise] loops without a click, so any stretch of it has the spectrum it was made with.
  */
-internal class SyntheticAudio(
+class SyntheticAudio(
     override val sampleRate: Int,
     override val bitsPerSample: Int,
     private val period: IntArray,
@@ -73,7 +85,7 @@ internal class SyntheticAudio(
  * @param hiss white noise added on top, in dB below full scale: the noise of a room or a tape,
  *   which no frequency is free of
  */
-internal fun noise(
+fun noise(
     sampleRate: Int,
     bits: Int,
     hiss: Double? = null,
@@ -105,7 +117,7 @@ internal fun noise(
 }
 
 /** Everything up to [hz], and nothing above: what a lossy encoder's low-pass filter leaves. */
-internal fun cutAt(hz: Double): (Double) -> Double = { frequency ->
+fun cutAt(hz: Double): (Double) -> Double = { frequency ->
     when {
         frequency <= hz - TRANSITION_HZ -> 1.0
         frequency >= hz -> 0.0
@@ -118,7 +130,7 @@ private const val LEVEL = 0.1
 private const val TRANSITION_HZ = 300.0
 
 /** A mono, 16-bit WAV file holding [samples]. */
-internal fun wav(samples: IntArray, sampleRate: Int): ByteArray {
+fun wav(samples: IntArray, sampleRate: Int): ByteArray {
     val data = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
     samples.forEach { data.putShort(it.toShort()) }
     val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)

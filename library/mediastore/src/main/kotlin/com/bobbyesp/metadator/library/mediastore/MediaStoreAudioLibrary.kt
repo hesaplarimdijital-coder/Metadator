@@ -22,6 +22,7 @@ import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.library.api.AudioLibrary
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.FlowPreview
@@ -93,10 +94,12 @@ class MediaStoreAudioLibrary(
                 .toTypedArray()
         withTimeoutOrNull(SCAN_TIMEOUT_MS.milliseconds) {
             suspendCancellableCoroutine { continuation ->
-                var pending = folders.size
+                // Counted down on the scanner's thread, not on this one.
+                val pending = AtomicInteger(folders.size)
                 MediaScannerConnection.scanFile(context, folders, null) { _, _ ->
-                    pending--
-                    if (pending == 0 && continuation.isActive) continuation.resume(Unit)
+                    if (pending.decrementAndGet() == 0 && continuation.isActive) {
+                        continuation.resume(Unit)
+                    }
                 }
             }
         }
@@ -136,66 +139,91 @@ class MediaStoreAudioLibrary(
         return resolver
             .query(AudioCollection, projection.toTypedArray(), selection, args, null)
             ?.use { cursor ->
-                buildList { while (cursor.moveToNext()) add(cursor.toTrack(roots)) }
+                val columns = Columns(cursor)
+                buildList { while (cursor.moveToNext()) add(cursor.toTrack(columns, roots)) }
             }
             .orEmpty()
     }
 
-    // The columns of Android 11 (the album artist, the genre, the disc) are only asked for there,
-    // and read by name: elsewhere they are not in the cursor, and read as nothing.
+    /**
+     * Where each column is in a cursor of [queryTracks], found once for all its rows: finding one
+     * by its name searches the names, and a library of ten thousand songs did that some 180,000
+     * times on every change. The columns of Android 11 (the album artist, the genre, the disc) are
+     * only asked for there, and the path only before Android 10: elsewhere a column is -1, and read
+     * as nothing.
+     */
     @SuppressLint("InlinedApi")
-    private fun Cursor.toTrack(roots: List<String>): Track {
-        val id = long(MediaStore.Audio.Media._ID)!!
-        val albumId = long(MediaStore.Audio.Media.ALBUM_ID) ?: 0
+    private class Columns(cursor: Cursor) {
+        val id = cursor.getColumnIndex(MediaStore.Audio.Media._ID)
+        val title = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+        val artist = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
+        val album = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)
+        val albumId = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+        val albumArtist = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
+        val duration = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION)
+        val track = cursor.getColumnIndex(MediaStore.Audio.Media.TRACK)
+        val disc = cursor.getColumnIndex(MediaStore.Audio.Media.DISC_NUMBER)
+        val year = cursor.getColumnIndex(MediaStore.Audio.Media.YEAR)
+        val genre = cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
+        val mimeType = cursor.getColumnIndex(MediaStore.Audio.Media.MIME_TYPE)
+        val size = cursor.getColumnIndex(MediaStore.Audio.Media.SIZE)
+        val displayName = cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME)
+        val dateAdded = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
+        val dateModified = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED)
+        val relativePath = cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+        val volumeName = cursor.getColumnIndex(MediaStore.Audio.Media.VOLUME_NAME)
+        val data = cursor.getColumnIndex(DATA_COLUMN)
+    }
+
+    private fun Cursor.toTrack(columns: Columns, roots: List<String>): Track {
+        val id = long(columns.id)!!
+        val albumId = long(columns.albumId) ?: 0
         // MediaStore packs the disc into the thousands: 2005 is disc 2, track 5.
-        val packedTrack = int(MediaStore.Audio.Media.TRACK)
-        val discColumn =
-            string(MediaStore.Audio.Media.DISC_NUMBER)?.substringBefore('/')?.toIntOrNull()
-        val displayName = string(MediaStore.Audio.Media.DISPLAY_NAME).orEmpty()
+        val packedTrack = int(columns.track)
+        val discColumn = string(columns.disc)?.substringBefore('/')?.toIntOrNull()
+        val displayName = string(columns.displayName).orEmpty()
         return Track(
             id = TrackId(id),
             ref = ContentRef(ContentUris.withAppendedId(AudioCollection, id).toString()),
-            title =
-                string(MediaStore.Audio.Media.TITLE)?.ifBlank { null }
-                    ?: displayName.substringBeforeLast('.'),
-            artist = string(MediaStore.Audio.Media.ARTIST).known(),
-            album = string(MediaStore.Audio.Media.ALBUM).known(),
-            albumArtist = string(MediaStore.Audio.Media.ALBUM_ARTIST).known(),
+            title = string(columns.title)?.ifBlank { null } ?: displayName.substringBeforeLast('.'),
+            artist = string(columns.artist).known(),
+            album = string(columns.album).known(),
+            albumArtist = string(columns.albumArtist).known(),
             albumId = albumId,
-            durationMs = long(MediaStore.Audio.Media.DURATION) ?: 0,
+            durationMs = long(columns.duration) ?: 0,
             trackNumber = packedTrack?.rem(1000)?.takeIf { it > 0 },
             discNumber = discColumn ?: packedTrack?.div(1000)?.takeIf { it > 0 },
-            year = int(MediaStore.Audio.Media.YEAR)?.takeIf { it > 0 },
-            genre = string(MediaStore.Audio.Media.GENRE).known(),
-            mimeType = string(MediaStore.Audio.Media.MIME_TYPE),
-            sizeBytes = long(MediaStore.Audio.Media.SIZE) ?: 0,
+            year = int(columns.year)?.takeIf { it > 0 },
+            genre = string(columns.genre).known(),
+            mimeType = string(columns.mimeType),
+            sizeBytes = long(columns.size) ?: 0,
             displayName = displayName,
             folder =
                 volumes.folderOf(
-                    volumeName = string(MediaStore.Audio.Media.VOLUME_NAME),
-                    relativePath = string(MediaStore.Audio.Media.RELATIVE_PATH),
-                ) ?: string(DATA_COLUMN)?.let { volumes.folderOfPath(it, roots) },
-            dateAddedEpochSeconds = long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
-            dateModifiedEpochSeconds = long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
+                    volumeName = string(columns.volumeName),
+                    relativePath = string(columns.relativePath),
+                ) ?: string(columns.data)?.let { volumes.folderOfPath(it, roots) },
+            dateAddedEpochSeconds = long(columns.dateAdded) ?: 0,
+            dateModifiedEpochSeconds = long(columns.dateModified) ?: 0,
             artworkRef =
                 ContentRef(ContentUris.withAppendedId(AlbumArtCollection, albumId).toString()),
             volume =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    volumes.volumeOf(string(MediaStore.Audio.Media.VOLUME_NAME))
+                    volumes.volumeOf(string(columns.volumeName))
                 } else {
-                    string(DATA_COLUMN)?.let { volumes.volumeOfPath(it, roots) }
+                    string(columns.data)?.let { volumes.volumeOfPath(it, roots) }
                 },
         )
     }
 
-    private fun Cursor.index(column: String): Int? =
-        getColumnIndex(column).takeIf { it >= 0 && !isNull(it) }
+    /** [column], where the cursor has it and holds a value there. */
+    private fun Cursor.valueAt(column: Int): Int? = column.takeIf { it >= 0 && !isNull(it) }
 
-    private fun Cursor.string(column: String): String? = index(column)?.let { getString(it) }
+    private fun Cursor.string(column: Int): String? = valueAt(column)?.let { getString(it) }
 
-    private fun Cursor.long(column: String): Long? = index(column)?.let { getLong(it) }
+    private fun Cursor.long(column: Int): Long? = valueAt(column)?.let { getLong(it) }
 
-    private fun Cursor.int(column: String): Int? = index(column)?.let { getInt(it) }
+    private fun Cursor.int(column: Int): Int? = valueAt(column)?.let { getInt(it) }
 
     /** MediaStore spells "no value" as `<unknown>`. */
     private fun String?.known(): String? =

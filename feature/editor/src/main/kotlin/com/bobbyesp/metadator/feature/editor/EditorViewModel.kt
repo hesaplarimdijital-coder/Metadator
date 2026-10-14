@@ -45,10 +45,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 
 sealed interface EditorStatus {
     data object Loading : EditorStatus
@@ -535,30 +531,32 @@ class EditorViewModel(
     /*
      * The text changes survive process death: the user can leave mid-edit and come back to them.
      * A new cover does not; its bytes are too large for saved state.
+     *
+     * They are kept as they are, a map of lists: a key typed only puts them there, and the system
+     * writes them out when it saves the state. Kept as JSON, every changed field, the lyrics too,
+     * was encoded again at every key.
      */
 
     private fun persistPendingFields(draft: TagDraft) {
+        val fields = draft.changes.fields
         savedState[KEY_PENDING] =
-            if (draft.changes.fields.isEmpty()) null
-            else Json.encodeToString(pendingSerializer, draft.changes.fields)
+            if (fields.isEmpty()) null
+            else fields.mapValuesTo(HashMap<String, ArrayList<String>>()) { ArrayList(it.value) }
     }
 
     private fun restorePendingFields(): Map<String, List<String>>? =
-        savedState.get<String>(KEY_PENDING)?.let {
-            runCatching { Json.decodeFromString(pendingSerializer, it) }.getOrNull()
-        }
+        savedState.get<Map<String, List<String>>>(KEY_PENDING)
 
     private fun clearPendingFields() {
         savedState[KEY_PENDING] = null
     }
 
     private companion object {
-        const val KEY_PENDING = "pending_fields"
+        /** Named anew with the map, so that the JSON kept before is never read as one. */
+        const val KEY_PENDING = "pending_edits"
 
         /** The formats [CheckLosslessUseCase] reads, by the names their files go by. */
         val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave")
-        val pendingSerializer =
-            MapSerializer(String.serializer(), ListSerializer(String.serializer()))
     }
 
     /** A failure of what the user pressed (Undo) is said on screen, not only logged. */

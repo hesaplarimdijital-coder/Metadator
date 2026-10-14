@@ -7,15 +7,21 @@ import com.bobbyesp.metadator.core.domain.FakeBackupStore
 import com.bobbyesp.metadator.core.domain.FakeIndexer
 import com.bobbyesp.metadator.core.domain.FakeTagFiles
 import com.bobbyesp.metadator.core.domain.editor.withMultiValueMode
+import com.bobbyesp.metadator.core.domain.save.BackupHold
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.MultiValueMode
+import com.bobbyesp.metadator.tags.api.EmbeddedPicture
 import com.bobbyesp.metadator.tags.api.TagChanges
 import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagSnapshot
+import com.bobbyesp.metadator.tags.api.TagWriteResult
+import com.bobbyesp.metadator.tags.api.TagWriter
+import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -80,11 +86,13 @@ class BatchTest {
                 }
             )
         val backups = FakeBackupStore()
+        val hold = BackupHold()
         val runner =
             BatchRunner(
                 this,
-                SaveTagChangesUseCase(files, files, backups, FakeIndexer()),
+                SaveTagChangesUseCase(files, files, backups, FakeIndexer(), hold),
                 backups,
+                hold,
             )
 
         runner.start(
@@ -111,8 +119,11 @@ class BatchTest {
         while (runner.isRunning) yield()
     }
 
-    /** Three songs, and a runner and a save that keep only [keep] backups. */
-    private class Songs(scope: CoroutineScope, keep: Int) {
+    /**
+     * Three songs, and a runner and a save that keep only [keep] backups. The batch stops before
+     * writing its song number [pauseAt] (from 1), until its writer is resumed.
+     */
+    private class Songs(scope: CoroutineScope, keep: Int, pauseAt: Int = 0) {
         val refs = (1..3).map { ContentRef("content://$it") }
         val originals = refs.associateWith {
             TagSnapshot(TagMap.of("TITLE" to listOf(it.uri)), emptyList())
@@ -120,10 +131,55 @@ class BatchTest {
         val files = FakeTagFiles(originals)
         val backups = FakeBackupStore()
         val indexer = FakeIndexer()
-        val save = SaveTagChangesUseCase(files, files, backups, indexer, keep = keep)
-        val runner = BatchRunner(scope, save, backups, keep = keep)
+        val writer = PausingWriter(files, pauseAt)
+        val hold = BackupHold()
+        val save = SaveTagChangesUseCase(files, writer, backups, indexer, hold, keep = keep)
+        val runner = BatchRunner(scope, save, backups, hold, keep = keep)
+        /**
+         * The save of an editor beside the batch editor: its own, with the same hold, as in the
+         * app.
+         */
+        val editor = SaveTagChangesUseCase(files, files, backups, indexer, hold, keep = keep)
         val items = refs.mapIndexed { index, ref -> BatchItem(ref, "song$index.mp3") }
         val edit = BatchEdit(fields = mapOf("ALBUM" to listOf("Live")))
+
+        /** A song that is not in the batch. */
+        val other =
+            ContentRef("content://other").also {
+                files.files[it] = TagSnapshot(TagMap.of("TITLE" to listOf("Other")), emptyList())
+            }
+
+        /** What "Undo all" does: every song of the batch is put back as it was. */
+        suspend fun undoAll() {
+            val progress = runner.progress.value!!
+            assertEquals(refs.size, progress.backups.size)
+            val restore = RestoreBackupUseCase(backups, files, indexer)
+            progress.backups.forEach { assertEquals(RestoreOutcome.Restored, restore(it)) }
+            assertEquals(originals, files.files.filterKeys { it in refs })
+        }
+    }
+
+    /** Writes to [files], but stops before its write number [at] (from 1) until [resume]. */
+    private class PausingWriter(private val files: FakeTagFiles, private val at: Int) : TagWriter {
+        val paused = CompletableDeferred<Unit>()
+        private val resumed = CompletableDeferred<Unit>()
+        private var writes = 0
+
+        fun resume() {
+            resumed.complete(Unit)
+        }
+
+        override suspend fun write(
+            ref: ContentRef,
+            tags: TagMap,
+            pictures: List<EmbeddedPicture>?,
+        ): TagWriteResult {
+            if (++writes == at) {
+                paused.complete(Unit)
+                resumed.await()
+            }
+            return files.write(ref, tags, pictures)
+        }
     }
 
     @Test
@@ -134,26 +190,50 @@ class BatchTest {
         songs.runner.start(songs.items, songs.edit)
         finish(songs.runner)
 
-        val progress = songs.runner.progress.value!!
         assertEquals(1, songs.backups.prunes.size)
-        assertEquals(3, progress.backups.size)
-        val restore = RestoreBackupUseCase(songs.backups, songs.files, songs.indexer)
-        progress.backups.forEach { assertEquals(RestoreOutcome.Restored, restore(it)) }
-        assertEquals(songs.originals, songs.files.files)
+        songs.undoAll()
     }
 
     @Test
-    fun `the next save drops a batch's backups beyond those kept`() = runTest {
+    fun `a save made while a batch runs keeps the batch's backups`() = runTest {
+        // Pruned to what it keeps, the editor's save dropped the songs the batch had backed up.
+        val songs = Songs(this, keep = 1, pauseAt = 2)
+
+        songs.runner.start(songs.items, songs.edit)
+        songs.writer.paused.await()
+        songs.editor(songs.other, TagChanges(fields = mapOf("TITLE" to listOf("x"))))
+        songs.writer.resume()
+        finish(songs.runner)
+
+        songs.undoAll()
+    }
+
+    @Test
+    fun `a save made before a batch's result is dismissed keeps the batch's backups`() = runTest {
         val songs = Songs(this, keep = 1)
         songs.runner.start(songs.items, songs.edit)
         finish(songs.runner)
 
-        val outcome =
-            songs.save(songs.refs.first(), TagChanges(fields = mapOf("TITLE" to listOf("x"))))
-                as SaveOutcome.Saved
+        // Its done dialog, with "Undo all", is still up.
+        songs.editor(songs.other, TagChanges(fields = mapOf("TITLE" to listOf("x"))))
 
-        assertEquals(setOf(outcome.backupId), songs.backups.backups.keys)
+        songs.undoAll()
     }
+
+    @Test
+    fun `once a batch's result is dismissed, the next save drops its backups beyond those kept`() =
+        runTest {
+            val songs = Songs(this, keep = 1)
+            songs.runner.start(songs.items, songs.edit)
+            finish(songs.runner)
+            songs.runner.clear()
+
+            val outcome =
+                songs.editor(songs.refs.first(), TagChanges(fields = mapOf("TITLE" to listOf("x"))))
+                    as SaveOutcome.Saved
+
+            assertEquals(setOf(outcome.backupId), songs.backups.backups.keys)
+        }
 
     @Test
     fun `a cancelled batch prunes too, and keeps what it backed up`() = runTest {
@@ -175,6 +255,41 @@ class BatchTest {
         assertEquals(progress.backups.toSet(), songs.backups.backups.keys)
     }
 
+    @Test
+    fun `a backup that fails stops the batch where it got to, and keeps the app`() = runTest {
+        // Thrown on, the failure ended the app's scope, and the app with it, halfway.
+        val songs = Songs(this, keep = 1)
+        songs.backups.failingSave = 2
+
+        songs.runner.start(songs.items, songs.edit)
+        finish(songs.runner)
+
+        val progress = songs.runner.progress.value!!
+        assertFalse(progress.isRunning)
+        assertTrue(progress.failure is IOException)
+        assertEquals(1, progress.saved.size)
+        assertEquals(1, songs.backups.prunes.size)
+        assertEquals(songs.originals.getValue(songs.refs[1]), songs.files.files[songs.refs[1]])
+        assertEquals(songs.originals.getValue(songs.refs[2]), songs.files.files[songs.refs[2]])
+        // What it saved can still be undone.
+        val restore = RestoreBackupUseCase(songs.backups, songs.files, songs.indexer)
+        assertEquals(RestoreOutcome.Restored, restore(progress.backups.single()))
+    }
+
+    @Test
+    fun `a prune that fails at the end still ends the batch`() = runTest {
+        val songs = Songs(this, keep = 1)
+        songs.backups.pruneFailure = IOException("Database disk image is malformed")
+
+        songs.runner.start(songs.items, songs.edit)
+        finish(songs.runner)
+
+        val progress = songs.runner.progress.value!!
+        assertFalse(progress.isRunning)
+        assertEquals(3, progress.saved.size)
+        assertTrue(progress.failure is IOException)
+    }
+
     /** The path the batch editor's "Apply to all" takes, with the multi-value mode applied last. */
     private suspend fun TestScope.applyToAll(
         files: FakeTagFiles,
@@ -182,8 +297,14 @@ class BatchTest {
         mode: MultiValueMode = MultiValueMode.Separate,
     ): BatchProgress {
         val backups = FakeBackupStore()
+        val hold = BackupHold()
         val runner =
-            BatchRunner(this, SaveTagChangesUseCase(files, files, backups, FakeIndexer()), backups)
+            BatchRunner(
+                this,
+                SaveTagChangesUseCase(files, files, backups, FakeIndexer(), hold),
+                backups,
+                hold,
+            )
         runner.start(files.files.keys.map { BatchItem(it, it.uri.substringAfterLast('/')) }, edit) {
             it.withMultiValueMode(mode, "; ")
         }

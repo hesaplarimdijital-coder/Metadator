@@ -119,6 +119,23 @@ object StudioDefaults {
      */
     val FooterHeight = 64.dp
 
+    // Where the layouts change with the room they have, read together.
+
+    /** The narrowest window laid out as panels on a ground; narrower, the screen is one. */
+    val PanelWindowWidth = 600.dp
+
+    /** The narrowest library with room for its sidebar beside the songs. */
+    val SidebarLibraryWidth = 900.dp
+
+    /** The narrowest editor, filling a window, with the cover and the file beside the fields. */
+    val TwoColumnEditorWidth = 760.dp
+
+    /** The narrowest window, if wider than tall, whose player has the lyrics beside the song. */
+    val SideBySidePlayerWidth = 600.dp
+
+    /** The lowest window whose player, side by side, has room for the controls under the cover. */
+    val PlayerControlsHeight = 600.dp
+
     /** The type of keys and of what a file is: a format, a size. */
     val MonoStyle =
         TextStyle(
