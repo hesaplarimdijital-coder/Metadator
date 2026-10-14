@@ -70,6 +70,7 @@
     <string name="back">Atrás</string>
     <string name="no_song_open_title">Elige una canción</string>
     <string name="no_song_open_description">Sus etiquetas se abren aquí, junto a tu biblioteca.</string>
+    <string name="selection_unfollowed_description">Leer tantas canciones lleva un rato, así que solo se abren aquí cuando lo pides.</string>
 
     <string name="keyboard_shortcuts">Atajos de teclado</string>
     <string name="shortcuts_library">Biblioteca</string>

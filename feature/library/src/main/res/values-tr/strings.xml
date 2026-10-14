@@ -65,6 +65,7 @@
     <string name="back">Geri</string>
     <string name="no_song_open_title">Bir şarkı seçin</string>
     <string name="no_song_open_description">Etiketleri burada, kitaplığınızın yanında açılır.</string>
+    <string name="selection_unfollowed_description">Bu kadar çok şarkıyı okumak zaman alır; bu nedenle yalnızca siz istediğinizde burada açılırlar.</string>
 
     <string name="keyboard_shortcuts">Klavye kısayolları</string>
     <string name="shortcuts_library">Kitaplık</string>

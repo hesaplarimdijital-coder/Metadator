@@ -49,8 +49,11 @@ them went.
 **The inspector follows the selection** (`InspectorFollowsSelection` in the library): two songs or
 more selected are the batch editor for them, one is its editor, and with nothing selected it is the
 song last opened with a click while it is listed, or nothing. Albums, artists or folders selected
-are their songs: two albums selected are the batch editor for both, which offers to merge them. A
-selection that grows (a range, a drag) is shown once it has rested 300 ms, since each step would
+are their songs: two albums selected are the batch editor for both, which offers to merge them.
+More than a hundred songs are not followed: the batch editor reads every song it is given, and
+Ctrl+A on a large library had it read thousands of files nobody asked for. The inspector says how
+many are selected instead, with Edit together (Ctrl+E) to open the batch editor for them on purpose.
+A selection that grows (a range, a drag) is shown once it has rested 300 ms, since each step would
 read every song again; an ended selection shows at once what stands in for it. It never comes over
 unsaved changes (`Navigator.showSelection`): they stay in sight until saved or thrown away, and the
 selection is shown from its next change. A song or a file opened by hand stays until the selection

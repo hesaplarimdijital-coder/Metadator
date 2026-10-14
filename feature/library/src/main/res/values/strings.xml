@@ -65,6 +65,7 @@
     <string name="back">Back</string>
     <string name="no_song_open_title">Pick a song</string>
     <string name="no_song_open_description">Its tags open here, next to your library.</string>
+    <string name="selection_unfollowed_description">Reading this many songs takes a while, so they open here only when you ask.</string>
 
     <string name="keyboard_shortcuts">Keyboard shortcuts</string>
     <string name="shortcuts_library">Library</string>

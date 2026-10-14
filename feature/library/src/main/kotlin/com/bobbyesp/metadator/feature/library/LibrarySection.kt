@@ -5,6 +5,7 @@ package com.bobbyesp.metadator.feature.library
 
 import android.content.Intent
 import android.net.Uri
+import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -12,17 +13,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +51,7 @@ import com.bobbyesp.metadator.core.navigation.Library
 import com.bobbyesp.metadator.core.navigation.Navigator
 import com.bobbyesp.metadator.core.navigation.Settings
 import com.bobbyesp.metadator.core.navigation.pane.LocalPaneContext
+import com.bobbyesp.metadator.core.ui.input.shortcutHint
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
 import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
 import kotlin.time.Duration
@@ -55,8 +64,16 @@ import org.koin.androidx.compose.koinViewModel
 /** The library's destinations: the root list and the collections reached from it. */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
+    // What each list has selected beyond what its inspector follows: the placeholder beside the
+    // list says it, and is drawn apart from the list's entry.
+    val libraryUnfollowed = UnfollowedSelection()
+    val collectionUnfollowed = UnfollowedSelection()
+    val editTogether = { tracks: List<Track> ->
+        navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
+    }
     entry<Library>(
-        metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { NoSongOpen() })
+        metadata =
+            ListDetailSceneStrategy.listPane(detailPlaceholder = { NoSongOpen(libraryUnfollowed) })
     ) {
         val viewModel: LibraryViewModel = koinViewModel()
         val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,7 +82,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             navigator.showDetail(Editor(uri.toString()))
         }
         val openInNewWindow = rememberNewWindowOpener()
-        InspectorFollowsSelection(state, navigator)
+        InspectorFollowsSelection(state, navigator, libraryUnfollowed, editTogether)
 
         LibraryScreen(
             state = state,
@@ -81,9 +98,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
                 navigator.goTo(Collection(collection.type, collection.key, collection.title))
             },
             // Beside the library on a wide window, where the selection stays in sight.
-            onEditTracks = { tracks ->
-                navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
-            },
+            onEditTracks = editTogether,
             onOpenInNewWindow = openInNewWindow,
             onOpenSettings = { navigator.goTo(Settings) },
             onOpenFile = { openFile.launch(arrayOf("audio/*")) },
@@ -91,7 +106,10 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
     }
 
     entry<Collection>(
-        metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { NoSongOpen() })
+        metadata =
+            ListDetailSceneStrategy.listPane(
+                detailPlaceholder = { NoSongOpen(collectionUnfollowed) }
+            )
     ) { key ->
         // The library narrowed to the collection, keyed by what it shows: its songs are what is
         // selected, taken in a range and played, and it is found again by them once an edit has
@@ -106,7 +124,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
         // stay a screen that loads forever.
         val gone = !state.loading && collection == null
         LaunchedEffect(gone) { if (gone) navigator.removeDestination(key) }
-        InspectorFollowsSelection(state, navigator)
+        InspectorFollowsSelection(state, navigator, collectionUnfollowed, editTogether)
 
         val onIntent = rememberIntents(viewModel)
         val actions =
@@ -121,9 +139,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
                         navigator.showDetail(Editor(it.ref.uri, then = EditorAction.FindCover))
                     },
                     onOpenCollection = {},
-                    onEditTracks = { tracks ->
-                        navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
-                    },
+                    onEditTracks = editTogether,
                     onOpenInNewWindow = openInNewWindow,
                     onOpenSettings = {},
                     onOpenFile = {},
@@ -155,10 +171,20 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
  * unsaved changes stays, and so does what was opened by hand when the list changes under it
  * ([Navigator.showSelection]). A phone has no inspector: there the selection is edited together
  * from its bar.
+ *
+ * A selection of more than [FollowedAtMost] songs is not followed: the batch editor reads every
+ * song it is given, and Ctrl+A on a large library had it read thousands of files nobody asked for.
+ * The placeholder beside the list says how many are selected instead ([unfollowed]), and edits them
+ * together on purpose ([editTogether]), as Ctrl+E does.
  */
 @OptIn(FlowPreview::class)
 @Composable
-private fun InspectorFollowsSelection(state: LibraryState, navigator: Navigator) {
+private fun InspectorFollowsSelection(
+    state: LibraryState,
+    navigator: Navigator,
+    unfollowed: UnfollowedSelection,
+    editTogether: (List<Track>) -> Unit,
+) {
     if (LocalPaneContext.current.isSolePane) return
     val inspected =
         remember(state.listing, state.selection, state.clicked, state.collectionSelection) {
@@ -171,17 +197,26 @@ private fun InspectorFollowsSelection(state: LibraryState, navigator: Navigator)
             .debounce { if (it.selected) SelectionSettles else Duration.ZERO }
             .collect { navigator.showSelection(it.key) }
     }
+    val current = rememberUpdatedState(state)
+    val owner = remember { Any() }
+    SideEffect {
+        unfollowed.show(owner, inspected.unfollowed) {
+            current.value.selectedSongs.takeIf { it.isNotEmpty() }?.let(editTogether)
+        }
+    }
+    DisposableEffect(unfollowed, owner) { onDispose { unfollowed.clear(owner) } }
 }
 
-/** What the inspector shows of a list, and whether that is its selection. */
-private data class Inspected(val key: NavKey?, val selected: Boolean) {
+/**
+ * What the inspector shows of a list, and whether that is its selection; [unfollowed] is how many
+ * songs are selected when they are too many to show.
+ */
+internal data class Inspected(val key: NavKey?, val selected: Boolean, val unfollowed: Int = 0) {
     companion object {
         fun of(state: LibraryState): Inspected {
-            // Albums, artists or folders selected are their songs, as the songs selected are.
-            val selected =
-                if (state.selectingCollections) state.selectedCollectionTracks
-                else state.selectedTracks
+            val selected = state.selectedSongs
             return when {
+                selected.size > FollowedAtMost -> Inspected(null, true, unfollowed = selected.size)
                 selected.size > 1 -> Inspected(BatchEditor(selected.map { it.ref.uri }), true)
                 selected.size == 1 -> Inspected(Editor(selected.single().ref.uri), true)
                 else ->
@@ -196,8 +231,53 @@ private data class Inspected(val key: NavKey?, val selected: Boolean) {
     }
 }
 
+/**
+ * The songs selected: albums, artists or folders selected are their songs, as Ctrl+E edits them.
+ */
+private val LibraryState.selectedSongs: List<Track>
+    get() = if (selectingCollections) selectedCollectionTracks else selectedTracks
+
 /** How long a selection rests before the inspector reads it. */
 private val SelectionSettles = 300.milliseconds
+
+/**
+ * The most songs the inspector follows a selection of. The batch editor reads each file it is
+ * given: a hundred is a few seconds on an SD card, and more than a desktop's eye takes in at once.
+ */
+internal const val FollowedAtMost = 100
+
+/**
+ * A selection too large for the inspector to follow, as the list on top has it: what the
+ * placeholder beside the list says instead. List-detail draws that placeholder apart from the
+ * list's entry, which knows the selection; the entry writes it here, and takes it back as it goes.
+ * The library has one and collections another, and a list that is not the last to write leaves it
+ * be.
+ */
+@Stable
+private class UnfollowedSelection {
+    /** How many songs are selected, while they are more than the inspector follows; else 0. */
+    var count by mutableIntStateOf(0)
+        private set
+
+    private var owner: Any? = null
+    private var edit: () -> Unit = {}
+
+    fun show(owner: Any, count: Int, edit: () -> Unit) {
+        this.owner = owner
+        this.count = count
+        this.edit = edit
+    }
+
+    fun clear(owner: Any) {
+        if (this.owner !== owner) return
+        this.owner = null
+        count = 0
+        edit = {}
+    }
+
+    /** Opens the batch editor for the songs selected, as Ctrl+E does. */
+    fun editTogether() = edit()
+}
 
 internal val TrackCollection.type: CollectionType
     get() =
@@ -263,20 +343,34 @@ private fun rememberNewWindowOpener(): (Track) -> Unit {
 
 /**
  * What a wide window shows beside the library while no song is open: the inspector's panel, saying
- * what will be there.
+ * what will be there, or how many songs are selected when they are too many for it to follow
+ * ([unfollowed]), with the way to edit them together.
  */
 @Composable
-private fun NoSongOpen() {
+private fun NoSongOpen(unfollowed: UnfollowedSelection) {
     Box(
         Modifier.fillMaxSize()
             .then(if (LocalPanels.current) Modifier.studioPanel() else Modifier)
             .padding(Spacing.extraLarge),
         contentAlignment = Alignment.Center,
     ) {
-        PlaceholderCard(
-            title = stringResource(R.string.no_song_open_title),
-            description = stringResource(R.string.no_song_open_description),
-            icon = Icons.Rounded.EditNote,
-        )
+        val count = unfollowed.count
+        if (count > 0) {
+            PlaceholderCard(
+                title = pluralStringResource(R.plurals.selected_songs, count, count),
+                description = stringResource(R.string.selection_unfollowed_description),
+                icon = Icons.Rounded.SelectAll,
+                actionText = stringResource(R.string.edit_together),
+                actionIcon = Icons.Rounded.EditNote,
+                onAction = unfollowed::editTogether,
+                actionShortcut = shortcutHint(KeyEvent.KEYCODE_E, ctrl = true),
+            )
+        } else {
+            PlaceholderCard(
+                title = stringResource(R.string.no_song_open_title),
+                description = stringResource(R.string.no_song_open_description),
+                icon = Icons.Rounded.EditNote,
+            )
+        }
     }
 }

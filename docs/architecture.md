@@ -415,9 +415,10 @@ and what would go out of focus is only dimmed, and more.
 ## Editing several songs
 
 The batch editor (`feature/batch`) is opened for a selection ("Edit together"), an album ("Edit
-all"), or by the inspector, for the songs selected beside it, and edits its songs as one: a field
-set there is set on every song, and a field left alone keeps each song's own value (`BatchEdit`).
-Besides the fields, it sets one cover for all, picked or found online
+all"), or by the inspector, for up to a hundred songs selected beside it (more are opened only on
+purpose, from the placeholder that says how many), and edits its songs as one: a field set there
+is set on every song, and a field left alone keeps each song's own value (`BatchEdit`). Besides
+the fields, it sets one cover for all, picked or found online
 ([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
 gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
 differs from song to song, from the release found online or the disc a merged album's title said.
