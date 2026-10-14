@@ -241,9 +241,9 @@ desktop vocabulary over Material's components:
   choice, a sheet was there one frame and gone the next.
 - `LoadingScreen`: a screen still loading, which shows its indicator only once the wait has gone on
   for 400 ms.
-- `Tooltip`, `ContextMenuArea`, `HeldKeys`: what a mouse adds. The name of a button that is only an
-  icon, a menu on the second button, and the keys held during a click
-  ([desktop.md](desktop.md#mouse)).
+- `Tooltip`, `ContextMenuArea`, `HeldKeys`, `Modifier.marqueeSelection`: what a mouse adds. The
+  name of a button that is only an icon, a menu on the second button, the keys held during a
+  click, and a rectangle dragged over a list to select ([desktop.md](desktop.md#mouse)).
 
 `:core:ui` holds what two features show alike: `TrackTableHeader` and `TrackTableRow`, the table of
 songs, whose columns drop out as its panel narrows (`TrackColumns`: the year, then the format, then
