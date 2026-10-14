@@ -739,11 +739,13 @@ internal fun sectionStats(state: LibraryState): String {
     }
     if (state.filter.noCover && state.covers.isRunning) {
         parts +=
-            stringResource(
-                R.string.cover_progress,
-                numbers.format(state.covers.checked),
-                numbers.format(state.covers.total),
-            )
+            if (state.coversWaiting) stringResource(R.string.cover_progress_waiting)
+            else
+                stringResource(
+                    R.string.cover_progress,
+                    numbers.format(state.covers.checked),
+                    numbers.format(state.covers.total),
+                )
     }
     return parts.joinToString(" · ")
 }

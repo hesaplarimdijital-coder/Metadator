@@ -93,7 +93,14 @@ data class Listing(
     val folders: List<TrackCollection.Folder> = emptyList(),
     /** How much room the songs listed take, added up once here rather than on every frame. */
     val totalBytes: Long = 0,
-)
+) {
+    /**
+     * The songs listed, by id, made once with the listing, off the main thread: a drag over the
+     * rows checks what it touched against them at every row it crosses ([LibraryIntent.SelectIds]),
+     * and each made them all again.
+     */
+    val listedIds: Set<TrackId> = tracks.mapTo(HashSet(tracks.size)) { it.id }
+}
 
 data class LibraryState(
     val loading: Boolean = true,
@@ -159,6 +166,14 @@ data class LibraryState(
 
     val selecting: Boolean
         get() = selection.isNotEmpty()
+
+    /**
+     * Whether the check of covers is waiting for the lossless check to be done with the files,
+     * which it is given as work that matters more (`busy` in the app's modules): its share does not
+     * move meanwhile, which the first pass over a large lossless library makes an hour.
+     */
+    val coversWaiting: Boolean
+        get() = covers.isRunning && quality.isRunning
 
     val selectedTracks: List<Track>
         get() = tracks.filter { it.id in selection }
@@ -496,8 +511,7 @@ class LibraryViewModel(
             is LibraryIntent.SelectIds -> {
                 intent.anchor?.let { selectionAnchor = it }
                 setState {
-                    val listed = tracks.mapTo(mutableSetOf()) { it.id }
-                    val chosen = intent.ids.filterTo(mutableSetOf()) { it in listed }
+                    val chosen = intent.ids.filterTo(mutableSetOf()) { it in listing.listedIds }
                     copy(selection = if (intent.add) selection + chosen else chosen)
                 }
             }
@@ -623,14 +637,14 @@ class LibraryViewModel(
         found: TrackCollection?,
     ): LibraryState.() -> LibraryState {
         val tracks = found?.tracks.orEmpty()
-        val ids = tracks.mapTo(mutableSetOf()) { it.id }
-        val totalBytes = tracks.sumOf { it.sizeBytes }
+        val listing = Listing(tracks = tracks, totalBytes = tracks.sumOf { it.sizeBytes })
+        val ids = listing.listedIds
         return {
             copy(
                 loading = false,
                 totalTracks = total,
                 collection = found,
-                listing = Listing(tracks = tracks, totalBytes = totalBytes),
+                listing = listing,
                 selection = selection.filterTo(mutableSetOf()) { it in ids },
                 clicked = clicked?.takeIf { it in ids },
             )
@@ -701,24 +715,25 @@ class LibraryViewModel(
         val formats = all.map { it.fileExtension }.filter { it.isNotEmpty() }.distinct().sorted()
         val needsAttention = all.count { it.needsAttention }
         val storages = all.countByStorage()
-        val totalBytes = visible.sumOf { it.sizeBytes }
-        val visibleIds = visible.mapTo(mutableSetOf()) { it.id }
+        // Made here, off the main thread, with the ids of what it lists.
+        val listing =
+            Listing(
+                filter = query.filter,
+                sort = query.sort,
+                tracks = visible,
+                albums = albums,
+                artists = artists,
+                folders = folders,
+                totalBytes = visible.sumOf { it.sizeBytes },
+            )
+        val visibleIds = listing.listedIds
         val collections: List<TrackCollection> = albums + artists + folders
         val listedKeys = collections.mapTo(mutableSetOf()) { it.key }
         return {
             copy(
                 loading = false,
                 totalTracks = all.size,
-                listing =
-                    Listing(
-                        filter = query.filter,
-                        sort = query.sort,
-                        tracks = visible,
-                        albums = albums,
-                        artists = artists,
-                        folders = folders,
-                        totalBytes = totalBytes,
-                    ),
+                listing = listing,
                 formats = formats,
                 needsAttentionCount = needsAttention,
                 garbledCount = garbledIds.size,

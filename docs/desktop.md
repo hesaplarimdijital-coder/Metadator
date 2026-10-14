@@ -50,12 +50,17 @@ them went.
 **The inspector follows the selection** (`InspectorFollowsSelection` in the library): two songs or
 more selected are the batch editor for them, one is its editor, and with nothing selected it is the
 song last opened with a click while it is listed, or nothing. Albums, artists or folders selected
-are their songs: two albums selected are the batch editor for both, which offers to merge them. A
-selection that grows (a range, a drag) is shown once it has rested 300 ms, since each step would
+are their songs: two albums selected are the batch editor for both, which offers to merge them.
+More than a hundred songs are not followed: the batch editor reads every song it is given, and
+Ctrl+A on a large library had it read thousands of files nobody asked for. The inspector says how
+many are selected instead, with Edit together (Ctrl+E) to open the batch editor for them on purpose.
+A selection that grows (a range, a drag) is shown once it has rested 300 ms, since each step would
 read every song again; an ended selection shows at once what stands in for it. It never comes over
 unsaved changes (`Navigator.showSelection`): they stay in sight until saved or thrown away, and the
 selection is shown from its next change. A song or a file opened by hand stays until the selection
-changes. On a phone nothing follows: the selection is edited together from its bar.
+changes, and stays when the list changes under it: a search or a smart list that leaves out the
+song clicked before closes that song's editor, when it is what is beside the list, and nothing
+else. On a phone nothing follows: the selection is edited together from its bar.
 
 **A collection is a list with its own beside it.** Opening an album, an artist or a folder from
 the library starts it with nothing beside it (`Navigator.goTo` drops what the library showed there,
@@ -128,6 +133,9 @@ What follows from asking last, after the views:
 - A text field takes what it types and its own shortcuts first. A shortcut made of a plain key
   (Space, Enter, Page Down) never fires while typing, and Ctrl+A in a field selects its text, not
   every song.
+- The library's search field takes Esc too (`StudioSearchField`): it clears what is typed, and with
+  nothing typed gives up the focus. An Esc nobody takes is Back, and Back in the library goes to
+  the place visited before: an Esc meant for the field changed the list under it.
 - A dialog, a sheet and a menu are windows of their own. What is under them gets no keys, so
   Ctrl+S does not save behind a dialog.
 - Esc closes them. A dialog and a menu do it themselves; Material's sheet does not, since its
@@ -159,6 +167,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | Player | Space | Plays or pauses |
 | | Ctrl+→, Ctrl+← | Next and previous song |
 | Library | Ctrl+F | Goes to the search field |
+| | Esc, in the search field | Clears it; with nothing typed, leaves it |
 | | Ctrl+A | Selects every song |
 | | Ctrl+E, Enter | Edits the selected songs together |
 | | Esc | Ends the selection |

@@ -14,7 +14,7 @@ class BackStackNavigatorTest {
     private val a = Editor("content://a")
     private val b = Editor("content://b")
     private val c = Editor("content://c")
-    private val batch = BatchEditor(listOf("content://a", "content://b"))
+    private val batch = BatchEditor(listOf(1L, 2L))
 
     private var exits = 0
 
@@ -125,6 +125,84 @@ class BackStackNavigatorTest {
         navigator.hold(batch, false)
         navigator.showSelection(null)
         assertEquals(listOf(Library), stack)
+    }
+
+    @Test
+    fun `a file opened by hand stays when the song clicked before leaves the list`() {
+        val (stack, navigator) = navigator(Library)
+        val file = Editor("content://picked")
+        // A clicked: its editor, which the list then shows as its own while nothing is selected.
+        navigator.showDetail(a)
+        navigator.showSelection(a)
+        navigator.hold(a, false)
+        // Ctrl+O, or the player's "Edit tags".
+        navigator.showDetail(file)
+        navigator.hold(file, false)
+
+        // A search leaves A out: the list has nothing of its own to show.
+        navigator.showSelection(null)
+
+        assertEquals(listOf(Library, file), stack)
+    }
+
+    @Test
+    fun `a clicked song's editor goes when the song leaves the list`() {
+        val (stack, navigator) = navigator(Library)
+        navigator.showDetail(a)
+        navigator.showSelection(a)
+        navigator.hold(a, false)
+
+        navigator.showSelection(null)
+
+        assertEquals(listOf(Library), stack)
+    }
+
+    @Test
+    fun `a song clicked again after a file was opened still goes when it leaves the list`() {
+        val (stack, navigator) = navigator(Library)
+        val file = Editor("content://picked")
+        navigator.showDetail(a)
+        navigator.showSelection(a)
+        navigator.hold(a, false)
+        navigator.showDetail(file)
+        navigator.hold(file, false)
+        // Clicked again: still the song clicked last, so the list does not speak again.
+        navigator.showDetail(a)
+        navigator.hold(a, false)
+
+        navigator.showSelection(null)
+
+        assertEquals(listOf(Library), stack)
+    }
+
+    @Test
+    fun `what was opened by hand over the selection stays when the selection ends`() {
+        val (stack, navigator) = navigator(Library)
+        navigator.showSelection(batch)
+        navigator.hold(batch, false)
+        // The player's "Edit tags", while the songs are still selected.
+        navigator.showDetail(c)
+        navigator.hold(c, false)
+
+        navigator.showSelection(null)
+
+        assertEquals(listOf(Library, c), stack)
+    }
+
+    @Test
+    fun `beside a collection, what the library showed is not the collection's to take away`() {
+        val (stack, navigator) = navigator(Library)
+        navigator.showDetail(a)
+        navigator.showSelection(a)
+        navigator.hold(a, false)
+        navigator.goTo(album)
+        // The same song, opened by hand beside the collection.
+        navigator.showDetail(a)
+        navigator.hold(a, false)
+
+        navigator.showSelection(null)
+
+        assertEquals(listOf(Library, album, a), stack)
     }
 
     @Test

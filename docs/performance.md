@@ -39,6 +39,11 @@ Most of the work here is making sure that a change touches only what shows it.
   selection, the keys held and the layout; the row reads them when it is clicked
   (`rememberUpdatedState` in `LibrarySongs.kt`), so a row is drawn again only when its own song
   changes.
+- **A drag over the rows costs what the selection needs.** The rectangle asks for the whole
+  selection at each row it crosses (`LibraryIntent.SelectIds`): the library checks it against the
+  ids of what is listed, made once with the listing (`Listing.listedIds`), not at each row, and the
+  inspector only counts what is selected until the selection rests, then reads the list once for
+  what to show (`Inspected` in `LibrarySection.kt`).
 - **The domain's types are stable.** What the domain hands the screens is immutable data, declared
   so in `compose_stability.conf`. Without it a song's quality, made again equal to the last, was
   taken for a change, and every row of the library was drawn again each time a song was checked.

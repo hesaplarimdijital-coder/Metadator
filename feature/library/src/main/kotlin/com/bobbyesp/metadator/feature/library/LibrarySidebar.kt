@@ -138,12 +138,21 @@ internal fun LibrarySidebar(
                     label = stringResource(R.string.no_cover),
                     icon = Icons.Outlined.HideImage,
                     selected = section == LibrarySection.NoCover,
-                    // While the songs are still being checked for a cover, how far that has got.
+                    // While the songs are still being checked for a cover, how far that has got,
+                    // or that it waits for the lossless check: a share that does not move read as
+                    // a check that was slow.
                     count =
-                        if (state.covers.isRunning) {
-                            "${numbers.format(state.noCoverCount)} · " +
-                                "${state.covers.checked * 100 / state.covers.total.coerceAtLeast(1)}%"
-                        } else numbers.format(state.noCoverCount),
+                        when {
+                            !state.covers.isRunning -> numbers.format(state.noCoverCount)
+                            state.coversWaiting ->
+                                stringResource(
+                                    R.string.cover_check_waiting,
+                                    numbers.format(state.noCoverCount),
+                                )
+                            else ->
+                                "${numbers.format(state.noCoverCount)} · " +
+                                    "${state.covers.checked * 100 / state.covers.total.coerceAtLeast(1)}%"
+                        },
                     onClick = { show(LibrarySection.NoCover) },
                 )
                 SidebarItem(

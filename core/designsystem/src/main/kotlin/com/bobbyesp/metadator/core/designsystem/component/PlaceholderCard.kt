@@ -28,6 +28,8 @@ import com.bobbyesp.metadator.core.designsystem.theme.Studio
  * What a screen shows instead of content: empty, needs a permission, or failed. Not a card of its
  * own: it is the panel's content, centered, with its icon in a tinted square and the one thing to
  * do about it as the panel's main button.
+ *
+ * @param actionShortcut the keys that do the main action too, shown on its button as everywhere
  */
 @Composable
 fun PlaceholderCard(
@@ -41,6 +43,7 @@ fun PlaceholderCard(
     onAction: (() -> Unit)? = null,
     secondaryActionText: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
+    actionShortcut: String? = null,
 ) {
     val tone = (if (isError) StudioTone.Danger else StudioTone.Accent).colors()
     Column(
@@ -97,6 +100,7 @@ fun PlaceholderCard(
                         onClick = onAction,
                         icon = actionIcon,
                         style = StudioButtonStyle.Primary,
+                        shortcut = actionShortcut,
                     )
                 }
             }

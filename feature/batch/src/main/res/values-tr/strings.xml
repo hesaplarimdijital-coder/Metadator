@@ -6,6 +6,10 @@
     </plurals>
     <string name="close">Kapat</string>
     <string name="batch_and_more">ve %1$d tane daha</string>
+    <plurals name="batch_left_out">
+        <item quantity="one">Okunamayan %1$d şarkı dışarıda bırakıldı</item>
+        <item quantity="other">Okunamayan %1$d şarkı dışarıda bırakıldı</item>
+    </plurals>
     <string name="batch_fields">Her şarkıda ayarla</string>
     <string name="batch_fields_description">Her şarkının kendi değerini korumak için alanı olduğu gibi bırakın.</string>
     <string name="batch_multiple_values">Birden çok değer</string>

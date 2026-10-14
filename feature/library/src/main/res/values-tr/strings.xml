@@ -65,6 +65,7 @@
     <string name="back">Geri</string>
     <string name="no_song_open_title">Bir şarkı seçin</string>
     <string name="no_song_open_description">Etiketleri burada, kitaplığınızın yanında açılır.</string>
+    <string name="selection_unfollowed_description">Bu kadar çok şarkıyı okumak zaman alır; bu nedenle yalnızca siz istediğinizde burada açılırlar.</string>
 
     <string name="keyboard_shortcuts">Klavye kısayolları</string>
     <string name="shortcuts_library">Kitaplık</string>
@@ -97,6 +98,8 @@
     <string name="no_cover_albums_description">En az bir şarkısı kapaksız olan albümler</string>
     <string name="no_cover_artists_description">En az bir şarkısı kapaksız olan sanatçılar</string>
     <string name="cover_progress">Kapaklar denetleniyor: %1$s / %2$s</string>
+    <string name="cover_check_waiting">%1$s · bekliyor</string>
+    <string name="cover_progress_waiting">Kapaklar, kayıpsız dosyalardan sonra denetlenecek</string>
     <string name="no_missing_covers_title">Kapaksız şarkı yok</string>
     <string name="no_missing_covers_description">Kitaplığınızdaki her şarkının kendi kapağı var.</string>
     <string name="no_missing_covers_yet_description">Şimdilik yok: %2$d şarkıdan %1$d tanesi denetlendi. Gerisi arka planda denetleniyor.</string>

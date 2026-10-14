@@ -129,7 +129,10 @@ got beside its count while it runs, and a filter of the songs, the albums and th
 such song, each listed whole (`lackingCover`), since a cover is found for an album, not for those
 of its songs that lack one. The chip says which it is and counts it, and says it in full when
 pointed at. What the check finds lists the songs again only while they are narrowed to those
-without a cover: it finds more every few songs.
+without a cover: it finds more every few songs. While it waits for the lossless check to be done
+with the files, the list says it waits rather than how far it has got (`coversWaiting`): the
+lossless check's first pass over a large library can take an hour, and a share that did not move
+read as a slow check.
 
 **Albums are grouped by album artist and title** (the artist where there is no album artist), and
 known by those two (`TrackCollection.Album.key`), not by MediaStore's album id: MediaStore gives
@@ -210,7 +213,9 @@ as the entries' metadata tells list-detail), and the screens gone to from those.
   again comes up rather than twice. What came back with the stack after the process was gone is
   kept until it has said whether it holds anything.
 - `showSelection` is what a list shows on its own as its selection changes: the same, but never over
-  a detail that holds something, since nobody chose it.
+  a detail that holds something, since nobody chose it. Nothing selected takes away only what the
+  list asked for last, its selection or the song clicked in it: a file or a song opened by hand over
+  that stays when the list changes under it.
 - `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
 - `goBack` takes one step: what Back does.
 
@@ -416,14 +421,20 @@ and what would go out of focus is only dimmed, and more.
 ## Editing several songs
 
 The batch editor (`feature/batch`) is opened for a selection ("Edit together"), an album ("Edit
-all"), or by the inspector, for the songs selected beside it, and edits its songs as one: a field
-set there is set on every song, and a field left alone keeps each song's own value (`BatchEdit`).
-Besides the fields, it sets one cover for all, picked or found online
+all"), or by the inspector, for up to a hundred songs selected beside it (more are opened only on
+purpose, from the placeholder that says how many), and edits its songs as one: a field set there
+is set on every song, and a field left alone keeps each song's own value (`BatchEdit`). Besides
+the fields, it sets one cover for all, picked or found online
 ([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
 gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
 differs from song to song, from the release found online or the disc a merged album's title said.
 A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a
 total or a number, the file keeps.
+
+It is handed its songs by their MediaStore ids (`BatchEditor`), and finds their files again through
+the library as it opens: their URIs were five times the size in the saved back stack. A song
+deleted meanwhile, while the editor waited on the stack or the process was gone, is left out, and
+the editor says how many were, as it does for a file it cannot read.
 
 - **A field of several values** (artists, album artists, genres, composers) shows them joined with
   the separator of the settings, and takes what is typed split on it, a list from then on
