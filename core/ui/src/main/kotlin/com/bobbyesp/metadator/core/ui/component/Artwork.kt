@@ -31,9 +31,10 @@ import coil3.request.crossfade
 import com.bobbyesp.metadator.core.designsystem.component.heldWhileClosing
 
 /**
- * A cover: an embedded picture's bytes, a `content://` URI or a URL, or a song's own
- * ([com.bobbyesp.metadator.core.model.TrackArtwork]). While there is none, or it fails, a note on a
- * tonal surface takes its place, the same size, so lists never jump. A picture comes and goes
+ * A cover: an embedded picture's bytes, a `content://` URI or a URL, a song's own
+ * ([com.bobbyesp.metadator.core.model.TrackArtwork]) or a group's
+ * ([com.bobbyesp.metadator.core.model.CollectionArtwork]). While there is none, or it fails, a note
+ * on a tonal surface takes its place, the same size, so lists never jump. A picture comes and goes
  * through a fade over the note, and one that takes the place of another starts from the other: a
  * song just saved shows the cover it had until the new one is decoded, not a blank between the two.
  *

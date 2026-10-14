@@ -19,10 +19,13 @@ import coil3.fetch.SourceFetchResult
 import coil3.key.Keyer
 import coil3.request.Options
 import coil3.size.pxOrElse
+import com.bobbyesp.metadator.core.model.CollectionArtwork
 import com.bobbyesp.metadator.core.model.TrackArtwork
 import java.io.FileNotFoundException
 import java.io.IOException
 import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import okio.buffer
 import okio.source
 
@@ -127,6 +130,30 @@ private object Missing {
 }
 
 /**
+ * Gives Coil a group's cover ([CollectionArtwork]): the first of its songs' own covers there is,
+ * each tried as [TrackArtworkFetcher] tries it. A song found to have none is remembered as such, so
+ * a grid flung back over an album asks for nothing it was already told; a request given up on, the
+ * album scrolled out of sight, stops before the next song.
+ */
+class CollectionArtworkFetcher(
+    private val artwork: CollectionArtwork,
+    private val options: Options,
+) : Fetcher {
+    override suspend fun fetch(): FetchResult = artwork.firstCover { song ->
+        currentCoroutineContext().ensureActive()
+        TrackArtworkFetcher(song, options).fetch()
+    }
+
+    class Factory : Fetcher.Factory<CollectionArtwork> {
+        override fun create(
+            data: CollectionArtwork,
+            options: Options,
+            imageLoader: ImageLoader,
+        ): Fetcher = CollectionArtworkFetcher(data, options)
+    }
+}
+
+/**
  * The key a song's cover is cached under: the song and the version of its file, so that the cover
  * it had before a save is not what a list shows after it.
  */
@@ -139,13 +166,27 @@ val TrackArtwork.cacheKey: String
     get() = "track-artwork:${ref.uri}#$version"
 
 /**
- * The image loader the app shows its pictures with: Coil's, which knows a song's cover. The
- * application makes it the one `AsyncImage` finds (`SingletonImageLoader.Factory`).
+ * The key a group's cover is cached under: the songs it is looked for in, and the version of each.
+ * Which song it comes from is only known once it is found, so it is not cached under that song's
+ * key; and a cover saved to one of them, or another song first in the group, is another cover.
+ */
+class CollectionArtworkKeyer : Keyer<CollectionArtwork> {
+    override fun key(data: CollectionArtwork, options: Options): String =
+        data.songs.joinToString(separator = "|", prefix = "collection-artwork:") {
+            "${it.ref.uri}#${it.version}"
+        }
+}
+
+/**
+ * The image loader the app shows its pictures with: Coil's, which knows a song's cover and a
+ * group's. The application makes it the one `AsyncImage` finds (`SingletonImageLoader.Factory`).
  */
 fun artworkImageLoader(context: PlatformContext): ImageLoader =
     ImageLoader.Builder(context)
         .components {
             add(TrackArtworkKeyer())
             add(TrackArtworkFetcher.Factory())
+            add(CollectionArtworkKeyer())
+            add(CollectionArtworkFetcher.Factory())
         }
         .build()
