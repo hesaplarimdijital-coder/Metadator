@@ -23,12 +23,15 @@ import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -39,6 +42,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.LocalBackdropHaze
@@ -82,12 +90,18 @@ import org.koin.compose.koinInject
  * A window wide enough is laid out as panels on a ground, as a desktop tool is: the library's, the
  * inspector beside it, which the editor is, and the player's bar docked under both. The screens
  * draw their panels; the shell keeps the gaps between them and around them.
+ *
+ * @param isDesktopWindow whether the app is a desktop's window now ([DesktopWindow]): there, Back
+ *   at the start of the app does nothing rather than minimize the window
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-fun MetadatorApp(onExit: () -> Unit) {
+fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false }) {
     val backStack = rememberNavBackStack(Library)
     val navigator = rememberNavigator(backStack, onExit)
+    // First of all that takes Back: of those that want it, the one added last has it, so this
+    // has what nobody else wanted.
+    StayAtTheStart { isDesktopWindow() && backStack.size == 1 }
     val overlay = rememberOverlaySceneStrategy<NavKey>()
     // The player is not a destination, so it is not told how much room it has as one is: the shell
     // measures the window for it, and for the panels.
@@ -106,8 +120,12 @@ fun MetadatorApp(onExit: () -> Unit) {
                 ),
             initialAnchoredIndex = 0,
         )
+    // Back takes one step, as everywhere else: the song beside the list, then the list. Left to
+    // pop until the panes change, it never took one with the library and the editor side by side,
+    // whose panes stay as they are whatever is in them, and Android minimized the app instead.
     val listDetail =
         rememberListDetailSceneStrategy<NavKey>(
+            backNavigationBehavior = BackNavigationBehavior.PopLatest,
             directive = paneDirective(panels),
             paneExpansionState = expansion,
         )
@@ -203,6 +221,14 @@ fun MetadatorApp(onExit: () -> Unit) {
     // blurred again on every frame for nobody to see.
     val behindPlayer =
         remember(playerExpansion) { { playerExpansion.fraction.let { if (it < 1f) it else 0f } } }
+    // Nor do the screens take Back while the full player covers them: it is the player's, to close
+    // it. A screen added after it would otherwise come first, as the library does once it is back
+    // from a collection, and ended its selection unseen behind the player.
+    val screensBack = rememberNavigationEventDispatcherOwner()
+    LaunchedEffect(screensBack, playerExpansion) {
+        snapshotFlow { playerExpansion.fraction < 1f }
+            .collect { screensBack.navigationEventDispatcher.isEnabled = it }
+    }
     val shownDetail = top?.takeIf { it is Editor || it is BatchEditor }
     val messageArea = rememberMessageArea()
     Surface(color = MaterialTheme.colorScheme.background) {
@@ -215,7 +241,10 @@ fun MetadatorApp(onExit: () -> Unit) {
                 Box(
                     Modifier.fillMaxSize().outOfFocus(behindPlayer, MaterialTheme.colorScheme.scrim)
                 ) {
-                    CompositionLocalProvider(LocalBackdropHaze provides backdrop) {
+                    CompositionLocalProvider(
+                        LocalBackdropHaze provides backdrop,
+                        LocalNavigationEventDispatcherOwner provides screensBack,
+                    ) {
                         MetadatorNavDisplay(
                             backStack = backStack,
                             navigator = navigator,
@@ -260,6 +289,21 @@ fun MetadatorApp(onExit: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * Back at the start of the app, with nothing left in it to go back to. On a phone Android goes
+ * home, as from any app, and this stays out of the way. In a desktop's window Android minimizes the
+ * window: a second press of Esc, or of a mouse's back button, and the window was gone from under
+ * the pointer. There, while [atTheStart] says so, Back does nothing.
+ */
+@Composable
+private fun StayAtTheStart(atTheStart: () -> Boolean) {
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = atTheStart(),
+        onBackCompleted = {},
+    )
 }
 
 /** The narrowest window laid out as panels; narrower, the screen is one, as a phone's. */

@@ -292,14 +292,15 @@ private fun TableCells(
  * The header of a table of songs: what each column is, sorted by what it is pressed on, and a
  * checkbox that selects every song listed.
  *
- * @param sort what the songs are sorted by, and [ascending] which way
+ * @param sort what the songs are sorted by, and [ascending] which way; null for songs in an order
+ *   of their own, as an album's by disc and track, whose columns then sort nothing ([onSort] null)
  */
 @Composable
 fun TrackTableHeader(
     columns: TrackColumns,
-    sort: TrackSort,
+    sort: TrackSort?,
     ascending: Boolean,
-    onSort: (TrackSort) -> Unit,
+    onSort: ((TrackSort) -> Unit)?,
     selection: ToggleableState,
     onToggleAll: () -> Unit,
     modifier: Modifier = Modifier,

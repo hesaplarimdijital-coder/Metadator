@@ -16,17 +16,34 @@ import androidx.navigation3.runtime.NavKey
  */
 @Stable
 interface Navigator {
-    /** Goes to [key]. Asking for the destination already on top does nothing. */
+    /**
+     * Goes to [key]. Asking for the destination already on top does nothing.
+     *
+     * A list gone to from a list starts with nothing beside it: what the list left showed beside it
+     * was chosen there, and beside the new one it was a song from elsewhere, which stayed when the
+     * new list's own was chosen and came back on the way out. A detail that [hold]s something
+     * stays, in sight beside the new list.
+     */
     fun goTo(key: NavKey)
 
     /**
      * Shows [key] as the detail of the list it was chosen from. On a wide window that list stays
      * beside the detail, and choosing again is changing what the detail shows: [key] takes the
-     * place of the destination on top when that is one of its kind and nothing [hold]s it. Going to
-     * each instead would pile up a detail for every choice, for Back to walk through. Anything
-     * else, as [goTo].
+     * place of what is beside the list, an editor and the batch editor alike, except what [hold]s
+     * something, which stays under it for Back to find. Going to each instead piled up a detail for
+     * every choice, for Back to walk through, and one left under another came back, an old song,
+     * once the one over it went. A detail already beside the list comes to the top rather than
+     * twice. Anything else, as [goTo].
      */
     fun showDetail(key: NavKey)
+
+    /**
+     * Shows beside the list on top what is selected in it: [key], or nothing when it is null. It is
+     * [showDetail] for what a list shows on its own as its selection changes, with one difference:
+     * nobody chose it, so it never comes over a detail that [hold]s something. Unsaved changes stay
+     * in sight until they are saved or thrown away, rather than go under the selection unseen.
+     */
+    fun showSelection(key: NavKey?)
 
     /**
      * Says whether [key] holds what [showDetail] must not throw away, as an editor holds unsaved
@@ -36,6 +53,14 @@ interface Navigator {
 
     /** Leaves the current destination; at the root, leaves the host ([onExit]). */
     fun goBack()
+
+    /**
+     * Leaves the list [key] with the details shown beside it, which were chosen in it: the arrow at
+     * the top of a list means the list. Back takes one step, and the song beside the list is the
+     * first; as Back, the arrow had to be pressed twice to leave. A detail that holds something
+     * stays, beside the list under.
+     */
+    fun leave(key: NavKey)
 
     /** Takes [key] off the stack wherever it sits, for a destination whose subject is gone. */
     fun removeDestination(key: NavKey)
@@ -51,55 +76,3 @@ val LocalShownDetail = compositionLocalOf<NavKey?> { null }
 @Composable
 fun rememberNavigator(backStack: NavBackStack<NavKey>, onExit: () -> Unit = {}): Navigator =
     remember(backStack, onExit) { BackStackNavigator(backStack, onExit) }
-
-internal class BackStackNavigator(
-    private val backStack: NavBackStack<NavKey>,
-    private val onExit: () -> Unit,
-) : Navigator {
-
-    /**
-     * What is held, by its destination. Only the one on top is ever asked about, and it is in
-     * composition then, saying what it holds: so this does not need to outlive the host.
-     */
-    private val held = mutableSetOf<NavKey>()
-
-    override fun goTo(key: NavKey) {
-        if (backStack.lastOrNull() == key) return
-        backStack.add(key)
-    }
-
-    override fun showDetail(key: NavKey) {
-        val top = backStack.lastOrNull()
-        if (top == key) return
-        // The root is a list, never a detail to replace.
-        if (top != null && backStack.size > 1 && top::class == key::class && top !in held) {
-            backStack.removeAt(backStack.lastIndex)
-            // What was chosen may be the one just under it, kept there for what it holds.
-            if (backStack.lastOrNull() == key) return
-        }
-        backStack.add(key)
-    }
-
-    override fun hold(key: NavKey, held: Boolean) {
-        if (held) this.held += key else this.held -= key
-    }
-
-    /** `NavDisplay` needs a non-empty stack, so the root is never popped; the host is left. */
-    override fun goBack() {
-        if (backStack.size <= 1) onExit() else backStack.removeLastOrNull()?.let(::forget)
-    }
-
-    override fun removeDestination(key: NavKey) {
-        if (backStack.size == 1 && backStack.single() == key) {
-            onExit()
-            return
-        }
-        while (backStack.size > 1 && backStack.contains(key)) backStack.remove(key)
-        forget(key)
-    }
-
-    /** What a destination held goes with it, unless it is still on the stack further down. */
-    private fun forget(key: NavKey) {
-        if (key !in backStack) held -= key
-    }
-}
