@@ -6,6 +6,7 @@ package com.bobbyesp.metadator.core.domain.batch
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.PositionStyle
 import com.bobbyesp.metadator.core.domain.editor.TrackPositions
+import com.bobbyesp.metadator.core.domain.save.BackupHold
 import com.bobbyesp.metadator.core.domain.save.BackupPolicy
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
@@ -182,12 +183,14 @@ data class BatchProgress(
  *
  * The oldest backups are dropped once, when the batch ends, however it ends, and never one of its
  * own. Dropped after each song, as a single save drops them, a batch of more than [keep] songs lost
- * its first songs' backups while it ran, and "Undo all" could not restore them.
+ * its first songs' backups while it ran, and "Undo all" could not restore them. Until its result is
+ * cleared, [hold] keeps the saves made beside it from dropping them too.
  */
 class BatchRunner(
     private val scope: CoroutineScope,
     private val save: SaveTagChangesUseCase,
     private val backups: TagBackupStore,
+    private val hold: BackupHold,
     private val keep: Int = BackupPolicy.KEEP,
 ) {
     private val _progress = MutableStateFlow<BatchProgress?>(null)
@@ -205,15 +208,12 @@ class BatchRunner(
         finalize: (TagChanges) -> TagChanges = { it },
     ) {
         if (isRunning) return
+        hold.hold()
         _progress.value = BatchProgress(total = items.size)
         job = scope.launch {
-            // Each save backs up one file at most, a failed one too (its backup is kept when the
-            // original could not be put back): keeping as many as were started keeps them all.
-            var started = 0
             try {
                 items.forEachIndexed { index, item ->
                     if (!isActive) return@forEachIndexed
-                    started++
                     val outcome =
                         save(item.ref, pruneAfter = false) { snapshot ->
                             finalize(edit.changesFor(item, index, items.size, snapshot))
@@ -223,7 +223,9 @@ class BatchRunner(
                     }
                 }
             } finally {
-                withContext(NonCancellable) { backups.prune(maxOf(keep, started)) }
+                // Every backup begun since the batch started, a failed song's too (kept when the
+                // original could not be put back), and those of the saves made beside it.
+                withContext(NonCancellable) { backups.prune(hold.keeping(keep)) }
             }
             _progress.update { it?.copy(isRunning = false) }
         }
@@ -235,6 +237,9 @@ class BatchRunner(
     }
 
     fun clear() {
-        if (!isRunning) _progress.value = null
+        if (isRunning) return
+        _progress.value = null
+        // "Undo all" goes with the result: the next save prunes back to what is kept.
+        hold.release()
     }
 }

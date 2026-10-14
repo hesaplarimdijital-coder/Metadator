@@ -38,7 +38,8 @@ class SaveTagChangesUseCaseTest {
     private val files = FakeTagFiles(mapOf(ref to original))
     private val backups = FakeBackupStore()
     private val indexer = FakeIndexer()
-    private val save = SaveTagChangesUseCase(files, files, backups, indexer, clock = { 42 })
+    private val hold = BackupHold()
+    private val save = SaveTagChangesUseCase(files, files, backups, indexer, hold, clock = { 42 })
 
     @Test
     fun `saving one field keeps every other tag and every picture`() = runTest {
@@ -98,7 +99,7 @@ class SaveTagChangesUseCaseTest {
     fun `a save drops the oldest backups beyond those kept`() = runTest {
         val other = ContentRef("content://media/external/audio/media/2")
         files.files[other] = original
-        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, keep = 1)
+        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, hold, keep = 1)
 
         keepOne(ref, TagChanges(fields = mapOf("TITLE" to listOf("x"))))
         val newer =
@@ -108,10 +109,30 @@ class SaveTagChangesUseCaseTest {
     }
 
     @Test
+    fun `while a batch holds the backups, a save keeps every one made since`() = runTest {
+        val other = ContentRef("content://media/external/audio/media/2")
+        files.files[other] = original
+        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, hold, keep = 1)
+        keepOne(ref, TagChanges(fields = mapOf("TITLE" to listOf("before"))))
+
+        hold.hold()
+        val first =
+            keepOne(ref, TagChanges(fields = mapOf("TITLE" to listOf("x")))) as SaveOutcome.Saved
+        val second =
+            keepOne(other, TagChanges(fields = mapOf("TITLE" to listOf("y")))) as SaveOutcome.Saved
+        assertEquals(setOf(first.backupId, second.backupId), backups.backups.keys)
+
+        hold.release()
+        val third =
+            keepOne(other, TagChanges(fields = mapOf("TITLE" to listOf("z")))) as SaveOutcome.Saved
+        assertEquals(setOf(third.backupId), backups.backups.keys)
+    }
+
+    @Test
     fun `a save told not to prune leaves the oldest backups to its caller`() = runTest {
         val other = ContentRef("content://media/external/audio/media/2")
         files.files[other] = original
-        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, keep = 1)
+        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, hold, keep = 1)
 
         keepOne(ref, pruneAfter = false) { TagChanges(fields = mapOf("TITLE" to listOf("x"))) }
         keepOne(other, pruneAfter = false) { TagChanges(fields = mapOf("TITLE" to listOf("y"))) }
@@ -155,7 +176,7 @@ class SaveTagChangesUseCaseTest {
     @Test
     fun `keys the format drops are reported, the rest stands`() = runTest {
         val limited = FakeTagFiles(mapOf(ref to original), unsupportedKeys = setOf("MOOD"))
-        val saveLimited = SaveTagChangesUseCase(limited, limited, backups, indexer)
+        val saveLimited = SaveTagChangesUseCase(limited, limited, backups, indexer, hold)
 
         val outcome =
             saveLimited(

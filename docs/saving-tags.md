@@ -31,7 +31,11 @@ difference, `TagChanges`: changed keys (an empty list removes a key) and an `Art
 4. Backs up the file's tags and pictures (`TagBackupStore`, Room plus picture files) and drops
    the oldest backups beyond the newest 100 (`BackupPolicy`). A batch (`BatchRunner`) drops them
    only once, when it ends, cancelled or not, and keeps all of its own even past 100, so "Undo
-   all" can restore every one of its songs; the next save prunes back to 100.
+   all" can restore every one of its songs. From the batch's start until its result is dismissed
+   (or another batch editor opens), a save made beside it, in the editor or in another app's
+   window, keeps them too: every save and the batch share one `BackupHold`, which counts the
+   backups begun since, and a prune keeps at least that many of the newest. The first save after
+   that prunes back to 100.
 5. Writes. If the write fails, it writes the backup back; if that fails too, the backup is kept.
 6. Reads again and reports changed keys the format did not store (`SaveOutcome.Saved.notStored`).
 7. Asks MediaStore to rescan the file, so the library and other players see the new tags.
