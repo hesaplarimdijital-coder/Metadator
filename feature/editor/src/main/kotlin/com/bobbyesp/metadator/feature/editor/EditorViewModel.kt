@@ -555,4 +555,10 @@ class EditorViewModel(
         val pendingSerializer =
             MapSerializer(String.serializer(), ListSerializer(String.serializer()))
     }
+
+    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
 }

@@ -94,6 +94,10 @@ not supported, offline) is a sealed result the UI can explain.
   was meant for (`dismissesMessages`). The shell keeps them above an editor's foot, where Save is,
   and above the keyboard. The editors pad their whole column for the keyboard, not only what
   scrolls, so their foot rides above it while a field is typed in.
+- `launch`: runs work and catches every failure, errors too, since native code throws whatever it
+  likes. What the caller does not handle goes to `onUnhandledError`, which logs it (the app's only
+  log line, tagged with the ViewModel's name); the editor, the batch editor and the library also
+  say "Something went wrong". Swallowed, a failed Undo or rescan left no trace at all.
 
 ViewModels never hold a `Context`. `StringProvider` gives them text; ports give them Android work.
 System prompts (permissions, MediaStore's write request) are shown by `ActivityResultHost`, to

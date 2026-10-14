@@ -129,4 +129,5 @@
     <string name="column_quality">Quality</string>
     <string name="column_duration">Length</string>
     <string name="field_total">Total</string>
+    <string name="error_unexpected">Something went wrong</string>
 </resources>

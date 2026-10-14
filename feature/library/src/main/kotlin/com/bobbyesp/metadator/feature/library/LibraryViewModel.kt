@@ -416,4 +416,10 @@ class LibraryViewModel(
         const val KEY_SEARCH = "search"
         val MIN_REFRESH = 900.milliseconds
     }
+
+    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
 }

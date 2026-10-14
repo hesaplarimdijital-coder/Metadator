@@ -337,4 +337,10 @@ class BatchViewModel(
             )
         private const val PARALLEL_READS = 4
     }
+
+    /** A failure of what the user pressed (Apply, Undo all) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
 }
