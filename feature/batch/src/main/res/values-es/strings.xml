@@ -7,6 +7,11 @@
     </plurals>
     <string name="close">Cerrar</string>
     <string name="batch_and_more">y %1$d más</string>
+    <plurals name="batch_left_out">
+        <item quantity="one">Se dejó fuera %1$d canción que no se pudo leer</item>
+        <item quantity="many">Se dejaron fuera %1$d canciones que no se pudieron leer</item>
+        <item quantity="other">Se dejaron fuera %1$d canciones que no se pudieron leer</item>
+    </plurals>
     <string name="batch_fields">Poner en todas las canciones</string>
     <string name="batch_fields_description">Deja un campo como está para mantener el valor de cada canción.</string>
     <string name="batch_multiple_values">Varios valores</string>

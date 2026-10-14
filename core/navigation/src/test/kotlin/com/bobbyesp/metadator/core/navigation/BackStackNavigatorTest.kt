@@ -14,7 +14,7 @@ class BackStackNavigatorTest {
     private val a = Editor("content://a")
     private val b = Editor("content://b")
     private val c = Editor("content://c")
-    private val batch = BatchEditor(listOf("content://a", "content://b"))
+    private val batch = BatchEditor(listOf(1L, 2L))
 
     private var exits = 0
 

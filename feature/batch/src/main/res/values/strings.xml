@@ -6,6 +6,10 @@
     </plurals>
     <string name="close">Close</string>
     <string name="batch_and_more" tools:ignore="PluralsCandidate">and %1$d more</string>
+    <plurals name="batch_left_out">
+        <item quantity="one">Left out %1$d song that couldn\'t be read</item>
+        <item quantity="other">Left out %1$d songs that couldn\'t be read</item>
+    </plurals>
     <string name="batch_fields">Set on every song</string>
     <string name="batch_fields_description">Leave a field as it is to keep each song\'s own value.</string>
     <string name="batch_multiple_values">Multiple values</string>

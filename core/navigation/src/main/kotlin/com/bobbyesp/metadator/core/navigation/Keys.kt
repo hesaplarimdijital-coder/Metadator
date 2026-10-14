@@ -32,8 +32,12 @@ enum class EditorAction {
     FindCover
 }
 
-/** Editing several files at once. */
-@Serializable data class BatchEditor(val uris: List<String>) : NavKey
+/**
+ * Editing several songs of the library at once, by their MediaStore ids: the batch editor finds
+ * their files again through the library. Their URIs were five times the size in the saved back
+ * stack, and a few thousand songs were enough to make saving the activity's state fail.
+ */
+@Serializable data class BatchEditor(val ids: List<Long>) : NavKey
 
 @Serializable data object Settings : NavKey
 

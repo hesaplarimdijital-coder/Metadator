@@ -28,10 +28,10 @@ import com.bobbyesp.metadator.core.domain.save.RestoreOutcome
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
 import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
+import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
 import com.bobbyesp.metadator.library.api.AccessResult
-import com.bobbyesp.metadator.library.api.AudioFileInfo
 import com.bobbyesp.metadator.library.api.AudioLibrary
 import com.bobbyesp.metadator.library.api.WriteAccess
 import com.bobbyesp.metadator.lookup.api.ArtworkDownloader
@@ -234,11 +234,14 @@ sealed interface BatchEffect {
     class FindMetadata(val query: AlbumQuery) : BatchEffect
 }
 
+/**
+ * @param ids the songs to edit, by their MediaStore ids: their files are found again through the
+ *   [library], each as it is now
+ */
 class BatchViewModel(
-    private val refs: List<String>,
+    private val ids: List<Long>,
     private val reader: TagReader,
     private val library: AudioLibrary,
-    private val fileInfo: AudioFileInfo,
     private val runner: BatchRunner,
     private val restore: RestoreBackupUseCase,
     private val writeAccess: WriteAccess,
@@ -246,7 +249,7 @@ class BatchViewModel(
     private val images: CoverReader,
     private val artwork: ArtworkDownloader,
     private val strings: StringProvider,
-) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState(expected = refs.size)) {
+) : BaseViewModel<BatchIntent, BatchState, BatchEffect>(BatchState(expected = ids.size)) {
 
     init {
         runner.clear()
@@ -294,27 +297,23 @@ class BatchViewModel(
             val gate = Semaphore(PARALLEL_READS)
             val files =
                 kotlinx.coroutines.coroutineScope {
-                    refs
-                        .map { uri ->
+                    ids.map { id ->
                             async {
                                 gate.withPermit {
-                                    val ref = ContentRef(uri)
-                                    val track = library.findByRef(ref)
-                                    val name =
-                                        track?.displayName
-                                            ?: fileInfo.describe(ref)?.displayName
-                                            ?: uri.substringAfterLast('/')
+                                    // A song deleted since it was chosen, while this waited on the
+                                    // stack or the process was gone, is not found, and left out.
+                                    val track = library.track(TrackId(id)) ?: return@withPermit null
                                     val tags =
-                                        (reader.read(ref, includePictures = false)
+                                        (reader.read(track.ref, includePictures = false)
                                                 as? TagReadResult.Success)
                                             ?.snapshot
                                             ?.tags
                                     tags?.let {
                                         BatchFile(
-                                            BatchItem(ref, name),
-                                            track?.title ?: name,
+                                            BatchItem(track.ref, track.displayName),
+                                            track.title,
                                             it,
-                                            track?.durationMs?.takeIf { ms -> ms > 0 },
+                                            track.durationMs.takeIf { ms -> ms > 0 },
                                         )
                                     }
                                 }
@@ -323,6 +322,11 @@ class BatchViewModel(
                         .awaitAll()
                         .filterNotNull()
                 }
+            // The head then counts fewer songs than were chosen: it says why.
+            val leftOut = ids.size - files.size
+            if (leftOut > 0) {
+                showMessage(UiMessage(strings.plural(R.plurals.batch_left_out, leftOut, leftOut)))
+            }
             // What putting garbled text right would do: offered where any song has some.
             val repairs = files.map { it.tags.textRepairs() }
             val found =

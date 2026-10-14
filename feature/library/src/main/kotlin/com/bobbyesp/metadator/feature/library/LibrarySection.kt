@@ -69,7 +69,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
     val libraryUnfollowed = UnfollowedSelection()
     val collectionUnfollowed = UnfollowedSelection()
     val editTogether = { tracks: List<Track> ->
-        navigator.showDetail(BatchEditor(tracks.map { it.ref.uri }))
+        navigator.showDetail(BatchEditor(tracks.map { it.id.value }))
     }
     entry<Library>(
         metadata =
@@ -217,7 +217,7 @@ internal data class Inspected(val key: NavKey?, val selected: Boolean, val unfol
             val selected = state.selectedSongs
             return when {
                 selected.size > FollowedAtMost -> Inspected(null, true, unfollowed = selected.size)
-                selected.size > 1 -> Inspected(BatchEditor(selected.map { it.ref.uri }), true)
+                selected.size > 1 -> Inspected(BatchEditor(selected.map { it.id.value }), true)
                 selected.size == 1 -> Inspected(Editor(selected.single().ref.uri), true)
                 else ->
                     Inspected(

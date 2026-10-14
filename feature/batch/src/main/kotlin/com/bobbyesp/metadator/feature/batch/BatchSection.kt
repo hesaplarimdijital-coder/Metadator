@@ -32,10 +32,11 @@ import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
     entry<BatchEditor>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-        val id = key.uris.hashCode().toString()
-        val viewModel: BatchViewModel = koinViewModel(key = id) { parametersOf(key.uris) }
-        val covers: CoverFinderViewModel = koinViewModel(key = "covers:$id")
-        val lookup: AlbumLookupViewModel = koinViewModel(key = "lookup:$id")
+        // Each entry has a store of its own (rememberViewModelStoreNavEntryDecorator): no key is
+        // needed to tell one batch from another, nor one made from all of its songs.
+        val viewModel: BatchViewModel = koinViewModel { parametersOf(key.ids) }
+        val covers: CoverFinderViewModel = koinViewModel()
+        val lookup: AlbumLookupViewModel = koinViewModel()
         val state by viewModel.state.collectAsStateWithLifecycle()
         val coverState by covers.state.collectAsStateWithLifecycle()
         val lookupState by lookup.state.collectAsStateWithLifecycle()

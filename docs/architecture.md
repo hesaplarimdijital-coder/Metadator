@@ -428,6 +428,11 @@ differs from song to song, from the release found online or the disc a merged al
 A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a
 total or a number, the file keeps.
 
+It is handed its songs by their MediaStore ids (`BatchEditor`), and finds their files again through
+the library as it opens: their URIs were five times the size in the saved back stack. A song
+deleted meanwhile, while the editor waited on the stack or the process was gone, is left out, and
+the editor says how many were, as it does for a file it cannot read.
+
 - **A field of several values** (artists, album artists, genres, composers) shows them joined with
   the separator of the settings, and takes what is typed split on it, a list from then on
   (`splitValues`). What is typed is shown as typed while the screen holds the values it was taken

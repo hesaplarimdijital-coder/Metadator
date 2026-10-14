@@ -39,7 +39,10 @@ class InspectedTest {
     fun `as many as it follows are the batch editor for them, in the order listed`() {
         val inspected = Inspected.of(state(selected = FollowedAtMost))
 
-        assertEquals(BatchEditor(tracks.takeLast(FollowedAtMost).map { it.ref.uri }), inspected.key)
+        assertEquals(
+            BatchEditor(tracks.takeLast(FollowedAtMost).map { it.id.value }),
+            inspected.key,
+        )
         assertTrue(inspected.selected)
         assertEquals(0, inspected.unfollowed)
     }
