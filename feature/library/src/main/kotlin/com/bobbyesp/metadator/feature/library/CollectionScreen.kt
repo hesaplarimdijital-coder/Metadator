@@ -48,6 +48,7 @@ import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
 import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.StudioButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -153,7 +154,11 @@ internal fun CollectionScreen(
                     Modifier.align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         // Above the mini player when one is showing, as in the library.
-                        .padding(bottom = if (state.playerActive) 96.dp else Spacing.large),
+                        .padding(
+                            bottom =
+                                if (state.playerActive) StudioDefaults.FloatingBarClearance
+                                else Spacing.large
+                        ),
             ) {
                 SelectionBar(state, actions, onIntent, glass = haze)
             }
