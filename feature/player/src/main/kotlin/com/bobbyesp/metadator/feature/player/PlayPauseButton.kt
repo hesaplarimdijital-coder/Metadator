@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
@@ -22,15 +21,17 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
 /**
  * Play and pause, in both players. A toggle only so that its shape can say what is happening: round
- * while paused, squared off while playing. It stays in the primary color either way, because it is
- * the main thing to press whichever state it is in.
+ * while paused, squared off while playing. It is filled with the accent either way, because it is
+ * the main thing to press whichever state it is in; and the same accent in the bars and on the
+ * screen, since it is one button that travels between them, and one that changed color would change
+ * it the moment it set off.
  *
  * Give it a size: its container fills it and its icon is half as tall, whatever that size is. That
  * is what lets the bar's button grow into the full player's: laid out in the same bounds the two
@@ -44,11 +45,10 @@ internal fun PlayPauseButton(
     isPlaying: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    interactionSource: MutableInteractionSource? = null,
-    containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
     val motion = MaterialTheme.motionScheme
+    val container = Studio.colors.accent
+    val content = MaterialTheme.colorScheme.onPrimary
     FilledIconToggleButton(
         checked = isPlaying,
         onCheckedChange = { onToggle() },
@@ -56,12 +56,11 @@ internal fun PlayPauseButton(
         modifier = modifier,
         colors =
             IconButtonDefaults.filledIconToggleButtonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-                checkedContainerColor = containerColor,
-                checkedContentColor = contentColor,
+                containerColor = container,
+                contentColor = content,
+                checkedContainerColor = container,
+                checkedContentColor = content,
             ),
-        interactionSource = interactionSource,
     ) {
         AnimatedContent(
             targetState = isPlaying,
