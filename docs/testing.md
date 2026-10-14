@@ -19,6 +19,7 @@
 | JVM unit | A text field's echo of what the screen keeps: typed text said back, a value the screen sets on its own, texts it skips or turns down (`TextMirrorTest`) | `core/designsystem` |
 | JVM unit | Which items a rectangle dragged with the mouse touches, with a bar pinned at the top of the list too, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
 | JVM unit | What a click on a song does, by the keys held and the pointer that clicked: a mouse's opens it, a finger's picks it while songs are selected (`SongClickTest`) | `feature/library` |
+| JVM unit | The batch editor's field of several values: a separator typed after a value, a value deleted back to it, a separator typed without its space, values the screen sets on its own while typed ones are on their way (`TypedValuesTest`) | `feature/batch` |
 | JVM unit | The editor's ViewModel: a song opened, what was typed typed again after the process died, a save and its Undo, a change the file already holds, write access refused before writing and when asked, a failed write, what is typed while a save writes, lyrics not looked for without a title, garbled text repaired field by field, a failure nothing explains said (`EditorViewModelTest`) | `feature/editor` |
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
