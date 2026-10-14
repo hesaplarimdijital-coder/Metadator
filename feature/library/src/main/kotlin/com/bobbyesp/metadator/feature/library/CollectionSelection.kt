@@ -80,8 +80,9 @@ import dev.chrisbanes.haze.HazeState
  */
 
 /**
- * As a song is clicked: Shift takes everything up to this one, Ctrl this one alone, and neither
- * opens it; while some are selected, a click adds to them or takes away.
+ * As a song is clicked ([songClick]): Shift takes everything up to this one, Ctrl this one alone,
+ * and neither opens it; while some are selected, a finger's click adds to them or takes away, and a
+ * mouse's opens this one and lets the others go, as in a file manager.
  */
 internal fun onCollectionClick(
     collection: TrackCollection,
@@ -89,14 +90,23 @@ internal fun onCollectionClick(
     heldKeys: HeldKeys,
     actions: LibraryActions,
 ) {
-    val shift = heldKeys.shift
-    val ctrl = heldKeys.ctrl
+    val click =
+        songClick(
+            shift = heldKeys.shift,
+            ctrl = heldKeys.ctrl,
+            mouse = heldKeys.mouse,
+            selecting = state.selectingCollections,
+        )
     heldKeys.clear()
-    when {
-        shift -> actions.onIntent(LibraryIntent.SelectCollectionsTo(collection.key))
-        ctrl || state.selectingCollections ->
-            actions.onIntent(LibraryIntent.ToggleCollection(collection.key))
-        else -> actions.onOpenCollection(collection)
+    when (click) {
+        SongClick.Range -> actions.onIntent(LibraryIntent.SelectCollectionsTo(collection.key))
+        SongClick.Toggle -> actions.onIntent(LibraryIntent.ToggleCollection(collection.key))
+        SongClick.Open -> {
+            if (state.selectingCollections) {
+                actions.onIntent(LibraryIntent.ClearCollectionSelection)
+            }
+            actions.onOpenCollection(collection)
+        }
     }
 }
 

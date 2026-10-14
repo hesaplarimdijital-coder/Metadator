@@ -51,6 +51,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -70,14 +71,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.ContextMenuArea
 import com.bobbyesp.metadator.core.designsystem.component.HeldKeys
+import com.bobbyesp.metadator.core.designsystem.component.MarqueeSelectionState
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
 import com.bobbyesp.metadator.core.designsystem.component.StudioDivider
+import com.bobbyesp.metadator.core.designsystem.component.marqueeSelection
+import com.bobbyesp.metadator.core.designsystem.component.rememberMarqueeSelectionState
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.component.trackHeldKeys
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
+import com.bobbyesp.metadator.core.model.TrackId
 import com.bobbyesp.metadator.core.model.TrackSort
 import com.bobbyesp.metadator.core.navigation.Editor
 import com.bobbyesp.metadator.core.navigation.LocalShownDetail
@@ -130,6 +135,7 @@ internal fun SongsTable(
             return@BoxWithConstraints
         }
         val columns = TrackColumns.forWidth(maxWidth - 16.dp)
+        val marquee = rememberSongMarquee(listState, latest, onIntent)
         val columnHeads: @Composable () -> Unit = {
             TrackTableHeader(
                 columns = columns,
@@ -162,7 +168,11 @@ internal fun SongsTable(
             // its cover and name, and stay at the top once those have scrolled away.
             if (header == null) columnHeads()
             LazyColumn(
-                modifier = Modifier.weight(1f).trackHeldKeys(heldKeys).scrollbar(listState),
+                modifier =
+                    Modifier.weight(1f)
+                        .trackHeldKeys(heldKeys)
+                        .scrollbar(listState)
+                        .marqueeSelection(marquee),
                 state = listState,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 8.dp),
             ) {
@@ -239,8 +249,13 @@ private fun SongRows(
     val menu = rememberSongMenu(latest, actions)
     val activeUri = (LocalShownDetail.current as? Editor)?.uri
     val count = tracks.size
+    val marquee = rememberSongMarquee(listState, latest, onIntent)
     LazyColumn(
-        modifier = Modifier.fillMaxSize().trackHeldKeys(heldKeys).scrollbar(listState),
+        modifier =
+            Modifier.fillMaxSize()
+                .trackHeldKeys(heldKeys)
+                .scrollbar(listState)
+                .marqueeSelection(marquee),
         state = listState,
         contentPadding =
             if (inCard) {
@@ -291,24 +306,81 @@ private const val HeaderKey = "header"
 private const val PinnedKey = "pinned"
 
 /**
- * As a file manager selects: Shift takes everything up to the song, Ctrl the song alone, and
- * neither opens it; while songs are selected, a click adds to them or takes away.
+ * A rectangle dragged with the mouse over the songs selects them, as in a file manager
+ * ([marqueeSelection]); with Ctrl, it adds them to what was selected as it began. What a collection
+ * puts over its songs is not a song, and keeps its own clicks.
  */
+@Composable
+private fun rememberSongMarquee(
+    listState: LazyListState,
+    state: State<LibraryState>,
+    onIntent: (LibraryIntent) -> Unit,
+): MarqueeSelectionState {
+    // What was selected as the drag began. Written and read by the drag alone, never in
+    // composition.
+    val before = remember { mutableStateOf(emptySet<TrackId>()) }
+    return rememberMarqueeSelectionState(
+        listState = listState,
+        onStart = { before.value = state.value.selection },
+        onSelect = { touched ->
+            val ids = touched.keys.mapTo(LinkedHashSet()) { TrackId(it as Long) }
+            // Always the whole selection, never an addition: the rectangle shrinks back, and what
+            // it touched on the way is to be let go again.
+            onIntent(
+                LibraryIntent.SelectIds(
+                    ids = if (touched.additive) before.value + ids else ids,
+                    anchor = (touched.anchor as? Long)?.let { TrackId(it) },
+                )
+            )
+        },
+        // A song's key is its id; a collection's header and pinned bar have names.
+        selectable = { key, _ -> key is Long },
+    )
+}
+
 private fun onSongClick(
     track: Track,
     state: LibraryState,
     heldKeys: HeldKeys,
     actions: LibraryActions,
 ) {
-    val shift = heldKeys.shift
-    val ctrl = heldKeys.ctrl
+    val click = songClick(heldKeys.shift, heldKeys.ctrl, heldKeys.mouse, state.selecting)
     heldKeys.clear()
-    when {
-        shift -> actions.onIntent(LibraryIntent.SelectRangeTo(track.id))
-        ctrl || state.selecting -> actions.onIntent(LibraryIntent.ToggleSelection(track.id))
-        else -> actions.onOpenTrack(track)
+    when (click) {
+        SongClick.Range -> actions.onIntent(LibraryIntent.SelectRangeTo(track.id))
+        SongClick.Toggle -> actions.onIntent(LibraryIntent.ToggleSelection(track.id))
+        SongClick.Open -> {
+            if (state.selecting) actions.onIntent(LibraryIntent.ClearSelection)
+            actions.onOpenTrack(track)
+        }
     }
 }
+
+/** What a click on a song does ([songClick]). */
+internal enum class SongClick {
+    /** Takes every song from the last one selected or opened to this one. */
+    Range,
+
+    /** Puts the song in the selection, or takes it out. */
+    Toggle,
+
+    /** Opens the song, and ends the selection there was. */
+    Open,
+}
+
+/**
+ * As a file manager selects: Shift takes everything up to the song, Ctrl the song alone, and
+ * neither opens it. Without them, a click with the [mouse] opens the song and ends the selection,
+ * as on a desktop; a finger's, while songs are [selecting], adds to them or takes away, as on a
+ * phone. The pointer that clicked tells the two apart, not the window: a phone has a mouse plugged
+ * in, and a narrow window on a desktop is still clicked with one.
+ */
+internal fun songClick(shift: Boolean, ctrl: Boolean, mouse: Boolean, selecting: Boolean) =
+    when {
+        shift -> SongClick.Range
+        ctrl || (selecting && !mouse) -> SongClick.Toggle
+        else -> SongClick.Open
+    }
 
 /**
  * A click on a song's box: with Shift, everything up to the song, as a click on its row takes; else

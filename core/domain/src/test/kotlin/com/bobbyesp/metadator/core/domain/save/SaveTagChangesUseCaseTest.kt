@@ -95,6 +95,32 @@ class SaveTagChangesUseCaseTest {
     }
 
     @Test
+    fun `a save drops the oldest backups beyond those kept`() = runTest {
+        val other = ContentRef("content://media/external/audio/media/2")
+        files.files[other] = original
+        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, keep = 1)
+
+        keepOne(ref, TagChanges(fields = mapOf("TITLE" to listOf("x"))))
+        val newer =
+            keepOne(other, TagChanges(fields = mapOf("TITLE" to listOf("y")))) as SaveOutcome.Saved
+
+        assertEquals(setOf(newer.backupId), backups.backups.keys)
+    }
+
+    @Test
+    fun `a save told not to prune leaves the oldest backups to its caller`() = runTest {
+        val other = ContentRef("content://media/external/audio/media/2")
+        files.files[other] = original
+        val keepOne = SaveTagChangesUseCase(files, files, backups, indexer, keep = 1)
+
+        keepOne(ref, pruneAfter = false) { TagChanges(fields = mapOf("TITLE" to listOf("x"))) }
+        keepOne(other, pruneAfter = false) { TagChanges(fields = mapOf("TITLE" to listOf("y"))) }
+
+        assertEquals(2, backups.backups.size)
+        assertTrue(backups.prunes.isEmpty())
+    }
+
+    @Test
     fun `needing access writes nothing and keeps no backup`() = runTest {
         files.writeResult = TagWriteResult.NeedsAccess
 

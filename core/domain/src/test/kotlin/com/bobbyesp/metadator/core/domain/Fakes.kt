@@ -23,6 +23,8 @@ import com.bobbyesp.metadator.tags.api.TagReader
 import com.bobbyesp.metadator.tags.api.TagSnapshot
 import com.bobbyesp.metadator.tags.api.TagWriteResult
 import com.bobbyesp.metadator.tags.api.TagWriter
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -71,8 +73,14 @@ class FakeTagFiles(
     }
 }
 
+/**
+ * Backups in memory. Saving and pruning throw in a cancelled coroutine, as Room's do: they do their
+ * work in `withContext`.
+ */
 class FakeBackupStore : TagBackupStore {
     val backups = mutableMapOf<BackupId, TagBackup>()
+    /** What each [prune] was asked to keep, in order. */
+    val prunes = mutableListOf<Int>()
     private var nextId = 1L
 
     override suspend fun save(
@@ -80,6 +88,7 @@ class FakeBackupStore : TagBackupStore {
         snapshot: TagSnapshot,
         createdAtMillis: Long,
     ): BackupId {
+        currentCoroutineContext().ensureActive()
         val id = BackupId(nextId++)
         backups[id] = TagBackup(id, ref, snapshot, createdAtMillis)
         return id
@@ -94,6 +103,12 @@ class FakeBackupStore : TagBackupStore {
     }
 
     override suspend fun clear() = backups.clear()
+
+    override suspend fun prune(keep: Int) {
+        currentCoroutineContext().ensureActive()
+        prunes += keep
+        backups.keys.sortedByDescending { it.value }.drop(keep).forEach(backups::remove)
+    }
 }
 
 class FakeIndexer : MediaIndexer {

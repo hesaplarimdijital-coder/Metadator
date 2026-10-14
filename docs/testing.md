@@ -5,7 +5,7 @@
 | Level | What | Where |
 |---|---|---|
 | JVM unit | Tag merge and diff, pictures, multi-values (`TagChangesTest`) | `tags/api` |
-| JVM unit | Save, verify, restore, failure paths, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`) | `core/domain` |
+| JVM unit | Save, verify, restore, failure paths, the backups a save and a batch keep, with in-memory fakes of TagLib's behaviour (`SaveTagChangesUseCaseTest`, `BatchTest`) | `core/domain` |
 | JVM unit | Track positions, drafts, multi-value mode, library search/sort/grouping, completing the library from the files, file-name patterns, batch numbering, lookup merging and proposals | `core/domain` |
 | JVM unit | The batch editor: an album artist set for all reaching every file in both multi-value modes, a field a format drops, numbers of each song's own in each file's style; the albums of a batch and their merge, disc suffixes; finding the songs' album with fake sources, the releases grouped, agreed on and ranked, which song is which track and when that is not sure (`BatchTest`, `AlbumMergeTest`, `AlbumLookupTest`) | `core/domain` |
 | JVM unit | The FLAC decoder, bit for bit against three IETF test files; the verdicts of the lossless check on synthetic audio with a known spectrum; WAV reading (`core/domain/.../quality`) | `core/domain` |
@@ -16,7 +16,9 @@
 | JVM unit | Reading a picture's size from its header, telling copies of a picture apart, the score of a cover, what is asked for one song and for the songs of an album, and the whole search with fake sources (`core/domain/.../cover`) | `core/domain` |
 | JVM unit | MusicBrainz, Deezer, iTunes and LRCLIB parsing and error mapping, with Ktor's `MockEngine` | `lookup/*`, `lyrics/lrclib` |
 | JVM unit | Ranking, LRC parsing, text normalization | `lookup/api`, `lyrics/api`, `core/common` |
-| JVM unit | Which items a rectangle dragged with the mouse touches, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
+| JVM unit | A text field's echo of what the screen keeps: typed text said back, a value the screen sets on its own, texts it skips or turns down (`TextMirrorTest`) | `core/designsystem` |
+| JVM unit | Which items a rectangle dragged with the mouse touches, with a bar pinned at the top of the list too, and how fast it scrolls the list (`MarqueeGeometryTest`) | `core/designsystem` |
+| JVM unit | What a click on a song does, by the keys held and the pointer that clicked: a mouse's opens it, a finger's picks it while songs are selected (`SongClickTest`) | `feature/library` |
 
 Run them all with `./gradlew test`. CI runs them on every pull request (see [ci.md](ci.md)).
 
@@ -29,6 +31,7 @@ says which held.
 
 | What is tried | How it is told |
 |---|---|
+| The build before this one lists the songs; this one is installed over it, as an update | The songs listed with no question first, every place of the library opens, nothing in the crash log. A migration of the database that does not hold closes the app at its first query |
 | The app opens, asks to see the music, and lists four songs copied to the device | What the screen says |
 | F1 lists the shortcuts; Ctrl+F searches; Ctrl+A, Ctrl+E, Ctrl+K, Ctrl+S and Ctrl+W do what the list says | What the screen says after each |
 | The lossless check: a genuine FLAC, one made from an MP3 of 128 kbps, one upsampled to 96 kHz, and an MP3 it has nothing to say about | The verdict on the card |

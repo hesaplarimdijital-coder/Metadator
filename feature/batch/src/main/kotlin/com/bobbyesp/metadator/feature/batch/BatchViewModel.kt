@@ -536,6 +536,12 @@ class BatchViewModel(
         private const val PARALLEL_READS = 4
         private const val REPAIRS_SHOWN = 3
     }
+
+    /** A failure of what the user pressed (Apply, Undo all) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
 }
 
 /** The value most of these songs have in [key], the first of them on a tie; null where none has. */

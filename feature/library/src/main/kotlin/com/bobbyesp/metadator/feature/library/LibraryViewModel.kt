@@ -767,6 +767,12 @@ class LibraryViewModel(
         const val MAX_HISTORY = 10
         val MIN_REFRESH = 900.milliseconds
     }
+
+    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
 }
 
 /** A place as the saved state keeps it, and back ([toPlace]). */

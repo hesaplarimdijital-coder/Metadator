@@ -361,15 +361,16 @@ class EditorViewModel(
             ) {
                 outcome = saveChanges(ref, changes)
             }
-            handleSaveOutcome(outcome)
+            handleSaveOutcome(outcome, saved = draft)
         }
     }
 
-    private suspend fun handleSaveOutcome(outcome: SaveOutcome) {
+    /** [saved] is the draft the save wrote, for what was typed while it wrote to be kept. */
+    private suspend fun handleSaveOutcome(outcome: SaveOutcome, saved: TagDraft) {
         when (outcome) {
             is SaveOutcome.Saved -> {
                 clearPendingFields()
-                reloadAfterWrite()
+                reloadAfterWrite(since = saved)
                 settingsRepository.update { it.copy(successfulSaves = it.successfulSaves + 1) }
                 val text =
                     if (outcome.notStored.isEmpty()) strings.get(R.string.saved)
@@ -391,7 +392,7 @@ class EditorViewModel(
                 // style writes as they are, or tags changed elsewhere to the same. Saving in
                 // silence kept the change on screen, and going back asked to discard it.
                 clearPendingFields()
-                reloadAfterWrite()
+                reloadAfterWrite(since = saved)
                 showMessage(UiMessage(strings.get(R.string.save_nothing_to_write)))
             }
             SaveOutcome.NeedsAccess -> {
@@ -421,17 +422,22 @@ class EditorViewModel(
         }
     }
 
-    /** After a write, the editor shows what the file really holds now. */
-    private suspend fun reloadAfterWrite() {
+    /**
+     * After a write, the editor shows what the file really holds now, with what was edited since
+     * [since] made on it again: the fields stay editable while a save writes, and a slow one (a
+     * FLAC with a cover on an SD card) took what was typed meanwhile with it.
+     */
+    private suspend fun reloadAfterWrite(since: TagDraft? = null) {
         when (val result = loadTrack(ref)) {
-            is LoadTrackResult.Loaded ->
-                setState {
-                    copy(
-                        saving = false,
-                        loaded = result.track,
-                        draft = TagDraft(result.track.snapshot),
-                    )
-                }
+            is LoadTrackResult.Loaded -> {
+                // Taken once the file is read again: typing goes on while it is.
+                val typed = since?.let { currentState.draft?.changesSince(it) }
+                val fresh = TagDraft(result.track.snapshot)
+                val draft = typed?.let { fresh.applying(it) } ?: fresh
+                setState { copy(saving = false, loaded = result.track, draft = draft) }
+                // So that it survives the process too, as typing does.
+                if (typed != null) persistPendingFields(draft)
+            }
             else -> setState { copy(saving = false) }
         }
         inspectCover()
@@ -553,5 +559,11 @@ class EditorViewModel(
         val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave")
         val pendingSerializer =
             MapSerializer(String.serializer(), ListSerializer(String.serializer()))
+    }
+
+    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
     }
 }

@@ -19,9 +19,32 @@ import kotlin.math.min
  */
 
 /**
+ * Where the [count] items in sight that lie in the list's flow begin: after a sticky item held at
+ * the top, which is drawn over the items scrolling on under it, lower than the flow would put it.
+ * The `k`th item in sight is from `top(k)` to `top(k) + size(k)`, in the coordinates the list gives
+ * its items (`LazyListItemInfo.offset`), in order of index, as the list gives them.
+ */
+internal inline fun firstInFlow(count: Int, top: (Int) -> Int, size: (Int) -> Int): Int {
+    var k = count - 1
+    while (k > 0 && top(k - 1) + size(k - 1) <= top(k)) k--
+    return max(k, 0)
+}
+
+/**
+ * How far down the items held at the top of a list reach (see [firstInFlow]), in the coordinates of
+ * its items; [start], where the list shows its items from, when none is held there. Above it the
+ * items of the flow are hidden.
+ */
+internal inline fun heldBottom(count: Int, start: Int, top: (Int) -> Int, size: (Int) -> Int): Int {
+    var bottom = start
+    for (k in 0 until firstInFlow(count, top, size)) bottom = max(bottom, top(k) + size(k))
+    return bottom
+}
+
+/**
  * The slot that [y] falls in, among the [count] items in sight: the `k`th of them is item
- * `index(k)` of the list, from `top(k)` to `top(k) + size(k)`, in the coordinates the list gives
- * its items (`LazyListItemInfo.offset`). They come in order, from the top down.
+ * `index(k)` of the list, from `top(k)` to `top(k) + size(k)`, as for [firstInFlow]. Over an item
+ * held at the top, it is the slot of what the flow has under it.
  */
 internal inline fun marqueeSlot(
     y: Float,
@@ -31,7 +54,7 @@ internal inline fun marqueeSlot(
     size: (Int) -> Int,
 ): Int {
     if (count == 0) return 0
-    for (k in 0 until count) {
+    for (k in firstInFlow(count, top, size) until count) {
         val start = top(k)
         if (y < start) return 2 * index(k)
         if (y < start + size(k)) return 2 * index(k) + 1

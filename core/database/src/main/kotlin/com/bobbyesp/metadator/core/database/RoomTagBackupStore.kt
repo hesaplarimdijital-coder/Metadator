@@ -36,8 +36,6 @@ class RoomTagBackupStore(
     private val dao: TagBackupDao,
     private val files: TagBackupFiles,
     private val dispatchers: AppDispatchers,
-    /** The newest backups kept; older ones are dropped as new ones come in. */
-    private val maxBackups: Int = 100,
 ) : TagBackupStore {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -77,7 +75,6 @@ class RoomTagBackupStore(
                 files.delete(id)
                 throw error
             }
-            prune()
             BackupId(id)
         }
 
@@ -99,12 +96,13 @@ class RoomTagBackupStore(
             files.deleteAll()
         }
 
-    private suspend fun prune() {
-        dao.idsBeyond(maxBackups).forEach { id ->
-            dao.delete(id)
-            files.delete(id)
+    override suspend fun prune(keep: Int) =
+        withContext(dispatchers.io) {
+            dao.idsBeyond(keep).forEach { id ->
+                dao.delete(id)
+                files.delete(id)
+            }
         }
-    }
 
     /** Null when the pictures of the backup are gone: restoring it would lose them. */
     private fun TagBackupEntity.toBackup(): TagBackup? {

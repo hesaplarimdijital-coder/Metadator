@@ -112,7 +112,18 @@ jobs:
           fi
           gh release upload metamatik-apk build-report.txt --clobber
           if [ -f metamatik.apk ]; then
-            gh release upload metamatik-apk metamatik.apk --clobber
+            # The APK this one replaces stays beside it, as what a phone has before it updates: the
+            # emulator installs this one over it. Not when both are of this commit (a run started
+            # again), which would update a build to itself.
+            mkdir -p replaced
+            gh release download metamatik-apk --pattern apk-commit.txt --dir replaced || true
+            if [ "$(cat replaced/apk-commit.txt 2>/dev/null)" != "$GITHUB_SHA" ] &&
+              gh release download metamatik-apk --pattern metamatik.apk --dir replaced; then
+              mv replaced/metamatik.apk metamatik-previous.apk
+              gh release upload metamatik-apk metamatik-previous.apk --clobber
+            fi
+            echo "$GITHUB_SHA" > apk-commit.txt
+            gh release upload metamatik-apk metamatik.apk apk-commit.txt --clobber
           fi
 
   # Where Metamatik was built, ci.yml does not run (it runs on master, v2 and pull requests): this
@@ -200,14 +211,19 @@ jobs:
     if: ${{ !cancelled() && (needs.apk.result == 'success' || needs.apk.result == 'skipped') }}
     continue-on-error: true
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The emulator takes up to ten minutes to start, the steps about twenty-five, and a slow
+    # machine twice that.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Take the APK that was published
+      - name: Take the APK that was published, and the one it replaced
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download metamatik-apk --pattern metamatik.apk --dir .
+        run: |
+          gh release download metamatik-apk --pattern metamatik.apk --dir .
+          gh release download metamatik-apk --pattern metamatik-previous.apk --dir . ||
+            echo "No APK before this one: the update is not tried"
 
       - name: Make the songs to try it on
         run: |
@@ -243,7 +259,10 @@ jobs:
         id: use
         run: |
           set -o pipefail
-          python3 .github/smoke/smoke.py metamatik.apk smoke-songs smoke-out 2>&1 | tee smoke.log
+          previous=""
+          if [ -f metamatik-previous.apk ]; then previous=metamatik-previous.apk; fi
+          python3 .github/smoke/smoke.py metamatik.apk smoke-songs smoke-out $previous 2>&1 |
+            tee smoke.log
 
       # As with the build, the log of a run cannot be downloaded: what happened goes to the
       # release, as a report to read and the pictures taken along the way.
