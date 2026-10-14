@@ -95,6 +95,11 @@ opens the sheet with its request and is handed the cover chosen, as a URL. It do
 keeps it as an unsaved change: nothing is written until Save in the editor, or "Apply to all" in
 the batch editor, whose button in the sheet says how many songs the cover is for.
 
+The rest of an album, its title, album artists, date, genres and where each song is on it, the
+batch editor finds with "Find metadata", beside its fields, which searches for several of the songs
+and not the first only ([architecture.md](architecture.md#editing-several-songs)). Choosing a
+release there leaves the cover as it is: the cover is this finder's.
+
 ## What leaves the device
 
 What a metadata search already sent, to the same sources: the song's title, artist and album; to

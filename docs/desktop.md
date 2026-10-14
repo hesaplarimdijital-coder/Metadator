@@ -121,6 +121,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | | Page Up, Page Down | Move through the fields |
 | Editing several songs | Ctrl+S | Applies to all |
 | | Ctrl+K | Finds a cover for all |
+| | Ctrl+L | Finds the album's metadata |
 | | Ctrl+W | Closes |
 
 ## Mouse
