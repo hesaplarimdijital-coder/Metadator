@@ -99,6 +99,11 @@ data class LibraryState(
     val fakeCount: Int = 0,
     /** How many songs each volume holds. */
     val storages: List<Pair<Storage, Int>> = emptyList(),
+    /**
+     * The albums, artists or folders selected, by key, of the place shown: to be played or edited
+     * together, and albums to be merged. The songs selected are [selection].
+     */
+    val collectionSelection: Set<String> = emptySet(),
 ) {
     val tracks: List<Track>
         get() = listing.tracks
@@ -117,6 +122,27 @@ data class LibraryState(
 
     val selectedTracks: List<Track>
         get() = tracks.filter { it.id in selection }
+
+    /** The albums, the artists or the folders, when they are what the place shown lists. */
+    val shownCollections: List<TrackCollection>
+        get() =
+            when (tab) {
+                LibraryTab.Songs -> emptyList()
+                LibraryTab.Albums -> albums
+                LibraryTab.Artists -> artists
+                LibraryTab.Folders -> folders
+            }
+
+    val selectingCollections: Boolean
+        get() = collectionSelection.isNotEmpty()
+
+    /** The songs of the albums, artists or folders selected, in the order they are listed. */
+    val selectedCollectionTracks: List<Track>
+        get() =
+            shownCollections
+                .filter { it.key in collectionSelection }
+                .flatMap { it.tracks }
+                .distinctBy { it.id }
 
     /** Where the sidebar is: the smart list or volume the songs are narrowed to, else the tab. */
     val section: LibrarySection
@@ -169,6 +195,25 @@ sealed interface LibraryIntent {
     data class PlayAll(val shuffle: Boolean) : LibraryIntent
 
     data object PlaySelection : LibraryIntent
+
+    /** Adds an album, artist or folder to the selection, or takes it out of it. */
+    data class ToggleCollection(val key: String) : LibraryIntent
+
+    /**
+     * Selects every album, artist or folder from the one last selected to this one, as a click with
+     * Shift does.
+     */
+    data class SelectCollectionsTo(val key: String) : LibraryIntent
+
+    /** Selects every album, artist or folder the place shown lists. */
+    data object SelectAllCollections : LibraryIntent
+
+    data object ClearCollectionSelection : LibraryIntent
+
+    /** Plays the songs of an album, an artist or a folder, from the first or shuffled. */
+    data class PlayCollection(val collection: TrackCollection, val shuffle: Boolean) : LibraryIntent
+
+    data object PlayCollectionSelection : LibraryIntent
 }
 
 class LibraryViewModel(
@@ -194,6 +239,9 @@ class LibraryViewModel(
 
     /** The song a range is selected from: the last one selected on its own. */
     private var selectionAnchor: TrackId? = null
+
+    /** The album, artist or folder a range is selected from, by key. */
+    private var collectionAnchor: String? = null
 
     private data class Query(val filter: LibraryFilter, val sort: SortOrder)
 
@@ -223,7 +271,13 @@ class LibraryViewModel(
         batches.progress
             .map { it != null && !it.isRunning && it.saved.isNotEmpty() }
             .distinctUntilChanged()
-            .onEach { done -> if (done) handleIntent(LibraryIntent.ClearSelection) }
+            .onEach { done ->
+                if (done) {
+                    handleIntent(LibraryIntent.ClearSelection)
+                    // Albums merged are one album now: the ones selected are not there to select.
+                    handleIntent(LibraryIntent.ClearCollectionSelection)
+                }
+            }
             .launchIn(viewModelScope)
     }
 
@@ -236,7 +290,9 @@ class LibraryViewModel(
             }
             is LibraryIntent.SelectTab -> {
                 savedState[KEY_TAB] = intent.tab.name
-                setState { copy(tab = intent.tab, selection = emptySet()) }
+                setState {
+                    copy(tab = intent.tab, selection = emptySet(), collectionSelection = emptySet())
+                }
             }
             LibraryIntent.ToggleNeedsAttention ->
                 updateQuery { copy(filter = filter.copy(needsAttention = !filter.needsAttention)) }
@@ -308,13 +364,59 @@ class LibraryViewModel(
                 player.play(currentState.selectedTracks)
                 setState { copy(selection = emptySet()) }
             }
+            is LibraryIntent.ToggleCollection -> {
+                collectionAnchor = intent.key
+                setState {
+                    copy(
+                        collectionSelection =
+                            if (intent.key in collectionSelection) collectionSelection - intent.key
+                            else collectionSelection + intent.key
+                    )
+                }
+            }
+            is LibraryIntent.SelectCollectionsTo -> selectCollectionsTo(intent.key)
+            LibraryIntent.SelectAllCollections ->
+                setState {
+                    copy(collectionSelection = shownCollections.mapTo(mutableSetOf()) { it.key })
+                }
+            LibraryIntent.ClearCollectionSelection -> {
+                collectionAnchor = null
+                setState { copy(collectionSelection = emptySet()) }
+            }
+            is LibraryIntent.PlayCollection ->
+                player.play(intent.collection.tracks, shuffle = intent.shuffle)
+            LibraryIntent.PlayCollectionSelection -> {
+                player.play(currentState.selectedCollectionTracks)
+                setState { copy(collectionSelection = emptySet()) }
+            }
+        }
+    }
+
+    /** As a range of songs is selected, among the albums, artists or folders shown. */
+    private fun selectCollectionsTo(key: String) {
+        val anchor = collectionAnchor
+        if (anchor == null) collectionAnchor = key
+        setState {
+            val keys = shownCollections.map { it.key }
+            val from = if (anchor == null) -1 else keys.indexOf(anchor)
+            val to = keys.indexOf(key)
+            when {
+                to < 0 -> this
+                // Nothing to start from, or it is no longer listed: this one alone.
+                from < 0 -> copy(collectionSelection = collectionSelection + key)
+                else ->
+                    copy(
+                        collectionSelection =
+                            collectionSelection + keys.subList(minOf(from, to), maxOf(from, to) + 1)
+                    )
+            }
         }
     }
 
     private fun showSection(section: LibrarySection) {
         val tab = (section as? LibrarySection.Browse)?.tab ?: LibraryTab.Songs
         savedState[KEY_TAB] = tab.name
-        setState { copy(tab = tab, selection = emptySet()) }
+        setState { copy(tab = tab, selection = emptySet(), collectionSelection = emptySet()) }
         updateQuery {
             copy(
                 filter =
@@ -370,6 +472,8 @@ class LibraryViewModel(
         val storages = all.countByStorage()
         val totalBytes = visible.sumOf { it.sizeBytes }
         val visibleIds = visible.mapTo(mutableSetOf()) { it.id }
+        val collections: List<TrackCollection> = albums + artists + folders
+        val listedKeys = collections.mapTo(mutableSetOf()) { it.key }
         return {
             copy(
                 loading = false,
@@ -388,6 +492,8 @@ class LibraryViewModel(
                 needsAttentionCount = needsAttention,
                 storages = storages,
                 selection = selection.filterTo(mutableSetOf()) { it in visibleIds },
+                collectionSelection =
+                    collectionSelection.filterTo(mutableSetOf()) { it in listedKeys },
             )
         }
     }

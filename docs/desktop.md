@@ -107,6 +107,9 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | | Ctrl+E, Enter | Edits the selected songs together |
 | | Esc | Ends the selection |
 | | Ctrl+1 … Ctrl+4 | Songs, albums, artists, folders: the sidebar's first places |
+| Albums, artists, folders | Ctrl+A | Selects every one listed |
+| | Ctrl+E, Enter | Edits the songs of those selected together |
+| | Esc | Ends the selection |
 | | Ctrl+O | Opens a file |
 | | Ctrl+R, F5 | Rescans the music folders |
 | | Ctrl+, | Settings |
@@ -131,10 +134,17 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 - **The second button opens a menu** (`ContextMenuArea`), where the pointer is, with what can be
   done with a song: edit, play, select, edit the selection together, open in a new window. The
   click is taken before the song sees it. Android does not tell the buttons of a mouse apart for a
-  tap, so left alone a right click would open the song.
+  tap, so left alone a right click would open the song. An album, an artist and a folder have one
+  too (`rememberCollectionMenu`): open, play, shuffle, edit all its songs, select; on one of several
+  selected, edit them together, and for albums, merge them.
 - **Ctrl and Shift change what a click selects** (`HeldKeys`, `Modifier.trackHeldKeys`): Ctrl adds
   or removes one song, Shift takes every song from the last one selected to this one
-  (`LibraryIntent.SelectRangeTo`). As in a file manager.
+  (`LibraryIntent.SelectRangeTo`). As in a file manager. Albums, artists and folders are selected
+  the same way (`LibraryIntent.ToggleCollection`, `SelectCollectionsTo`), or with a long press, and
+  show a check while they are. Over them the panel's header then says how many, with what can be
+  done with them: play them, edit their songs together, and for albums, merge them. Merging is
+  editing together under another name: the batch editor opens beside the library with every song
+  of the albums, and offers to give them one album and one album artist.
 - **A button that is only an icon says what it does** when the pointer rests on it (`Tooltip`). The
   text is the one a screen reader was already given. The pointer is an arrow over it, even at the
   end of a text field, whose I-beam would otherwise reach it.

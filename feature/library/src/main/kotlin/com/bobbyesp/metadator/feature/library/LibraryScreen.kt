@@ -280,7 +280,9 @@ private fun PanelLibrary(
                     )
                 }
                 if (granted && !state.loading) {
-                    PanelHeader(state, actions)
+                    CollectionSelectionHead(state, actions, wide = true) {
+                        PanelHeader(state, actions)
+                    }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) { content() }
             }
@@ -684,7 +686,9 @@ private fun PhoneLibrary(
                 if (selecting) {
                     PhoneSelectionHead(state, onIntent)
                 } else {
-                    PhoneHead(state, actions, granted)
+                    CollectionSelectionHead(state, actions, wide = false) {
+                        PhoneHead(state, actions, granted)
+                    }
                 }
             }
             if (granted) {
@@ -750,6 +754,12 @@ private fun PhoneLibrary(
         ) {
             SelectionBar(state, actions, onIntent, glass = haze)
         }
+        CollectionSelectionBar(
+            state,
+            actions,
+            glass = haze,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -989,12 +999,11 @@ private fun LibraryContent(state: LibraryState, actions: LibraryActions, wide: B
                         LibraryTab.Songs ->
                             if (wide) SongsTable(listing.tracks, state, actions)
                             else SongCards(listing.tracks, state, actions)
-                        LibraryTab.Albums ->
-                            AlbumGrid(listing.albums, actions.onOpenCollection, wide)
+                        LibraryTab.Albums -> AlbumGrid(listing.albums, state, actions, wide)
                         LibraryTab.Artists ->
-                            CollectionList(listing.artists, actions.onOpenCollection, wide)
+                            CollectionList(shown.tab, listing.artists, state, actions, wide)
                         LibraryTab.Folders ->
-                            CollectionList(listing.folders, actions.onOpenCollection, wide)
+                            CollectionList(shown.tab, listing.folders, state, actions, wide)
                     }
             }
         }

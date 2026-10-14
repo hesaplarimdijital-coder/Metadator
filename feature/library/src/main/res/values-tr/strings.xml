@@ -48,6 +48,20 @@
     <string name="collection_play">Çal</string>
     <string name="collection_shuffle">Karıştır</string>
     <string name="collection_edit_all">Tümünü düzenle</string>
+    <string name="open_collection">Aç</string>
+    <string name="merge_albums">Albümleri birleştir</string>
+    <plurals name="selected_albums">
+        <item quantity="one">%1$d albüm seçili</item>
+        <item quantity="other">%1$d albüm seçili</item>
+    </plurals>
+    <plurals name="selected_artists">
+        <item quantity="one">%1$d sanatçı seçili</item>
+        <item quantity="other">%1$d sanatçı seçili</item>
+    </plurals>
+    <plurals name="selected_folders">
+        <item quantity="one">%1$d klasör seçili</item>
+        <item quantity="other">%1$d klasör seçili</item>
+    </plurals>
     <string name="back">Geri</string>
     <string name="no_song_open_title">Bir şarkı seçin</string>
     <string name="no_song_open_description">Etiketleri burada, kitaplığınızın yanında açılır.</string>
