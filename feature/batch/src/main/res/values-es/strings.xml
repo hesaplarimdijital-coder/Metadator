@@ -165,4 +165,9 @@
         <item quantity="many">Corrige el texto de %1$d canciones, leído con la codificación equivocada</item>
         <item quantity="other">Corrige el texto de %1$d canciones, leído con la codificación equivocada</item>
     </plurals>
+    <plurals name="batch_repair_text_more">
+        <item quantity="one">%1$d cambio más: %2$s</item>
+        <item quantity="many">%1$d cambios más: %2$s</item>
+        <item quantity="other">%1$d cambios más: %2$s</item>
+    </plurals>
 </resources>

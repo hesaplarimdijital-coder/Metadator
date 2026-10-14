@@ -28,8 +28,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * The app's side of [PlaybackService]: a [MediaController] connected on first use. Commands issued
- * before the connection is ready are queued, so the first "play" is never lost.
+ * The app's side of [PlaybackService]: a [MediaController] connected on first use, and again on the
+ * first use after the session went away. Commands issued before the connection is ready are queued,
+ * so the first "play" is never lost.
  *
  * Must be called on the main thread, as every Media3 controller.
  */
@@ -56,6 +57,22 @@ class Media3PlayerController(
             }
         }
 
+    /**
+     * The session went away: the service was stopped and released it. Media3 releases the
+     * controller with it, and drops whatever is asked of it after, so a "play" did nothing until
+     * the app started again: the next command connects anew instead, starting the service again.
+     */
+    private val session =
+        object : MediaController.Listener {
+            override fun onDisconnected(controller: MediaController) {
+                if (controller !== this@Media3PlayerController.controller) return
+                this@Media3PlayerController.controller = null
+                queue = emptyList()
+                updateTicker(playing = false)
+                _state.value = PlaybackState()
+            }
+        }
+
     private fun withController(action: (MediaController) -> Unit) {
         controller?.let {
             action(it)
@@ -65,7 +82,7 @@ class Media3PlayerController(
         if (connecting) return
         connecting = true
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token).setListener(session).buildAsync()
         future.addListener(
             {
                 connecting = false

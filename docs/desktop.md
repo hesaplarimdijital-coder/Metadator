@@ -21,8 +21,8 @@ entries in the manifest that only Samsung reads.
   `com.samsung.android.multidisplay.keep_process_alive` in the manifest say so. It is the
   `configChanges` above that make it true.
 - **Day and night are among the changes followed**, so each activity calls `enableEdgeToEdge()`
-  again in `onConfigurationChanged`: nothing else would give the system bars the icons that go
-  with the new theme.
+  again in `onConfigurationChanged` (`MetadatorActivity`, which both are): nothing else would give
+  the system bars the icons that go with the new theme.
 - **A size to open at, and a smallest size** (`<layout>` in the manifest): the main window opens
   wide enough for the library and the editor side by side, and neither window can be dragged
   narrower than a phone.
@@ -32,7 +32,8 @@ entries in the manifest that only Samsung reads.
   player's bar docked under both ([architecture.md](architecture.md#navigation)). The table drops
   columns as its panel narrows, an editor that fills a window goes to two columns from 760 dp, and
   narrower than 600 dp each screen is a phone's. All of it changes while a window is dragged, not
-  only on a rotation.
+  only on a rotation. The widths and heights where a layout changes are read together in
+  `StudioDefaults`.
 
 **Choosing another song changes the song in the editor.** On a wide window the library stays
 beside the editor, and a desktop is used by clicking one song after another. Each used to open an
@@ -113,7 +114,8 @@ Compose tells a screen about a key only while something in that screen has the f
 desktop that is not enough: after a click with a mouse nothing has it, and Ctrl+S must still save.
 
 So each activity owns a `ShortcutDispatcher` (`core/ui/.../input`) and hands it every key its
-views left alone, from `onKeyDown`. Screens say what they offer while they are showing:
+views left alone, from `onKeyDown`; both get this from `MetadatorActivity`. Screens say what they
+offer while they are showing:
 
 ```kotlin
 KeyboardShortcuts(

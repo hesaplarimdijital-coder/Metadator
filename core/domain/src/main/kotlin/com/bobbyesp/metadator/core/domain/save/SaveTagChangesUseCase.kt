@@ -19,7 +19,8 @@ import com.bobbyesp.metadator.tags.api.applying
  * Saves changes to a file without losing anything else in it:
  * 1. reads the file as it is now, so changes made elsewhere since the editor opened survive;
  * 2. applies only the changed keys and, if asked, the cover;
- * 3. backs up what was there, for undo, and drops the oldest backups beyond [keep];
+ * 3. backs up what was there, for undo, and drops the oldest backups beyond [keep], but none a
+ *    batch holds ([BackupHold]);
  * 4. writes, and on failure tries to put the original back;
  * 5. reads again to check what the format really stored;
  * 6. asks the system to index the file again.
@@ -29,6 +30,7 @@ class SaveTagChangesUseCase(
     private val writer: TagWriter,
     private val backups: TagBackupStore,
     private val indexer: MediaIndexer,
+    private val hold: BackupHold,
     private val clock: () -> Long = System::currentTimeMillis,
     private val keep: Int = BackupPolicy.KEEP,
 ) {
@@ -64,9 +66,10 @@ class SaveTagChangesUseCase(
             return SaveOutcome.NothingToSave
         }
 
+        hold.backingUp()
         val backupId = backups.save(ref, current, clock())
         // Before writing, where the store used to prune: if pruning fails, nothing is written.
-        if (pruneAfter) backups.prune(keep)
+        if (pruneAfter) backups.prune(hold.keeping(keep))
 
         when (val write = writer.write(ref, target.tags, target.pictures)) {
             TagWriteResult.Written -> Unit

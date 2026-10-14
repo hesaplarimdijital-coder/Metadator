@@ -30,6 +30,7 @@ import com.bobbyesp.metadator.core.domain.lyrics.LoadLyricsUseCase
 import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
 import com.bobbyesp.metadator.core.domain.quality.QualityStore
+import com.bobbyesp.metadator.core.domain.save.BackupHold
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
@@ -152,7 +153,9 @@ private val engineModule = module {
 
 private val domainModule = module {
     factory { LoadTrackUseCase(get(), get(), get()) }
-    factory { SaveTagChangesUseCase(get(), get(), get(), get()) }
+    // One for the app: a save keeps the backups of the batch that runs beside it, or just ran.
+    single { BackupHold() }
+    factory { SaveTagChangesUseCase(get(), get(), get(), get(), get()) }
     factory { RestoreBackupUseCase(get(), get(), get()) }
     factory { FindLyricsUseCase(get()) }
     factory { LoadLyricsUseCase(get(), get()) }
@@ -181,7 +184,7 @@ private val domainModule = module {
             get(),
         )
     }
-    single { BatchRunner(get(AppScope), get(), get()) }
+    single { BatchRunner(get(AppScope), get(), get(), get()) }
 }
 
 val appModules =

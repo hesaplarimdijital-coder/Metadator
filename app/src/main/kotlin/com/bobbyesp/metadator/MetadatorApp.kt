@@ -108,7 +108,7 @@ fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false })
     val window = LocalWindowInfo.current.containerSize
     val windowWidth = with(LocalDensity.current) { window.width.toDp() }
     val windowHeight = with(LocalDensity.current) { window.height.toDp() }
-    val panels = windowWidth >= PanelWindowWidth
+    val panels = windowWidth >= StudioDefaults.PanelWindowWidth
     // The inspector keeps its width, whatever the window's: the library beside it takes the rest.
     val expansion =
         rememberPaneExpansionState(
@@ -305,9 +305,6 @@ private fun StayAtTheStart(atTheStart: () -> Boolean) {
         onBackCompleted = {},
     )
 }
-
-/** The narrowest window laid out as panels; narrower, the screen is one, as a phone's. */
-private val PanelWindowWidth = 600.dp
 
 /**
  * The window's own directive, but the scaffold does not move the focus to the pane it shows. It

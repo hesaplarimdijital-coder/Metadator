@@ -59,8 +59,8 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   module, implemented next to it.
 - What the user can cause is a result, not an exception: `SaveOutcome`, `TagReadResult`,
   `LookupResult`, `AccessResult`.
-- Test a port with a fake (see `core/domain/src/test/.../Fakes.kt`), not with a mock of the
-  framework.
+- Test a port with a fake (see `core/domain/src/testFixtures/.../Fakes.kt`), not with a mock of
+  the framework.
 
 ### ViewModels
 

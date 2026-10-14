@@ -257,7 +257,10 @@ internal fun EditorScreen(
                     if (draft != null && loaded != null) {
                         Column(Modifier.fillMaxSize()) {
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                                val columns = panels && !showClose && maxWidth >= TwoColumnWidth
+                                val columns =
+                                    panels &&
+                                        !showClose &&
+                                        maxWidth >= StudioDefaults.TwoColumnEditorWidth
                                 when {
                                     columns -> TwoColumnEditor(parts, draft, loaded, scroll)
                                     panels ->
@@ -315,9 +318,6 @@ private class EditorParts(
     val onChangeCover: () -> Unit,
     val onClose: () -> Unit,
 )
-
-/** Wide enough, filling a window, for the cover and the file beside the fields. */
-private val TwoColumnWidth = 760.dp
 
 /** The editor beside the library: one column, its head the cover beside the song's name. */
 @Composable

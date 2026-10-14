@@ -99,6 +99,12 @@ data class BatchState(
     val garbledSongs: Int = 0,
     /** A few of the fields that would be put right, to show what that does. */
     val repairs: List<TextRepair> = emptyList(),
+    /**
+     * How many more would be, and in which fields: the lyrics and the comment too, where a wrong
+     * repair is the hardest to notice before applying it.
+     */
+    val moreRepairs: Int = 0,
+    val moreRepairKeys: List<String> = emptyList(),
     /** Whether each song's garbled text is put right, each in its own way. */
     val repairText: Boolean = false,
 ) {
@@ -319,7 +325,7 @@ class BatchViewModel(
                 }
             // What putting garbled text right would do: offered where any song has some.
             val repairs = files.map { it.tags.textRepairs() }
-            val shown =
+            val found =
                 files
                     .zip(repairs)
                     .flatMap { (file, fixes) ->
@@ -332,7 +338,7 @@ class BatchViewModel(
                         }
                     }
                     .distinct()
-                    .take(REPAIRS_SHOWN)
+            val unshown = found.drop(REPAIRS_SHOWN)
             setState {
                 copy(
                     loading = false,
@@ -340,7 +346,9 @@ class BatchViewModel(
                     common = commonValues(files),
                     merge = AlbumMerge.of(files.map { it.tags }),
                     garbledSongs = repairs.count { it.isNotEmpty() },
-                    repairs = shown,
+                    repairs = found.take(REPAIRS_SHOWN),
+                    moreRepairs = unshown.size,
+                    moreRepairKeys = unshown.map { it.key }.distinct(),
                 )
             }
         }

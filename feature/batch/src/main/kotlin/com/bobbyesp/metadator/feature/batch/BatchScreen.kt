@@ -96,6 +96,7 @@ import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
 import com.bobbyesp.metadator.core.domain.editor.splitValues
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.model.ContentRef
+import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
@@ -369,41 +370,6 @@ private fun BatchField(field: TagField, state: BatchState, onIntent: (BatchInten
 }
 
 /**
- * What a field was last typed as, and the values said for it that the screen has not had back yet.
- * They come back a frame or more later, and a frame may come between with the values from before;
- * until the screen holds them, and while it does, the field shows what was typed. Values the screen
- * sets on its own (a reset, a lookup, a merge) are none of these, and are shown as they are.
- */
-private class TypedValues {
-    private var text: String? = null
-    private val unheard = ArrayDeque<List<String>>()
-
-    fun typed(text: String, values: List<String>) {
-        this.text = text
-        unheard.addLast(values)
-        while (unheard.size > MAX_UNHEARD) unheard.removeFirst()
-    }
-
-    /** What was typed, when [values] are what it was taken for or were said on the way to it. */
-    fun shownFor(values: List<String>): String? = text?.takeIf { values in unheard }
-
-    /** Once [values] are the screen's, those said before them are not coming back. */
-    fun heard(values: List<String>) {
-        val index = unheard.indexOf(values)
-        if (index < 0) {
-            text = null
-            unheard.clear()
-        } else {
-            repeat(index) { unheard.removeFirst() }
-        }
-    }
-
-    private companion object {
-        const val MAX_UNHEARD = 64
-    }
-}
-
-/**
  * The track and disc numbers some songs will get, each its own, said as a field is: what a lookup
  * or a merge set, and the way to keep each song's own instead.
  */
@@ -564,7 +530,8 @@ private fun CoverChoice(
 /**
  * Puts right the songs' garbled text, each song its own, as the editor does for one. First of all
  * where any song has some: a list of garbled songs, selected whole, is edited for this. What it
- * does is shown on a few of the fields, before it is switched on.
+ * does is shown on a few of the fields, before it is switched on, with how many more it changes and
+ * in which fields.
  */
 @Composable
 private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
@@ -594,6 +561,22 @@ private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = Studio.colors.textSecondary,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (state.moreRepairs > 0) {
+                // Labels first: a composable cannot be called from joinToString's lambda.
+                val fields = state.moreRepairKeys.map { fieldLabel(it) }
+                Text(
+                    pluralStringResource(
+                        R.plurals.batch_repair_text_more,
+                        state.moreRepairs,
+                        state.moreRepairs,
+                        fields.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -832,6 +815,14 @@ private fun ProgressDialog(progress: BatchProgress, onIntent: (BatchIntent) -> U
                             )
                         )
                         if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
+                        // A backup that could not be kept stopped it: the songs saved before it
+                        // are counted above, and "Undo all" still puts them back.
+                        if (progress.failure != null) {
+                            Text(
+                                stringResource(CoreUiR.string.error_unexpected),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                         NotStored(progress.notStored)
                         if (progress.failed.isNotEmpty()) {
                             Text(
