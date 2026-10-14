@@ -4,7 +4,6 @@
 package com.bobbyesp.metadator.feature.library
 
 import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -51,6 +50,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.GlassSurface
 import com.bobbyesp.metadator.core.designsystem.component.HeldKeys
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
@@ -177,7 +179,7 @@ internal fun rememberCollectionMenu(
  * selection.
  */
 @Composable
-internal fun CollectionShortcuts(
+internal fun CollectionPlaceShortcuts(
     tab: LibraryTab,
     collections: List<TrackCollection>,
     state: LibraryState,
@@ -185,7 +187,11 @@ internal fun CollectionShortcuts(
 ) {
     val onIntent = actions.onIntent
     val selecting = state.selectingCollections
-    BackHandler(enabled = selecting) { onIntent(LibraryIntent.ClearCollectionSelection) }
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = selecting,
+        onBackCompleted = { onIntent(LibraryIntent.ClearCollectionSelection) },
+    )
     val editSelection = { actions.editTogether(state.selectedCollectionTracks) }
     KeyboardShortcuts(
         title = stringResource(tab.label),

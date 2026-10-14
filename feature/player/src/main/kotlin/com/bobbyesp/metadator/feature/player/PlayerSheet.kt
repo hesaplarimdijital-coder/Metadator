@@ -603,7 +603,9 @@ private val DockedArtworkCorner = 8.dp
 
 /** The cover's corners in the phone's bar: the bar's, less the padding around the cover. */
 private val BarArtworkCorner = 16.dp
-private val ScreenArtworkCorner = 28.dp
+
+/** On the full screen: as tight as the app's panels keep theirs, on a cover this large. */
+private val ScreenArtworkCorner = 16.dp
 private val FlingThreshold = 125.dp
 
 private enum class SharedKey {

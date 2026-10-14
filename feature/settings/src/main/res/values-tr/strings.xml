@@ -51,7 +51,7 @@
     <string name="rate_description">Google Play\'de</string>
     <string name="credits">Şunlarla yapıldı</string>
     <string name="credits_description">TagLib, Jetpack Compose, Media3, Koin, Ktor, Coil, MaterialKolor, MusicBrainz, Deezer, iTunes ve LRCLIB</string>
-    <string name="made_by">BobbyESP tarafından yapıldı</string>
+    <string name="made_by">Project Ark tarafından geliştirildi</string>
     <string name="accent">Vurgu rengi</string>
     <string name="accent_blue">Mavi</string>
     <string name="accent_violet">Mor</string>

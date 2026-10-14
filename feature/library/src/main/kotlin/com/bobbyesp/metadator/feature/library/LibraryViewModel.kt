@@ -12,12 +12,14 @@ import com.bobbyesp.metadator.core.domain.library.LibraryFilter
 import com.bobbyesp.metadator.core.domain.library.Storage
 import com.bobbyesp.metadator.core.domain.library.albums
 import com.bobbyesp.metadator.core.domain.library.artists
+import com.bobbyesp.metadator.core.domain.library.collection
 import com.bobbyesp.metadator.core.domain.library.countByStorage
 import com.bobbyesp.metadator.core.domain.library.filtered
 import com.bobbyesp.metadator.core.domain.library.folders
 import com.bobbyesp.metadator.core.domain.library.sorted
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityState
+import com.bobbyesp.metadator.core.model.CollectionType
 import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
@@ -34,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
@@ -99,6 +102,21 @@ data class LibraryState(
     val fakeCount: Int = 0,
     /** How many songs each volume holds. */
     val storages: List<Pair<Storage, Int>> = emptyList(),
+    /**
+     * The album, artist or folder this lists, on its screen ([LibraryIntent.ShowCollection]): its
+     * songs are [tracks], in its own order. Null in the library.
+     */
+    val collection: TrackCollection? = null,
+    /**
+     * The song last opened with a click, while it is listed: what the inspector beside the list
+     * shows once nothing is selected, and where a range taken with Shift starts.
+     */
+    val clicked: TrackId? = null,
+    /**
+     * The places of the library visited before this one, the last one last: where Back goes, as a
+     * browser's does, before it leaves the library.
+     */
+    val history: List<LibrarySection> = emptyList(),
     /**
      * The albums, artists or folders selected, by key, of the place shown: to be played or edited
      * together, and albums to be merged. The songs selected are [selection].
@@ -196,6 +214,29 @@ sealed interface LibraryIntent {
 
     data object PlaySelection : LibraryIntent
 
+    /**
+     * Lists the songs of one album, artist or folder, in its own order, rather than the library's:
+     * a collection's screen, whose selection, ranges and playing are of those songs alone.
+     */
+    data class ShowCollection(val type: CollectionType, val key: String) : LibraryIntent
+
+    /** A song was opened with a click ([LibraryState.clicked]). */
+    data class Opened(val id: TrackId) : LibraryIntent
+
+    /**
+     * Selects exactly [ids] or, with [add], adds them to what is selected: what a drag over the
+     * rows asks for, as it goes. A range taken with Shift next starts from [anchor], when given.
+     * Songs not listed are left out.
+     */
+    data class SelectIds(
+        val ids: Set<TrackId>,
+        val add: Boolean = false,
+        val anchor: TrackId? = null,
+    ) : LibraryIntent
+
+    /** Goes back to the place visited before this one ([LibraryState.history]). */
+    data object BackToPlace : LibraryIntent
+
     /** Adds an album, artist or folder to the selection, or takes it out of it. */
     data class ToggleCollection(val key: String) : LibraryIntent
 
@@ -235,9 +276,12 @@ class LibraryViewModel(
         )
     ) {
     private val query = MutableStateFlow(Query(currentState.filter, currentState.sort))
+
+    /** Whether this lists one collection, for its screen ([LibraryIntent.ShowCollection]). */
+    private var listsCollection = false
     private var observing: Job? = null
 
-    /** The song a range is selected from: the last one selected on its own. */
+    /** The song a range is selected from: the last one selected on its own, or opened. */
     private var selectionAnchor: TrackId? = null
 
     /** The album, artist or folder a range is selected from, by key. */
@@ -246,12 +290,21 @@ class LibraryViewModel(
     private data class Query(val filter: LibraryFilter, val sort: SortOrder)
 
     init {
+        savedState
+            .get<List<String>>(KEY_HISTORY)
+            ?.mapNotNull { it.toPlace() }
+            ?.let { places ->
+                setState { copy(history = places) }
+            }
         quality.state
             .onEach { checked ->
                 setState {
                     copy(
                         quality = checked,
-                        fakeCount = checked.qualities.values.count { it.isFake },
+                        // Counted for the library's sidebar; a collection's screen has none.
+                        fakeCount =
+                            if (listsCollection) 0
+                            else checked.qualities.values.count { it.isFake },
                     )
                 }
             }
@@ -282,6 +335,7 @@ class LibraryViewModel(
     }
 
     override fun handleIntent(intent: LibraryIntent) {
+        val place = currentState.section
         when (intent) {
             LibraryIntent.Start -> startObserving()
             is LibraryIntent.Search -> {
@@ -364,6 +418,26 @@ class LibraryViewModel(
                 player.play(currentState.selectedTracks)
                 setState { copy(selection = emptySet()) }
             }
+            is LibraryIntent.ShowCollection -> showCollection(intent.type, intent.key)
+            is LibraryIntent.Opened -> {
+                selectionAnchor = intent.id
+                setState { copy(clicked = intent.id) }
+            }
+            is LibraryIntent.SelectIds -> {
+                intent.anchor?.let { selectionAnchor = it }
+                setState {
+                    val listed = tracks.mapTo(mutableSetOf()) { it.id }
+                    val chosen = intent.ids.filterTo(mutableSetOf()) { it in listed }
+                    copy(selection = if (intent.add) selection + chosen else chosen)
+                }
+            }
+            LibraryIntent.BackToPlace -> {
+                val history = currentState.history
+                val previous = history.lastOrNull() ?: return
+                keepHistory(history.dropLast(1))
+                showSection(previous)
+                return
+            }
             is LibraryIntent.ToggleCollection -> {
                 collectionAnchor = intent.key
                 setState {
@@ -390,6 +464,10 @@ class LibraryViewModel(
                 setState { copy(collectionSelection = emptySet()) }
             }
         }
+        // A place left for another is where Back comes to, as in a browser.
+        if (currentState.section != place) {
+            keepHistory((currentState.history + place).takeLast(MAX_HISTORY))
+        }
     }
 
     /** As a range of songs is selected, among the albums, artists or folders shown. */
@@ -413,6 +491,11 @@ class LibraryViewModel(
         }
     }
 
+    private fun keepHistory(history: List<LibrarySection>) {
+        savedState[KEY_HISTORY] = ArrayList(history.map { it.saved })
+        setState { copy(history = history) }
+    }
+
     private fun showSection(section: LibrarySection) {
         val tab = (section as? LibrarySection.Browse)?.tab ?: LibraryTab.Songs
         savedState[KEY_TAB] = tab.name
@@ -432,6 +515,54 @@ class LibraryViewModel(
     private fun updateQuery(transform: Query.() -> Query) {
         query.update(transform)
         setState { copy(filter = query.value.filter, sort = query.value.sort) }
+    }
+
+    /**
+     * A collection's screen needs its own songs and what is selected of them, nothing more: no
+     * other list made from the library, no count for the sidebar, and no second check of every song
+     * for the lossless check, which the library's own does. A burst of changes, as a batch saving
+     * song after song, is caught up with once it is over, not one change after another.
+     */
+    private fun showCollection(type: CollectionType, key: String) {
+        if (observing?.isActive == true) return
+        listsCollection = true
+        // The songs it showed last: found again by them once an edit has given it another key.
+        var shown: List<TrackId> = emptyList()
+        observing =
+            library
+                .observeTracks()
+                .conflate()
+                .map { all ->
+                    val found = all.collection(type, key, shown)
+                    if (found != null) shown = found.tracks.map { it.id }
+                    presentCollection(all.size, found)
+                }
+                .flowOn(dispatchers.default)
+                .catch {
+                    setState { copy(loading = false) }
+                    showMessage(UiMessage(strings.get(R.string.library_load_failed)))
+                }
+                .onEach { presented -> setState { presented(this) } }
+                .launchIn(viewModelScope)
+    }
+
+    private fun presentCollection(
+        total: Int,
+        found: TrackCollection?,
+    ): LibraryState.() -> LibraryState {
+        val tracks = found?.tracks.orEmpty()
+        val ids = tracks.mapTo(mutableSetOf()) { it.id }
+        val totalBytes = tracks.sumOf { it.sizeBytes }
+        return {
+            copy(
+                loading = false,
+                totalTracks = total,
+                collection = found,
+                listing = Listing(tracks = tracks, totalBytes = totalBytes),
+                selection = selection.filterTo(mutableSetOf()) { it in ids },
+                clicked = clicked?.takeIf { it in ids },
+            )
+        }
     }
 
     private fun startObserving() {
@@ -492,6 +623,7 @@ class LibraryViewModel(
                 needsAttentionCount = needsAttention,
                 storages = storages,
                 selection = selection.filterTo(mutableSetOf()) { it in visibleIds },
+                clicked = clicked?.takeIf { it in visibleIds },
                 collectionSelection =
                     collectionSelection.filterTo(mutableSetOf()) { it in listedKeys },
             )
@@ -520,6 +652,38 @@ class LibraryViewModel(
     private companion object {
         const val KEY_TAB = "tab"
         const val KEY_SEARCH = "search"
+        const val KEY_HISTORY = "history"
+
+        /** How many places Back goes through: a few steps back, not the whole day's browsing. */
+        const val MAX_HISTORY = 10
         val MIN_REFRESH = 900.milliseconds
     }
 }
+
+/** A place as the saved state keeps it, and back ([toPlace]). */
+private val LibrarySection.saved: String
+    get() =
+        when (this) {
+            is LibrarySection.Browse -> "browse:${tab.name}"
+            LibrarySection.NeedsAttention -> "attention"
+            LibrarySection.FakeLossless -> "fake"
+            is LibrarySection.OnStorage ->
+                when (storage) {
+                    Storage.Device -> "device"
+                    is Storage.Removable -> "removable:${storage.name}"
+                }
+        }
+
+private fun String.toPlace(): LibrarySection? =
+    when {
+        startsWith("browse:") ->
+            LibraryTab.entries
+                .firstOrNull { it.name == removePrefix("browse:") }
+                ?.let { LibrarySection.Browse(it) }
+        this == "attention" -> LibrarySection.NeedsAttention
+        this == "fake" -> LibrarySection.FakeLossless
+        this == "device" -> LibrarySection.OnStorage(Storage.Device)
+        startsWith("removable:") ->
+            LibrarySection.OnStorage(Storage.Removable(removePrefix("removable:")))
+        else -> null
+    }

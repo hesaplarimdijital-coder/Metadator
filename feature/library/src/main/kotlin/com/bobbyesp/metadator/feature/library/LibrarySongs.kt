@@ -78,6 +78,7 @@ import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
+import com.bobbyesp.metadator.core.model.TrackSort
 import com.bobbyesp.metadator.core.navigation.Editor
 import com.bobbyesp.metadator.core.navigation.LocalShownDetail
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
@@ -95,10 +96,23 @@ import kotlinx.coroutines.launch
 /**
  * The songs as a table, on a wide window: a header that sorts them and selects them all, and a row
  * for each with its columns. Too narrow for a table, the songs are the phone's rows.
+ *
+ * The library's songs and a collection's are this one list, selected and opened alike: a copy for
+ * each drifted, and a collection's songs could not be selected at all. A collection gives its cover
+ * and name as [header], which scrolls away over its songs, and [pinned], which stays at the top
+ * with the columns once it has: its selection's bar. Its songs keep their own order, an album's by
+ * disc and track, so its columns sort nothing ([sortable]).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
+internal fun SongsTable(
+    tracks: List<Track>,
+    state: LibraryState,
+    actions: LibraryActions,
+    header: (@Composable () -> Unit)? = null,
+    pinned: (@Composable () -> Unit)? = null,
+    sortable: Boolean = true,
+) {
     val listState = rememberLazyListState()
     SongListShortcuts(tracks, listState)
     val onIntent = actions.onIntent
@@ -112,21 +126,24 @@ internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: Libra
     val allSelected = state.selection.size == tracks.size
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxWidth < TrackColumns.MinWidth) {
-            SongRows(tracks, state, actions, listState, heldKeys, inCard = false)
+            SongRows(tracks, state, actions, listState, heldKeys, inCard = false, header, pinned)
             return@BoxWithConstraints
         }
         val columns = TrackColumns.forWidth(maxWidth - 16.dp)
-        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        val columnHeads: @Composable () -> Unit = {
             TrackTableHeader(
                 columns = columns,
-                sort = state.sort.sort,
+                sort = state.sort.sort.takeIf { sortable },
                 ascending = state.sort.ascending,
-                onSort = { sort ->
-                    onIntent(
-                        if (sort == state.sort.sort) LibraryIntent.ToggleSortDirection
-                        else LibraryIntent.Sort(sort)
-                    )
-                },
+                onSort =
+                    if (sortable) {
+                        { sort: TrackSort ->
+                            onIntent(
+                                if (sort == state.sort.sort) LibraryIntent.ToggleSortDirection
+                                else LibraryIntent.Sort(sort)
+                            )
+                        }
+                    } else null,
                 selection =
                     when {
                         state.selection.isEmpty() -> ToggleableState.Off
@@ -139,11 +156,25 @@ internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: Libra
                     )
                 },
             )
+        }
+        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+            // Over the library's songs the columns stay where they are. A collection's come under
+            // its cover and name, and stay at the top once those have scrolled away.
+            if (header == null) columnHeads()
             LazyColumn(
                 modifier = Modifier.weight(1f).trackHeldKeys(heldKeys).scrollbar(listState),
                 state = listState,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 8.dp),
             ) {
+                if (header != null) {
+                    item(key = HeaderKey, contentType = HeaderKey) { header() }
+                    stickyHeader(key = PinnedKey, contentType = PinnedKey) {
+                        Column(Modifier.background(Studio.colors.panel)) {
+                            pinned?.invoke()
+                            columnHeads()
+                        }
+                    }
+                }
                 items(tracks, key = { it.id.value }, contentType = { "track" }) { track ->
                     val selected = track.id in state.selection
                     ContextMenuArea(
@@ -154,7 +185,7 @@ internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: Libra
                             track = track,
                             columns = columns,
                             onClick = { onSongClick(track, latest.value, heldKeys, actions) },
-                            onToggle = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
+                            onToggle = { onSongToggle(track, heldKeys, actions) },
                             onLongClick = { onIntent(LibraryIntent.ToggleSelection(track.id)) },
                             quality = state.quality.of(track),
                             selected = selected,
@@ -169,18 +200,27 @@ internal fun SongsTable(tracks: List<Track>, state: LibraryState, actions: Libra
     }
 }
 
-/** The songs on a phone: rows on a card, below the filters. */
+/**
+ * The songs on a phone: rows on a card, below the filters, or below a collection's cover and name
+ * ([header]), which scroll away with them.
+ */
 @Composable
-internal fun SongCards(tracks: List<Track>, state: LibraryState, actions: LibraryActions) {
+internal fun SongCards(
+    tracks: List<Track>,
+    state: LibraryState,
+    actions: LibraryActions,
+    header: (@Composable () -> Unit)? = null,
+) {
     val listState = rememberLazyListState()
     SongListShortcuts(tracks, listState)
     val heldKeys = remember { HeldKeys() }
-    SongRows(tracks, state, actions, listState, heldKeys, inCard = true)
+    SongRows(tracks, state, actions, listState, heldKeys, inCard = true, header = header)
 }
 
 /**
  * The songs as rows, each with what the lossless check found or its length. On a phone they lie on
- * a card of their own; in a panel too narrow for a table, on the panel.
+ * a card of their own; in a panel too narrow for a table, on the panel. [header] and [pinned] are a
+ * collection's, as for [SongsTable].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -191,6 +231,8 @@ private fun SongRows(
     listState: LazyListState,
     heldKeys: HeldKeys,
     inCard: Boolean,
+    header: (@Composable () -> Unit)? = null,
+    pinned: (@Composable () -> Unit)? = null,
 ) {
     val onIntent = actions.onIntent
     val latest = rememberUpdatedState(state)
@@ -209,6 +251,12 @@ private fun SongRows(
                 )
             } else PaddingValues(vertical = 4.dp),
     ) {
+        if (header != null) item(key = HeaderKey, contentType = HeaderKey) { header() }
+        if (pinned != null) {
+            stickyHeader(key = PinnedKey, contentType = PinnedKey) {
+                Box(Modifier.background(Studio.colors.panel)) { pinned() }
+            }
+        }
         itemsIndexed(tracks, key = { _, track -> track.id.value }) { index, track ->
             val selected = track.id in state.selection
             ContextMenuArea(
@@ -238,6 +286,10 @@ private fun SongRows(
     }
 }
 
+/** The keys of what a collection puts over its songs; the songs' own are numbers. */
+private const val HeaderKey = "header"
+private const val PinnedKey = "pinned"
+
 /**
  * As a file manager selects: Shift takes everything up to the song, Ctrl the song alone, and
  * neither opens it; while songs are selected, a click adds to them or takes away.
@@ -256,6 +308,19 @@ private fun onSongClick(
         ctrl || state.selecting -> actions.onIntent(LibraryIntent.ToggleSelection(track.id))
         else -> actions.onOpenTrack(track)
     }
+}
+
+/**
+ * A click on a song's box: with Shift, everything up to the song, as a click on its row takes; else
+ * the song alone, in or out. The box is part of the row: Shift on it took the song alone.
+ */
+private fun onSongToggle(track: Track, heldKeys: HeldKeys, actions: LibraryActions) {
+    val shift = heldKeys.shift
+    heldKeys.clear()
+    actions.onIntent(
+        if (shift) LibraryIntent.SelectRangeTo(track.id)
+        else LibraryIntent.ToggleSelection(track.id)
+    )
 }
 
 /** The corners of the row at [index] of a card of [count]: the card's own at its ends. */
@@ -385,7 +450,7 @@ internal fun AlbumGrid(
     wide: Boolean,
 ) {
     val gridState = rememberLazyGridState()
-    CollectionShortcuts(LibraryTab.Albums, albums, state, actions)
+    CollectionPlaceShortcuts(LibraryTab.Albums, albums, state, actions)
     val onIntent = actions.onIntent
     // Ctrl and Shift, as they were when an album was clicked.
     val heldKeys = remember { HeldKeys() }
@@ -440,7 +505,7 @@ internal fun CollectionList(
     wide: Boolean,
 ) {
     val listState = rememberLazyListState()
-    CollectionShortcuts(tab, collections, state, actions)
+    CollectionPlaceShortcuts(tab, collections, state, actions)
     val onIntent = actions.onIntent
     val heldKeys = remember { HeldKeys() }
     val latest = rememberUpdatedState(state)
