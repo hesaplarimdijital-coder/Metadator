@@ -119,7 +119,7 @@ internal fun SongsTable(
     sortable: Boolean = true,
 ) {
     val listState = rememberLazyListState()
-    SongListShortcuts(tracks, listState)
+    SongListShortcuts(listState)
     val onIntent = actions.onIntent
     // Ctrl and Shift, as they were when a song was clicked.
     val heldKeys = remember { HeldKeys() }
@@ -222,7 +222,7 @@ internal fun SongCards(
     header: (@Composable () -> Unit)? = null,
 ) {
     val listState = rememberLazyListState()
-    SongListShortcuts(tracks, listState)
+    SongListShortcuts(listState)
     val heldKeys = remember { HeldKeys() }
     SongRows(tracks, state, actions, listState, heldKeys, inCard = true, header = header)
 }
@@ -473,9 +473,13 @@ private fun rememberSongMenu(
     }
 }
 
-/** The keys that move through a long list, for when nothing in it has the focus to take them. */
+/**
+ * The keys that move through a long list, for when nothing in it has the focus to take them. Home
+ * and End go to the list's first and last items: a collection's cover and name come before its
+ * songs, and End counted from those stopped short of the last song.
+ */
 @Composable
-private fun SongListShortcuts(tracks: List<Track>, listState: LazyListState) {
+private fun SongListShortcuts(listState: LazyListState) {
     val scope = rememberCoroutineScope()
     KeyboardShortcuts(
         title = stringResource(R.string.tab_songs),
@@ -500,7 +504,9 @@ private fun SongListShortcuts(tracks: List<Track>, listState: LazyListState) {
                 },
                 Shortcut(KeyEvent.KEYCODE_MOVE_END, stringResource(R.string.shortcut_list_end)) {
                     scope.launch {
-                        listState.scrollToItem((tracks.size - 1).coerceAtLeast(0))
+                        listState.scrollToItem(
+                            (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                        )
                     }
                 },
             ),
