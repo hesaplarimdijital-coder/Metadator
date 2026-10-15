@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026  Gabriel Fontán (BobbyESP)
  */
-package com.bobbyesp.metadator.feature.editor
+package com.bobbyesp.metadator.core.ui.image
 
 import android.content.Context
 import android.graphics.BitmapFactory
@@ -23,7 +23,11 @@ data class ImageInfo(val width: Int, val height: Int, val sizeBytes: Int, val do
 
 class PickedImage(val bytes: ByteArray, val mimeType: String)
 
-/** Reads pictures the user picks, and measures any picture. Keeps `Context` out of ViewModels. */
+/**
+ * Reads pictures the user picks, and measures any picture. Keeps `Context` out of ViewModels. One
+ * for the editor and the batch editor, so a picture picked in either is read by the same rules:
+ * none over 20 MB, and a JPEG or a PNG known by its bytes when the provider gives no type.
+ */
 interface ImageSource {
     suspend fun read(uri: String): PickedImage?
 

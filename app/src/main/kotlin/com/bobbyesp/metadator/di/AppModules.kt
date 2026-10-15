@@ -39,6 +39,8 @@ import com.bobbyesp.metadator.core.network.KtorArtworkDownloader
 import com.bobbyesp.metadator.core.ui.artwork.AndroidArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.artwork.ArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
+import com.bobbyesp.metadator.core.ui.image.AndroidImageSource
+import com.bobbyesp.metadator.core.ui.image.ImageSource
 import com.bobbyesp.metadator.feature.batch.batchModule
 import com.bobbyesp.metadator.feature.editor.editorModule
 import com.bobbyesp.metadator.feature.library.libraryModule
@@ -102,6 +104,8 @@ private val appModule = module {
     }
     single<StringProvider> { AndroidStringProvider(androidContext()) }
     single<ArtworkAccentSource> { AndroidArtworkAccentSource(androidContext(), get()) }
+    // The editor and the batch editor read a picked picture by the same rules.
+    single<ImageSource> { AndroidImageSource(androidContext(), get(), get()) }
     single<SettingsRepository> {
         DataStoreSettingsRepository(createSettingsDataStore(androidContext()))
     }

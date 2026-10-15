@@ -56,6 +56,10 @@
         <item quantity="one">%1$d song restored</item>
         <item quantity="other">%1$d songs restored</item>
     </plurals>
+    <plurals name="batch_undone_partly">
+        <item quantity="one">%1$d of %2$d song restored</item>
+        <item quantity="other">%1$d of %2$d songs restored</item>
+    </plurals>
     <string name="batch_cancelled">Stopped. The songs saved so far keep their changes.</string>
     <string name="batch_undo_all">Undo all</string>
     <string name="batch_finish">Finish</string>

@@ -67,8 +67,8 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioTone
 import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
+import com.bobbyesp.metadator.core.ui.image.ImageInfo
 import com.bobbyesp.metadator.core.ui.input.shortcutHint
-import com.bobbyesp.metadator.feature.editor.ImageInfo
 import com.bobbyesp.metadator.feature.editor.R
 
 /**

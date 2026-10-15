@@ -44,6 +44,12 @@ Most of the work here is making sure that a change touches only what shows it.
   ids of what is listed, made once with the listing (`Listing.listedIds`), not at each row, and the
   inspector only counts what is selected until the selection rests, then reads the list once for
   what to show (`Inspected` in `LibrarySection.kt`).
+- **A search lists what was typed last.** The library is filtered, sorted and grouped off the main
+  thread for the latest query only (`conflate` in `LibraryViewModel`): at most one listing no longer
+  wanted, then the latest, where a fast typist queued one a letter. The checks are handed the
+  library once for each version of it, not at each letter; what the counts and filters ask of a
+  song is worked out once for it (`Track.needsAttention`, `Track.fileExtension`); and an artist's
+  or a folder's songs are sorted with one comparator for all, not a collator made for each.
 - **The domain's types are stable.** What the domain hands the screens is immutable data, declared
   so in `compose_stability.conf`. Without it a song's quality, made again equal to the last, was
   taken for a change, and every row of the library was drawn again each time a song was checked.

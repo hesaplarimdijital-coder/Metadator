@@ -86,7 +86,7 @@ object PlayerSheetDefaults {
      * The room the collapsed player takes at the bottom, for whatever must stay clear of it: the
      * bar, 76 dp, the 12 dp under it, and a gap.
      */
-    val CollapsedClearance: Dp = 96.dp
+    val CollapsedClearance: Dp = StudioDefaults.FloatingBarClearance
 
     /**
      * The room the docked bar takes under the panels of a wide window: the bar, and the gap between

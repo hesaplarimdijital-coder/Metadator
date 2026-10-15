@@ -273,7 +273,7 @@ private fun PanelLibrary(
                     onIntent = actions.onIntent,
                     onOpenSettings = actions.onOpenSettings,
                     onShowShortcuts = actions.onShowShortcuts,
-                    modifier = Modifier.width(228.dp),
+                    modifier = Modifier.width(StudioDefaults.SidebarWidth),
                 )
             }
             Column(Modifier.weight(1f).fillMaxHeight().studioPanel()) {
@@ -840,8 +840,12 @@ private fun PhoneLibrary(
                 Modifier.align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     // Above the mini player when one is showing, as far up as the shell keeps
-                    // its messages (the player's clearance, which a feature cannot see).
-                    .padding(bottom = if (state.playerActive) 96.dp else Spacing.large),
+                    // its messages.
+                    .padding(
+                        bottom =
+                            if (state.playerActive) StudioDefaults.FloatingBarClearance
+                            else Spacing.large
+                    ),
         ) {
             SelectionBar(state, actions, onIntent, glass = haze)
         }

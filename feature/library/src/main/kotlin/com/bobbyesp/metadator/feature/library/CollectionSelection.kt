@@ -58,6 +58,7 @@ import com.bobbyesp.metadator.core.designsystem.component.HeldKeys
 import com.bobbyesp.metadator.core.designsystem.component.MenuAction
 import com.bobbyesp.metadator.core.designsystem.component.StudioButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
 import com.bobbyesp.metadator.core.designsystem.component.heldWhileClosing
@@ -381,7 +382,11 @@ internal fun CollectionSelectionBar(
             modifier
                 .navigationBarsPadding()
                 // Where the songs' bar is: above the mini player when one is showing.
-                .padding(bottom = if (state.playerActive) 96.dp else Spacing.large),
+                .padding(
+                    bottom =
+                        if (state.playerActive) StudioDefaults.FloatingBarClearance
+                        else Spacing.large
+                ),
     ) {
         val shown = heldWhileClosing(state.selectingCollections, state.shownSelection)
         val editTogether = { actions.editTogether(state.selectedCollectionTracks) }
