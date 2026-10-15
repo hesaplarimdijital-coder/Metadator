@@ -1758,8 +1758,10 @@ def tooltip_on_hover():
 # leaves out the ones that matter least, and says so in the report.
 
 # The seconds a run may take, as far as these steps can tell, before some are left out. The job
-# gives the whole run an hour, the emulator's start included; forty minutes is the aim. A run that
-# should try them all, once, can be given more: SMOKE_TIME_LIMIT=3300.
+# gives the whole run an hour, the emulator's start (up to ten minutes) included, and the report is
+# published by a step that a job cancelled for its time does not run; forty minutes is the aim. A
+# run that should try them all, once, can be given more, but not much: SMOKE_TIME_LIMIT=2700 leaves
+# the start and the report their time.
 TIME_LIMIT = float(os.environ.get("SMOKE_TIME_LIMIT", "2400"))
 
 # The first run on a device took this many seconds in all, and this many of them over installing the
