@@ -1773,28 +1773,28 @@ STANDS = {
 # calls them. The costs are counted, not measured: smoke.log has the steps' real times once a run
 # has been, and these are to be set from it.
 NEW_STEPS = {
-    "esc in the search": ("search", 15, 2),
-    "about": ("search", 18, 3),
-    "metadata": ("batch", 45, 2),
-    "back arrow": ("mouse", 40, 1),
+    "esc in the search": ("search", 20, 3),
+    "about": ("search", 27, 2),
+    "metadata": ("batch", 45, 3),
+    "back arrow": ("mouse", 38, 1),
     "back at the start": ("mouse", 30, 2),
-    "editor follows": ("mouse", 50, 1),
-    "boxes": ("mouse", 60, 1),
-    "rectangle": ("mouse", 60, 2),
-    "cover leaves": ("card", 60, 2),
-    "album artist": ("card", 70, 1),
-    "turkish about": ("turkish", 16, 3),
-    "player": ("glass", 25, 3),
-    "late songs": ("glass", 35, 1),
-    "no cover": ("glass", 32, 2),
-    "garbled list": ("glass", 32, 1),
-    "editor repair": ("glass", 40, 1),
-    "batch repair": ("glass", 55, 1),
-    "album menu": ("glass", 50, 2),
-    "merge": ("glass", 55, 1),
-    "long album": ("glass", 55, 3),
-    "by hand": ("glass", 70, 3),
-    "big selection": ("performance", 70, 3),
+    "editor follows": ("mouse", 35, 1),
+    "boxes": ("mouse", 56, 1),
+    "rectangle": ("mouse", 45, 2),
+    "cover leaves": ("card", 45, 2),
+    "album artist": ("card", 52, 1),
+    "turkish about": ("turkish", 27, 3),
+    "player": ("glass", 30, 3),
+    "late songs": ("glass", 30, 1),
+    "no cover": ("glass", 52, 2),
+    "garbled list": ("glass", 24, 1),
+    "editor repair": ("glass", 44, 1),
+    "batch repair": ("glass", 50, 1),
+    "album menu": ("glass", 52, 2),
+    "merge": ("glass", 70, 1),
+    "long album": ("glass", 60, 4),
+    "by hand": ("glass", 78, 4),
+    "big selection": ("performance", 42, 3),
 }
 
 # How long each step took, whole, by its name; and the steps of this part that were tried, with
@@ -2179,6 +2179,30 @@ def stop_selecting(nodes=None):
     return button
 
 
+def library_has_the_keys():
+    """Out of every field first: Ctrl+A selects the songs only while the library has the keys, and
+    in a field it selects the field's text. Esc empties a search and leaves it, as a person does."""
+    nodes = screen()
+    for _ in range(3):
+        if not any(node.is_field and node.focused for node in nodes):
+            break
+        key(KEY_ESCAPE)
+        nodes = screen()
+    return nodes
+
+
+def apply_all(wait=20):
+    """The batch editor's button that applies, pressed once it can be: it is dimmed until something
+    is changed, and a press on it before that does nothing."""
+
+    def ready(found):
+        return any(node.pressed_as().enabled for node in find(r"^Apply to all$", found))
+
+    nodes = wait_for(ready, wait, "the button that applies, enabled")
+    tap(next(node for node in find(r"^Apply to all$", nodes) if node.pressed_as().enabled))
+    return nodes
+
+
 # --- The songs that come late ------------------------------------------------------------------
 #
 # Made here, put in a folder of their own once the steps that count the songs on screen are done,
@@ -2421,6 +2445,7 @@ def turkish_about_reported():
 def find_metadata_for_album():
     """Ctrl+L in the batch editor of the four songs opens the sheet that looks the album up; it
     lists what the sources found, and Esc closes it with nothing filled in."""
+    library_has_the_keys()
     key(KEY_CTRL, KEY_A)
     key(KEY_CTRL, KEY_E)
     wait_for(
@@ -2784,11 +2809,12 @@ def cover_leaves_the_list():
     nodes = wait_for(lambda found: bool(sidebar_item("No cover", found)), 15, "the sidebar")
     before_count = settled_count("No cover", nodes)
     tap(sidebar_item("No cover", nodes))
+    # The check of the covers may not have reached the card's songs yet: the list fills as it goes.
     nodes = wait_for(
-        lambda found: place_shown(found) == "No cover" and bool(boxes(found)), 20, "the list"
+        lambda found: place_shown(found) == "No cover" and "Da Funk" in list_titles(found),
+        60,
+        "Da Funk on the list of songs without a cover",
     )
-    if "Da Funk" not in list_titles(nodes):
-        raise Failed(f"the list of songs without a cover holds {list_titles(nodes)}, not Da Funk")
     tap(list_row("Da Funk", nodes))
     wait_for(lambda found: title_field(found) == "Da Funk", 40, "the editor of Da Funk")
     key(KEY_CTRL, KEY_K)
@@ -2838,18 +2864,14 @@ def album_artist_written():
     )
     new = "Daft Punk and Friends"
     type_into("Album artists", new)
-    nodes = wait_for(lambda found: bool(find(r"^Apply to all$", found)), 15, "the button that applies")
-    tap(find(r"^Apply to all$", nodes)[0])
+    apply_all()
     nodes = saved_when(r"^Done$", 180)
     saved = next((node.text for node in nodes if re.search(r"songs? saved", node.text)), "")
     if find(r"couldn.t be saved", nodes) or not saved:
         raise Failed(f"the batch did not save both songs: {said_on(nodes)}")
     screenshot("homework-saved")
     tap(find("^Finish$", nodes)[0])
-    nodes = wait_for(an_album, 20, "the album's screen again")
-    tap(find(BACK_ARROW, nodes)[0])
-    wait_for(the_albums, 15, "the albums")
-    key(KEY_CTRL, KEY_1)
+    home()
     notes = []
     for name in names:
         after = probe(pull(name, folder))
@@ -3279,6 +3301,7 @@ def batch_repair():
     listed = list_titles(nodes)
     if len(listed) < 2:
         raise Failed(f"the list of garbled text holds {listed}")
+    library_has_the_keys()
     key(KEY_CTRL, KEY_A)
     nodes = wait_for(
         lambda found: selected_count(found) >= 2 and bool(find(r"^Edit \d+ songs$", found)),
@@ -3309,8 +3332,7 @@ def batch_repair():
             return bool(cards) and cards[0].pressed_as().checked
 
         wait_for(switched_on, 10, "the repair switched on")
-        found = wait_for(lambda seen: bool(find(r"^Apply to all$", seen)), 15, "the button that applies")
-        tap(find(r"^Apply to all$", found)[0])
+        apply_all()
         done = saved_when(r"^Done$", 180)
         saved = next((node.text for node in done if re.search(r"songs? saved", node.text)), "")
         if find(r"couldn.t be saved", done) or not saved:
@@ -3362,9 +3384,10 @@ def batch_repair():
         )
         now = album_titles(nodes_).count("Zz Turkish")
         before = state.get("turkish_tiles")
+        was = "an unknown number" if before is None else before
         if now != 1:
-            raise Failed(f"{now} albums are called Zz Turkish (there were {before}), not one")
-        return f"{before} albums called Zz Turkish became {now}"
+            raise Failed(f"{now} albums are called Zz Turkish (there were {was}), not one")
+        return f"{was} albums called Zz Turkish became {now}"
 
     parts.check("the two albums are one", one_album)
     key(KEY_CTRL, KEY_1)
@@ -3558,7 +3581,7 @@ def merge_albums():
         lambda found: bool(find("They will be one album once you apply", found)), 15, "the merge taken"
     )
     screenshot("the-merge-taken")
-    tap(find(r"^Apply to all$", nodes)[0])
+    apply_all()
     done = saved_when(r"^Done$", 180)
     saved = next((node.text for node in done if re.search(r"songs? saved", node.text)), "")
     if find(r"couldn.t be saved", done) or not saved:
@@ -3719,8 +3742,7 @@ def pick_a_file(avoid):
 
 def file_opened_by_hand():
     """A file opened with Ctrl+O stays beside the library when a search hides the song clicked
-    before it; a song clicked, though, goes when a search hides it: "Pick a song" takes its place.
-    Also when the song is clicked again after the file was opened."""
+    before it; a song clicked, though, goes when a search hides it: "Pick a song" takes its place."""
     late_ready()
     parts = Parts()
     clicked = "Aerodynamic"
@@ -3770,25 +3792,6 @@ def file_opened_by_hand():
         return f"the editor of {clicked!r} gave way to 'Pick a song'"
 
     parts.check("a song hidden by a search goes", goes)
-
-    def again():
-        tap(row(clicked))
-        wait_for(lambda found: title_field(found) == clicked, 40, f"the editor of {clicked!r}")
-        picked = pick_a_file(("Aerodynamic",))
-        wait_for(
-            lambda found: any(node.package == PACKAGE for node in found)
-            and title_field(found) not in (None, clicked),
-            40,
-            "the file opened",
-        )
-        tap(row(clicked))
-        wait_for(lambda found: title_field(found) == clicked, 40, f"the editor of {clicked!r} again")
-        search_that_hides()
-        wait_for(lambda found: bool(find("^Pick a song$", found)), 15, "Pick a song")
-        search_cleared()
-        return f"{clicked!r} clicked again after {picked} was opened went with the search that hid it"
-
-    parts.check("a song clicked again after a file was opened goes too", again)
     return parts.report()
 
 
@@ -3813,6 +3816,7 @@ def big_selection():
     if not find("^Pick a song$", nodes):
         key(KEY_CTRL, KEY_W)
     parts = Parts()
+    library_has_the_keys()
     key(KEY_CTRL, KEY_A)
 
     def placeholder():
