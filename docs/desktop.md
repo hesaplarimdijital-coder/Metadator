@@ -71,7 +71,9 @@ from its bar.
 the library starts it with nothing beside it (`Navigator.goTo` drops what the library showed there,
 unless it holds unsaved changes), and the arrow at its top leaves it with what was opened beside it
 in one press (`Navigator.leave`): an editor with unsaved changes stays, beside the library. The
-arrow used to be Back, whose first step was the song beside the collection.
+arrow used to be Back, whose first step was the song beside the collection. With nothing selected,
+Esc does what the arrow does, as a shortcut of the collection's own: left to Android's fallback,
+an Esc from a keyboard it does not know (the emulator's) was never made a Back.
 
 **A song can be opened in a window of its own** (the menu on a song, below): two editors side by
 side, or one beside the library. It is `ExternalEditorActivity`, the editor other apps open with
@@ -188,7 +190,7 @@ with `Modifier.onKeyEvent` on a screen: it only works while the focus is inside.
 | | Esc | Ends the selection |
 | A collection | Ctrl+A | Selects every song of the album, artist or folder |
 | | Ctrl+E, Enter | Edits the selected songs together |
-| | Esc | Ends the selection |
+| | Esc | Ends the selection; with nothing selected, leaves the collection |
 | | Page Up, Page Down, Home, End | Move through its songs |
 | Editor | Ctrl+S | Saves |
 | | Ctrl+L | Finds metadata |

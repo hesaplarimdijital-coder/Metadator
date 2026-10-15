@@ -86,7 +86,7 @@ internal fun CollectionScreen(
         isBackEnabled = state.selecting,
         onBackCompleted = { onIntent(LibraryIntent.ClearSelection) },
     )
-    CollectionShortcuts(title, state, actions)
+    CollectionShortcuts(title, state, actions, onBack)
     // The songs, recorded for the selection's bar that floats over them on a phone.
     val haze = rememberHazeState()
     val motion = MaterialTheme.motionScheme
@@ -208,10 +208,18 @@ private fun SelectionStrip(state: LibraryState, actions: LibraryActions) {
 
 /**
  * What a collection's songs do from the keyboard, as the library's do: Ctrl+A selects them all,
- * Ctrl+E and Enter edit the selection together, Esc ends it. The list moves with its own keys.
+ * Ctrl+E and Enter edit the selection together, Esc ends it; with nothing selected, Esc leaves the
+ * collection, as its arrow does. An Esc nobody takes was left to Android to make a Back of, and one
+ * injected from a keyboard it does not know was never made one: on the emulator two presses left
+ * the album open.
  */
 @Composable
-private fun CollectionShortcuts(title: String, state: LibraryState, actions: LibraryActions) {
+private fun CollectionShortcuts(
+    title: String,
+    state: LibraryState,
+    actions: LibraryActions,
+    onBack: () -> Unit,
+) {
     val onIntent = actions.onIntent
     val editSelection = { actions.onEditTracks(state.selectedTracks) }
     KeyboardShortcuts(
@@ -241,10 +249,11 @@ private fun CollectionShortcuts(title: String, state: LibraryState, actions: Lib
                 ),
                 Shortcut(
                     KeyEvent.KEYCODE_ESCAPE,
-                    stringResource(R.string.close_selection),
-                    enabled = state.selecting,
+                    stringResource(
+                        if (state.selecting) R.string.close_selection else R.string.back
+                    ),
                 ) {
-                    onIntent(LibraryIntent.ClearSelection)
+                    if (state.selecting) onIntent(LibraryIntent.ClearSelection) else onBack()
                 },
             ),
     )
