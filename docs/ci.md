@@ -135,6 +135,11 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   again. For a push that only changes the scripts. A push that changes neither the app nor the
   scripts (the docs) says `[skip ci]`, which GitHub reads as not to run at all; a push that runs
   stops the run before it.
+- **`[perf-ab <run id>]` in a commit message** adds a job that times this build against the APK
+  of that earlier run (its `metamatik` artifact, kept thirty days), on one emulator of its own:
+  the earlier one, this one, the earlier one, this one, each installed anew with only the
+  performance step (`SMOKE_TIMED_ALONE=1`). The times go to the release as `perf-report.txt`.
+  See [performance.md](performance.md#reading-the-numbers).
 
 ## Changing a workflow
 
