@@ -27,6 +27,8 @@ import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
 import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.core.model.UserSettings
+import com.bobbyesp.metadator.core.ui.image.ImageInfo
+import com.bobbyesp.metadator.core.ui.image.ImageSource
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.UiMessage
 import com.bobbyesp.metadator.library.api.AccessResult
@@ -551,17 +553,17 @@ class EditorViewModel(
         savedState[KEY_PENDING] = null
     }
 
+    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
+
     private companion object {
         /** Named anew with the map, so that the JSON kept before is never read as one. */
         const val KEY_PENDING = "pending_edits"
 
         /** The formats [CheckLosslessUseCase] reads, by the names their files go by. */
         val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave")
-    }
-
-    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
-    override fun onUnhandledError(error: Throwable) {
-        super.onUnhandledError(error)
-        showMessage(unexpectedErrorMessage(strings))
     }
 }

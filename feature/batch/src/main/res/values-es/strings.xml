@@ -62,6 +62,11 @@
         <item quantity="many">%1$d canciones restauradas</item>
         <item quantity="other">%1$d canciones restauradas</item>
     </plurals>
+    <plurals name="batch_undone_partly">
+        <item quantity="one">%1$d de %2$d canción restaurada</item>
+        <item quantity="many">%1$d de %2$d canciones restauradas</item>
+        <item quantity="other">%1$d de %2$d canciones restauradas</item>
+    </plurals>
     <string name="batch_cancelled">Detenido. Las canciones guardadas hasta ahora mantienen sus cambios.</string>
     <string name="batch_undo_all">Deshacer todo</string>
     <string name="batch_finish">Terminar</string>

@@ -200,7 +200,10 @@ is beside it (`LocalShownDetail`), and marks that song.
 A feature moves through the stack with its `Navigator` and nothing else (`BackStackNavigator`,
 tested on the JVM). The stack is the library at its root, a collection gone to from it, what is
 shown beside each (an editor or the batch editor: `isList` and `isDetail` in `Keys.kt` say which,
-as the entries' metadata tells list-detail), and the screens gone to from those.
+as the entries' metadata tells list-detail), and the screens gone to from those. A collection's
+screen has a `LibraryViewModel` of its own (`LibraryIntent.ShowCollection`), which lists that
+collection's songs alone (`List<Track>.collection`): it groups nothing else, hands no song to the
+checks of the library, and counts nothing for the sidebar.
 
 - `goTo` adds a destination. A list gone to from a list starts with nothing beside it: what was
   beside the one left was chosen there.
@@ -425,7 +428,9 @@ all"), or by the inspector, for up to a hundred songs selected beside it (more a
 purpose, from the placeholder that says how many), and edits its songs as one: a field set there
 is set on every song, and a field left alone keeps each song's own value (`BatchEdit`). Besides
 the fields, it sets one cover for all, picked or found online
-([cover-finder.md](cover-finder.md)), numbers the tracks in order, reads tags from file names, and
+([cover-finder.md](cover-finder.md)); a picked one is read as the editor reads one
+(`ImageSource`, `core:ui`: none over 20 MB, a JPEG or a PNG known by its bytes when the provider
+gives no type), numbers the tracks in order, reads tags from file names, and
 gives some songs **numbers of their own** (`BatchEdit.positions`): a track or disc number that
 differs from song to song, from the release found online or the disc a merged album's title said.
 A number is written in each file's own style (`TrackPositions`), and what a position leaves out, a

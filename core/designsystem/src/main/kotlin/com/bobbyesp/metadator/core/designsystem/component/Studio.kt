@@ -119,6 +119,13 @@ object StudioDefaults {
      */
     val FooterHeight = 64.dp
 
+    /**
+     * The room the player's bar takes at the foot of a phone's screen while something plays, for
+     * what must stay clear of it: the bar, 76 dp, the 12 dp under it, and a gap. The design
+     * system's to say, as a feature cannot see the player.
+     */
+    val FloatingBarClearance = 96.dp
+
     // Where the layouts change with the room they have, read together.
 
     /** The narrowest window laid out as panels on a ground; narrower, the screen is one. */

@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
+import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.ui.input.ShortcutsHelp
 import com.bobbyesp.metadator.core.ui.viewmodel.LocalSnackbarHostState
 import com.bobbyesp.metadator.core.ui.viewmodel.dismissesMessages
@@ -76,7 +77,13 @@ class ExternalEditorActivity : MetadatorActivity() {
                             .windowInsetsPadding(
                                 WindowInsets.navigationBars.union(WindowInsets.ime)
                             )
-                            .padding(bottom = 96.dp)
+                            // Above that foot, where the main window's editor has its messages.
+                            .padding(
+                                bottom =
+                                    (if (panels) StudioDefaults.PanelGap else 0.dp) +
+                                        StudioDefaults.FooterHeight +
+                                        Spacing.small
+                            )
                             .messageArea(messageArea),
                     )
                 }

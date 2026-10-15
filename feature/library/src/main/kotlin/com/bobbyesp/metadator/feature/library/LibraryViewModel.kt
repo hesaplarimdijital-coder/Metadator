@@ -325,6 +325,7 @@ class LibraryViewModel(
     /** Whether this lists one collection, for its screen ([LibraryIntent.ShowCollection]). */
     private var listsCollection = false
     private var observing: Job? = null
+    private var coverCounts: Job? = null
 
     /** The song a range is selected from: the last one selected on its own, or opened. */
     private var selectionAnchor: TrackId? = null
@@ -362,30 +363,6 @@ class LibraryViewModel(
                         fakeCount =
                             if (listsCollection) 0
                             else checked.qualities.values.count { it.isFake },
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
-        // What the sidebar and the chips count of covers: the songs, and the albums and artists
-        // with one, as the check finds them. Nothing listed changes with it, unless narrowed to
-        // them.
-        combine(latest, covers.state) { all, found ->
-                val lacks = { track: Track -> track.id in found.withoutCover }
-                CoverCounts(
-                    state = found,
-                    songs = all.count(lacks),
-                    albums = all.countLackingCover(CollectionType.Album, lacks),
-                    artists = all.countLackingCover(CollectionType.Artist, lacks),
-                )
-            }
-            .flowOn(dispatchers.default)
-            .onEach { counts ->
-                setState {
-                    copy(
-                        covers = counts.state,
-                        noCoverCount = counts.songs,
-                        albumsWithoutCover = counts.albums,
-                        artistsWithoutCover = counts.artists,
                     )
                 }
             }
@@ -654,6 +631,7 @@ class LibraryViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startObserving() {
         if (observing?.isActive == true) return
+        countCovers()
         // Only which songs are fake bears on what is listed; the rest of what the check finds is
         // shown, not filtered by, and comes on its own above.
         val fakes =
@@ -670,13 +648,21 @@ class LibraryViewModel(
                     .map { Listed(current, it) }
             } else flowOf(Listed(current, emptySet()))
         }
+        // The whole library, not what is listed: the checks go through all of it, and once for
+        // each version of it, not again at each letter typed in the search.
+        val tracks =
+            library.observeTracks().onEach { all ->
+                quality.submit(all)
+                covers.submit(all)
+                latest.value = all
+            }
         observing =
-            combine(library.observeTracks(), queried, fakes) { tracks, listed, fake ->
-                    // The whole library, not what is listed: the checks go through all of it.
-                    quality.submit(tracks)
-                    covers.submit(tracks)
-                    latest.value = tracks
-                    present(tracks, listed.query, fake, listed.withoutCover)
+            combine(tracks, queried, fakes) { all, listed, fake -> Triple(all, listed, fake) }
+                // A listing takes a while for a large library: one a letter, a fast typist's list
+                // fell behind the search. At most one no longer wanted, then the latest.
+                .conflate()
+                .map { (all, listed, fake) ->
+                    present(all, listed.query, fake, listed.withoutCover)
                 }
                 .flowOn(dispatchers.default)
                 .catch {
@@ -684,6 +670,38 @@ class LibraryViewModel(
                     showMessage(UiMessage(strings.get(R.string.library_load_failed)))
                 }
                 .onEach { presented -> setState { presented(this) } }
+                .launchIn(viewModelScope)
+    }
+
+    /**
+     * What the sidebar and the chips count of covers: the songs, and the albums and artists with
+     * one, as the check finds them. Nothing listed changes with it, unless narrowed to them. The
+     * library's alone: a collection's screen shows none of it, and counted at every step of the
+     * check, its songs were handed to it again for nothing.
+     */
+    private fun countCovers() {
+        if (coverCounts?.isActive == true) return
+        coverCounts =
+            combine(latest, covers.state) { all, found ->
+                    val lacks = { track: Track -> track.id in found.withoutCover }
+                    CoverCounts(
+                        state = found,
+                        songs = all.count(lacks),
+                        albums = all.countLackingCover(CollectionType.Album, lacks),
+                        artists = all.countLackingCover(CollectionType.Artist, lacks),
+                    )
+                }
+                .flowOn(dispatchers.default)
+                .onEach { counts ->
+                    setState {
+                        copy(
+                            covers = counts.state,
+                            noCoverCount = counts.songs,
+                            albumsWithoutCover = counts.albums,
+                            artistsWithoutCover = counts.artists,
+                        )
+                    }
+                }
                 .launchIn(viewModelScope)
     }
 
@@ -773,6 +791,12 @@ class LibraryViewModel(
         }
     }
 
+    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
+
     private companion object {
         const val KEY_TAB = "tab"
         const val KEY_SEARCH = "search"
@@ -781,12 +805,6 @@ class LibraryViewModel(
         /** How many places Back goes through: a few steps back, not the whole day's browsing. */
         const val MAX_HISTORY = 10
         val MIN_REFRESH = 900.milliseconds
-    }
-
-    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
-    override fun onUnhandledError(error: Throwable) {
-        super.onUnhandledError(error)
-        showMessage(unexpectedErrorMessage(strings))
     }
 }
 
