@@ -4926,6 +4926,16 @@ def main():
         on_card(card_cover_saved),
         required=cover_search_worked,
     )
+    step(
+        "A cover saved to a song takes it off the list of songs without one (network)",
+        within("cover leaves", cover_leaves_the_list),
+        required=False,
+    )
+    step(
+        "Editing an album's songs together writes their tags (SD card)",
+        within("album artist", album_artist_written),
+        required=False,
+    )
     step("It speaks Turkish", turkish)
     step(
         "The About page says who developed the app, in Turkish",
