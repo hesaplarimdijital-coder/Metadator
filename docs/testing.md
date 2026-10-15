@@ -54,7 +54,7 @@ says which held.
 | A narrow window | One pane at a time |
 | A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and steered by where the input system says its pointer is |
 | An album's screen left with one press: its arrow, Esc, the Back key; the Back key at the start of the app with a mouse as the pointer, and after a tap for contrast | What is in front after each press. Not required |
-| The editor beside the library following the selection: Ctrl+click on a song, on a second, a plain click; the check boxes of an album's screen and of the Songs, and Shift on a box | The editor's title, "Edit 2 songs", the songs checked. Not required |
+| The editor beside the library following the selection: Ctrl+click on a song, on a second, a plain click; the check boxes of an album's screen, of the Songs and of the Fake FLAC list, and Shift on a box | The editor's title, "Edit 2 songs", the songs checked. Not required |
 | A rectangle dragged over the rows with the mouse: plain, with Ctrl, ended by Esc in the middle | The rows selected and the editor that opens or does not. Not required |
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
 | A cover saved to a song takes it off the list of songs without one, within seconds | The list and the sidebar's count, read until the song is gone. Not required: the sources are not ours |

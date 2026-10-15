@@ -1783,6 +1783,7 @@ NEW_STEPS = {
     "rectangle": ("mouse", 45, 2),
     "cover leaves": ("card", 45, 2),
     "album artist": ("card", 52, 1),
+    "fake boxes": ("card", 30, 3),
     "turkish about": ("turkish", 27, 3),
     "player": ("glass", 30, 3),
     "late songs": ("glass", 30, 1),
@@ -1794,7 +1795,7 @@ NEW_STEPS = {
     "merge": ("glass", 70, 1),
     "long album": ("glass", 60, 4),
     "by hand": ("glass", 78, 4),
-    "big selection": ("performance", 42, 3),
+    "big selection": ("performance", 45, 3),
 }
 
 # How long each step took, whole, by its name; and the steps of this part that were tried, with
@@ -2640,35 +2641,36 @@ def editor_follows_the_selection():
     return "; ".join(seen)
 
 
-def shift_on_boxes(mouse, nodes, where):
+def shift_on_boxes(mouse, nodes, where, rows_wanted=3):
     """The box of the first row is clicked: that song is selected; Shift on the box of the third
-    selects the three. Ends the selection."""
+    (the last, in a list of two) selects them all, from the first. Ends the selection."""
     boxed = boxes(nodes)
-    if len(boxed) < 3:
+    count = min(rows_wanted, len(boxed))
+    if count < 2:
         raise Failed(f"{where} shows {len(boxed)} check boxes: {said_on(nodes)[:30]}")
-    wanted = [row_title(box) for box in boxed[:3]]
+    wanted = [row_title(box) for box in boxed[:count]]
     tap(boxed[0])
     nodes = wait_for(lambda found: selected_count(found) == 1, 15, f"one song selected in {where}")
     if checked_titles(nodes) != wanted[:1]:
         raise Failed(f"in {where} the box of {wanted[0]!r} checked {checked_titles(nodes)}")
     # The rows moved up when the selection's head came: the boxes are read again.
-    click_on(mouse, boxes(nodes)[2], held=Gesture.KEY_LEFTSHIFT)
+    click_on(mouse, boxes(nodes)[count - 1], held=Gesture.KEY_LEFTSHIFT)
     nodes = wait_for(
-        lambda found: selected_count(found) == 3, 15, f"three songs selected in {where}"
+        lambda found: selected_count(found) == count, 15, f"{count} songs selected in {where}"
     )
     if checked_titles(nodes) != wanted:
         raise Failed(
-            f"in {where} Shift on the box of {wanted[2]!r} left {checked_titles(nodes)} checked, "
+            f"in {where} Shift on the box of {wanted[-1]!r} left {checked_titles(nodes)} checked, "
             f"not {wanted}"
         )
     screenshot("shift-on-a-box-" + slug(where))
     stop_selecting(nodes)
     wait_for(
-        lambda found: selected_count(found) == 0 and len(boxes(found)) >= 3,
+        lambda found: selected_count(found) == 0 and len(boxes(found)) >= count,
         15,
         "the selection ended",
     )
-    return f"a box selected {wanted[0]!r} and Shift on the box of {wanted[2]!r} selected the three"
+    return f"a box selected {wanted[0]!r} and Shift on the box of {wanted[-1]!r} selected the {count}"
 
 
 def boxes_and_shift():
@@ -2884,6 +2886,21 @@ def album_artist_written():
             raise Failed(f"{name}: {reason}")
         notes.append(f"{name}: album artist {album_artist_of(was[name]['tags'])!r} -> {wrote!r}")
     return f"{saved}. " + "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+
+
+def boxes_in_the_fake_list():
+    """A box and Shift on a box in a smart list too: the Fake FLAC list holds the two fake songs
+    once the card's are there; a box selects the first, Shift on the box of the second takes both."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    if not card_listed:
+        raise NotBegun("no songs on an SD card: the list holds one fake song, no range to take")
+    home()
+    nodes = open_place_of("Fake FLAC")
+    if len(boxes(nodes)) < 2:
+        raise Skipped(f"the Fake FLAC list holds {list_titles(nodes)}, no range to take")
+    with LiveMouse() as mouse:
+        return shift_on_boxes(mouse, nodes, "the Fake FLAC list", rows_wanted=2)
 
 
 # --- The full-screen player ---------------------------------------------------------------------
@@ -3809,6 +3826,7 @@ def big_selection():
     edit them together, and opens no editor by itself; Ctrl+E opens the batch editor of all of them;
     and the app sent to the background with that editor open leaves no transaction too large in the
     log."""
+    home()
     nodes = screen()
     total = number_in(sidebar_count("Songs", nodes)) or 0
     if total < 150:
@@ -4959,6 +4977,11 @@ def main():
     step(
         "Editing an album's songs together writes their tags (SD card)",
         within("album artist", album_artist_written),
+        required=False,
+    )
+    step(
+        "A box and Shift on a box select in the Fake FLAC list too",
+        within("fake boxes", boxes_in_the_fake_list),
         required=False,
     )
     step("It speaks Turkish", turkish)
