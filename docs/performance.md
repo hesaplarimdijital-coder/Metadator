@@ -84,6 +84,10 @@ as long to copy the songs to the device, a step the app has no part in, and its 
 it starts. So the step begins by saying how fast the emulator is: the time its shell takes to
 count to 100,000.
 
+Two builds are best compared on one machine: a push with `[perf-ab <run id>]` in its message times
+this build and the APK of that earlier run on one emulator, alternately, twice each, with the same
+library of three hundred songs from the start ([ci.md](ci.md)).
+
 For typing and scrolling, the app's thread a frame: the middle frame, then the slowest tenth.
 
 | On a fast run | Before the work above (`1dfa53d`) | After it (`4aada86`) |

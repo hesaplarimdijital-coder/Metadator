@@ -282,3 +282,86 @@ jobs:
           (cd smoke-out && zip -q -r ../smoke.zip . -x 'pulled/*')
           gh release upload metamatik-apk smoke-report.txt smoke.zip --clobber
 
+
+  # Only when a push asks for it, with "[perf-ab <run id>]" in its message: this build and the APK
+  # of that earlier run timed on one emulator, one after the other, twice each. The machines the
+  # runs get differ in speed more than one build from the next, so two builds are only compared on
+  # one machine. The earlier APK is taken from its run's artifact, which lasts thirty days.
+  perf:
+    name: Time it against an earlier build
+    needs: apk
+    if: ${{ !cancelled() && needs.apk.result == 'success' && contains(github.event.head_commit.message, '[perf-ab ') }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Take this APK and the earlier one
+        id: apks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          gh release download metamatik-apk --pattern metamatik.apk --dir .
+          earlier=$(printf '%s' "$MESSAGE" | grep -oE '\[perf-ab [0-9]+\]' | grep -oE '[0-9]+' | head -n 1)
+          gh run download "$earlier" --name metamatik --dir earlier
+          echo "run=$earlier" >> "$GITHUB_OUTPUT"
+          ls -l metamatik.apk earlier/
+
+      - name: Make the songs to time it with
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg >/dev/null
+          fi
+          bash .github/smoke/make_audio.sh smoke-songs
+
+      - name: Let the emulator use the processor's virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start the emulator
+        run: |
+          set -o pipefail
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          bash .github/smoke/start_emulator.sh \
+            "system-images;android-37.0;google_apis;x86_64" \
+            "system-images;android-37;google_apis;x86_64" \
+            "system-images;android-37.0;google_apis_ps16k;x86_64" \
+            "system-images;android-37;google_apis_ps16k;x86_64" \
+            2>&1 | tee emulator-start.log
+
+      # Earlier, this, earlier, this: what the machine does over the half hour weighs on both.
+      - name: Time both, twice each
+        run: |
+          for round in 1 2; do
+            for build in earlier this; do
+              apk=metamatik.apk
+              if [ "$build" = earlier ]; then apk=earlier/metamatik.apk; fi
+              SMOKE_TIMED_ALONE=1 python3 .github/smoke/smoke.py "$apk" smoke-songs \
+                "perf-out/$round-$build" 2>&1 | tee -a perf.log || true
+            done
+          done
+
+      - name: Publish the times
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "commit $GITHUB_SHA, timed against the APK of run ${{ steps.apks.outputs.run }}"
+            for report in perf-out/*/report.txt; do
+              echo
+              echo "--- $(basename "$(dirname "$report")")"
+              grep -A 1 "How fast it is" "$report" || tail -n 20 "$report"
+            done
+          } > perf-report.txt || true
+          cat perf-report.txt
+          gh release upload metamatik-apk perf-report.txt --clobber

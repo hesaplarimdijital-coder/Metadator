@@ -377,6 +377,9 @@ def home():
             else:
                 shell(f"am start -n {PACKAGE}/{MAIN}")
                 time.sleep(3)
+        elif find("^Close$", nodes) and find("^Up next$", nodes):
+            # The full-screen player, over the library.
+            tap(find("^Close$", nodes)[0])
         elif shortcuts_open(nodes) or find("^Find a cover$", nodes):
             key(KEY_ESCAPE)
         elif find("^Discard$", nodes):
@@ -541,8 +544,22 @@ def allow_system_dialog(timeout=30):
 
 
 def row(title, nodes=None):
-    """The song's row in the list, not the editor's field that says the same."""
-    titles = [node for node in find(re.escape(title), nodes) if not node.is_field]
+    """The song's row in the list, not the editor's field that says the same, nor the player's bar
+    while that song plays: the bar's title starts further left than the rows', and a tap on it
+    opened the player over every step after it. The bar is at the foot of the window, in the band
+    of its Play or Pause button."""
+    if nodes is None:
+        nodes = screen()
+    foot = max((node.bottom for node in nodes), default=0) * 0.7
+    bars = [node for node in nodes if node.top > foot and node.says(r"^(Play|Pause)$")]
+
+    def in_bar(node):
+        middle = (node.top + node.bottom) // 2
+        return any(bar.top - 48 <= middle <= bar.bottom + 48 for bar in bars)
+
+    titles = [
+        node for node in find(re.escape(title), nodes) if not node.is_field and not in_bar(node)
+    ]
     if not titles:
         raise Failed(f"no row says {title!r}")
     return min(titles, key=lambda node: (node.left, node.top)).pressed_as()
@@ -2272,6 +2289,12 @@ def typed_in_editor():
     """Types into a song's title in the editor, letter after letter as fast as the system sends
     them, and says how the frames went: each letter is a change of the song in the editor, and
     everything that shows the song is asked whether it changed."""
+    if not [node for node in find("^One More Time$") if not node.is_field]:
+        # Below three hundred copies of another song, when builds are timed alone: found by a
+        # search, as a person would.
+        key(KEY_CTRL, KEY_F)
+        shell("input text One%sMore")
+        time.sleep(2)
     tap(row("One More Time"))
     deadline = time.time() + 40
     title = None
@@ -2298,6 +2321,30 @@ def typed_in_editor():
 
 # How many copies of a song make a library long enough to scroll through.
 LONG_LIBRARY = 300
+
+
+def long_library():
+    """A long library: a song with a cover, copied over and over, then found by a rescan. Copied
+    once: builds timed one after the other find it there."""
+    shell(
+        f"[ -f /sdcard/Music/Long/{LONG_LIBRARY}.mp3 ] || "
+        "(mkdir -p /sdcard/Music/Long && for i in $(seq 1 "
+        + str(LONG_LIBRARY)
+        + "); do cp '/sdcard/Music/Discovery/03 - Digital Love.mp3' /sdcard/Music/Long/$i.mp3; done)"
+    )
+    key(KEY_CTRL, KEY_R)
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        counted = [
+            int(match.group(1))
+            for node in screen()
+            for match in [re.match(r"^(\d[\d,]*) songs", node.text.replace(",", ""))]
+            if match
+        ]
+        if counted and max(counted) >= LONG_LIBRARY:
+            return
+        time.sleep(3)
+    raise Failed(f"the long library was not listed: {said_on(screen())[:20]}")
 
 
 def host_speed():
@@ -2334,26 +2381,7 @@ def performance():
     home()
     notes.append(typed_in_editor())
     home()
-    # A long library: a song with a cover, copied over and over, then found by a rescan.
-    shell(
-        "mkdir -p /sdcard/Music/Long && for i in $(seq 1 "
-        + str(LONG_LIBRARY)
-        + "); do cp '/sdcard/Music/Discovery/03 - Digital Love.mp3' /sdcard/Music/Long/$i.mp3; done"
-    )
-    key(KEY_CTRL, KEY_R)
-    deadline = time.time() + 120
-    while time.time() < deadline:
-        counted = [
-            int(match.group(1))
-            for node in screen()
-            for match in [re.match(r"^(\d[\d,]*) songs", node.text.replace(",", ""))]
-            if match
-        ]
-        if counted and max(counted) >= LONG_LIBRARY:
-            break
-        time.sleep(3)
-    else:
-        raise Failed(f"the long library was not listed: {said_on(screen())[:20]}")
+    long_library()
     time.sleep(4)
     notes.append(scrolled("the table on a wide window", 1100, 330, 960))
     try:
@@ -2668,8 +2696,37 @@ def main():
     step("Nothing crashed", no_crash)
 
 
+def timed_alone():
+    """Only how fast it is, for timing two builds one after the other on one emulator: the machines
+    the runs get differ more than one build from the next, so builds are compared on one machine.
+    The APK is installed anew and allowed to see the music without its first screen."""
+    if not step("The songs are copied to the device", copy_songs):
+        return
+    adb("uninstall", PACKAGE, timeout=120)
+    if not step("The APK installs", install):
+        return
+    for permission in ("READ_MEDIA_AUDIO", "POST_NOTIFICATIONS"):
+        shell(f"pm grant {PACKAGE} android.permission.{permission}")
+
+    def opens():
+        shell(f"am start -W -n {PACKAGE}/{MAIN}", timeout=90)
+        expect("^Aerodynamic$", 60)
+        # Every build timed with the same library: the long one, from the start.
+        long_library()
+        return "it opens on the library, and lists the long one"
+
+    if not step("It opens on the songs", opens):
+        return
+    global restore_after_failure
+    restore_after_failure = True
+    step("How fast it is: starting, scrolling, memory", performance)
+
+
 try:
-    main()
+    if os.environ.get("SMOKE_TIMED_ALONE") == "1":
+        timed_alone()
+    else:
+        main()
 finally:
     failed = [name for name, outcome, _ in results if outcome == "FAILED"]
     with open(os.path.join(out_dir, "report.txt"), "w", encoding="utf-8") as report:
