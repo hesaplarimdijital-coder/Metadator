@@ -8,6 +8,11 @@ SD card too. Everything goes through adb, so the APK tried is the one that is pu
 
 Usage: smoke.py <apk> <songs dir> <out dir> [<the APK it replaces>]
 
+The environment can narrow or bound the run: SMOKE_STEPS is a regular expression, and only the
+steps whose names match it are tried, besides the ones that set the run up (the report says "not
+asked for" of the rest); SMOKE_TIME_LIMIT is the seconds the run may take before the steps that
+matter least are left out; SMOKE_TIMED_ALONE=1 only times the app.
+
 Each step is tried whatever became of the one before it, and leaves a screenshot and what was on
 screen. The report says which held. A step that needs the network, or a device this script has to
 make up (the mouse), is reported but does not fail the run: neither is this build's to answer for.
@@ -16,6 +21,7 @@ Given the APK the build replaces, the run begins with it: it is installed and li
 this one is installed over it, as an update comes to a phone, and has to open what that one left.
 """
 
+import concurrent.futures
 import json
 import os
 import re
@@ -359,6 +365,10 @@ def slug(name):
 def step(name, action, required=True):
     """Tries [action], and writes down how it went and what the screen showed after it."""
     log(f"--- {name}")
+    if not asked_for(name):
+        log("    not asked for")
+        results.append((name, "not asked for", ""))
+        return False
     began = time.time()
     running_new[0] = None
     outcome, detail, tidy = "ok", "", True
@@ -373,6 +383,8 @@ def step(name, action, required=True):
         detail = f"{type(error).__name__}: {error}"
         log(traceback.format_exc())
     log(f"    {outcome} {detail}")
+    if STEPS_ASKED is not None and name not in SETUP and not asked_by_name(name):
+        detail = f"(tried because a step asked for goes on from it) {detail}"
     results.append((name, outcome, str(detail)))
     if not tidy:
         running_new[0] = None
@@ -725,6 +737,11 @@ def updates_the_build_before():
 
 
 def install():
+    if STEPS_ASKED is not None:
+        # The step that installs the build before this one over it leaves the app uninstalled, for the
+        # steps after it to begin as a phone does with a new app. Without that step, a device that
+        # had the app already would open on the songs and not on the question whether to see them.
+        adb("uninstall", PACKAGE, timeout=120)
     install_apk(apk_path)
     # A device with a keyboard plugged in draws none on its screen. The emulator draws one all the
     # same, over half of every picture, so the ones it has are turned off: keys still type.
@@ -1280,6 +1297,9 @@ def compact_layout():
     shell("wm density 420")
     try:
         time.sleep(4)
+        # What stood beside the library on the wide window (the editor of the song clicked last, once
+        # a selection has ended, is one) is in front of it here: closed, the library is.
+        close_details()
         nodes = screen()
         if find("Pick a song", nodes):
             raise Failed("the two panes are still side by side on a narrow window")
@@ -1750,6 +1770,118 @@ def tooltip_on_hover():
     return f"the pointer rested at {at}, on the button: see picture {picture}"
 
 
+# --- SMOKE_STEPS: some of the steps only -------------------------------------------------------
+#
+# SMOKE_STEPS is a regular expression, searched for in the steps' names whatever the case of their
+# letters: SMOKE_STEPS='garbled|merge' tries the steps with either word in their names, and the
+# report says "not asked for" of the others. The steps that set the run up are tried all the same
+# (the card, the songs, the install, the first opening, and the last look at the log for a crash),
+# and so are the steps an asked-for step cannot do without, in the order they stand: one that needs
+# a mouse plugged in has the step that plugs it in, one that needs the late songs has them made, one
+# that saves a cover found has the cover found (NEEDS). The time is then the asker's: no step is
+# left out for it.
+
+
+def read_steps_asked():
+    """What SMOKE_STEPS says, as a regular expression; None when it says nothing, and when the run
+    is the one that only times the app."""
+    said = os.environ.get("SMOKE_STEPS", "").strip()
+    if not said or os.environ.get("SMOKE_TIMED_ALONE") == "1":
+        return None
+    try:
+        return re.compile(said, re.IGNORECASE)
+    except re.error as error:
+        sys.exit(f"SMOKE_STEPS is not a regular expression: {said!r}: {error}")
+
+
+STEPS_ASKED = read_steps_asked()
+
+# The steps that set the run up, or look back at it: tried whatever SMOKE_STEPS says.
+SETUP = (
+    "The device has an SD card",
+    "The songs are copied to the device",
+    "The APK installs",
+    "It opens, and asks to see the music",
+    "It lists the songs once allowed",
+    "Nothing crashed",
+)
+
+MOUSE = "A mouse can be plugged in"
+RIGHT_CLICK = "The second mouse button opens a song's menu"
+COVER = "Ctrl+K finds a cover for a song (network)"
+SAVE = "Ctrl+S saves it, and only it"
+TOGETHER = "Ctrl+A and Ctrl+E edit the songs together"
+ALBUM_COVER = "Ctrl+K finds a cover for the album (network)"
+APPLY = "Ctrl+S applies it to all, and only it"
+CARD = "Songs put on an SD card are found by a rescan"
+LATE_SONGS = "Songs made for the garbled text, the covers and the merge come late"
+
+# What a step has to have before it, besides the setup: the steps whose work it goes on from. Each
+# is tried (after the ones it needs themselves) when the step is asked for and was not by name.
+NEEDS = {
+    SAVE: (COVER,),
+    "The library shows the cover just written": (COVER, SAVE),
+    "The same cover again leaves nothing to save": (COVER, SAVE),
+    ALBUM_COVER: (TOGETHER,),
+    APPLY: (TOGETHER, ALBUM_COVER),
+    "The library shows the covers written to all": (TOGETHER, ALBUM_COVER, APPLY),
+    "A cover replaced by the batch is the one the library shows": (TOGETHER, ALBUM_COVER, APPLY),
+    RIGHT_CLICK: (MOUSE,),
+    "A song opens in a window of its own": (MOUSE, RIGHT_CLICK),
+    "Ctrl and Shift change what a click selects": (MOUSE,),
+    "A button says what it does under the pointer": (MOUSE,),
+    "One press leaves an album: its arrow, Esc, the Back key": (MOUSE,),
+    "Back at the start of the app keeps it in front while a mouse is the pointer": (MOUSE,),
+    "The editor beside the library follows the selection": (MOUSE,),
+    "A box selects in an album and in the Songs, and Shift on a box takes a range": (MOUSE,),
+    "A rectangle dragged with the mouse selects the rows it touches": (MOUSE,),
+    "A folder on the SD card says where it is": (CARD,),
+    "A genuine FLAC on the SD card is called genuine": (CARD,),
+    "The editor says the song is on the SD card": (CARD,),
+    "A FLAC on the SD card made from an MP3 is called that": (CARD,),
+    "A cover is written to a song on the SD card, and only it (network)": (CARD,),
+    "A cover saved to a song takes it off the list of songs without one (network)": (CARD,),
+    "Editing an album's songs together writes their tags (SD card)": (CARD,),
+    "A box and Shift on a box select in the Fake FLAC list too": (MOUSE, CARD),
+    "The About page says who developed the app, in Turkish": ("It speaks Turkish",),
+    "The songs without a cover are counted and listed": (LATE_SONGS,),
+    "The songs with garbled text are counted and listed, and the control is not": (LATE_SONGS,),
+    "The editor offers to put a garbled title right, and the file is written right": (LATE_SONGS,),
+    "The batch editor puts the garbled text of a whole list right": (LATE_SONGS,),
+    "An album shows its first cover, and the mouse's second button opens its menu": (
+        MOUSE,
+        LATE_SONGS,
+    ),
+    "Two albums merge into one, in their files and in the library": (LATE_SONGS,),
+    "In a long album End goes to the last song and a rectangle scrolls": (MOUSE, LATE_SONGS),
+    "A file opened by hand stays beside the library; a song hidden by a search goes": (LATE_SONGS,),
+}
+
+
+def needed_by(name):
+    """Every step that [name] goes on from, and those they go on from in turn."""
+    found = []
+    queue = list(NEEDS.get(name, ()))
+    while queue:
+        each = queue.pop()
+        if each not in found:
+            found.append(each)
+            queue.extend(NEEDS.get(each, ()))
+    return found
+
+
+def asked_by_name(name):
+    return STEPS_ASKED is not None and bool(STEPS_ASKED.search(name))
+
+
+def asked_for(name):
+    """Whether the step called [name] is to be tried: always without SMOKE_STEPS, and with it when
+    the step sets the run up, is asked for, or is needed by one that is."""
+    if STEPS_ASKED is None or name in SETUP or asked_by_name(name):
+        return True
+    return any(asked_by_name(other) and name in needed_by(other) for other in NEEDS)
+
+
 # --- What the round of changes after the first run on a device is tried with -------------------
 #
 # The steps from here to the SD card's were written from the code of the screens, before any run on
@@ -1783,32 +1915,42 @@ STANDS = {
 
 # Each step: where it stands, what it costs (the seconds it should take on the machine of the first
 # run, its picture taken after it included), how much it matters (1 the most), in the order main()
-# calls them. The costs are counted, not measured: smoke.log has the steps' real times once a run
-# has been, and these are to be set from it.
+# calls them. The costs are the seconds smoke.log gave ("took N s") in the run of the first CI build
+# with these steps, where the step was tried and has not changed since; a step that was changed
+# since (the back arrow's three presses, the player's four ways to close, the garbled text's
+# lists, the editor's repair) or was left out that time (the batch repair, the album menu, the
+# merge, the long album, the file opened by hand, the hundreds selected) costs what its parts add
+# up to, at 3 s for each screen read and 1 s for each key.
+#
+# What matters most (1) is what no run has shown to hold yet and the round is about: the lists of
+# the late songs and the repairs of their text, the merge, the player and the keys that leave an
+# album, the editor that follows the selection, and the hundreds selected. Next (2), what no run has
+# tried and is cheap or wanted less; then (3) what held and costs little; last (4), what held and
+# costs most, which a run with time left tries again, and SMOKE_STEPS asks for by name.
 NEW_STEPS = {
-    "esc in the search": ("search", 20, 3),
-    "about": ("search", 27, 2),
-    "metadata": ("batch", 45, 3),
-    "back arrow": ("mouse", 38, 1),
-    "back at the start": ("mouse", 30, 2),
-    "editor follows": ("mouse", 35, 1),
-    "boxes": ("mouse", 56, 1),
-    "rectangle": ("mouse", 45, 2),
-    "cover leaves": ("card", 45, 2),
-    "album artist": ("card", 52, 1),
-    "fake boxes": ("card", 30, 3),
-    "turkish about": ("turkish", 27, 3),
-    "player": ("glass", 30, 3),
-    "late songs": ("glass", 30, 1),
-    "no cover": ("glass", 52, 2),
-    "garbled list": ("glass", 24, 1),
-    "editor repair": ("glass", 44, 1),
-    "batch repair": ("glass", 50, 1),
-    "album menu": ("glass", 52, 2),
-    "merge": ("glass", 70, 1),
-    "long album": ("glass", 60, 4),
-    "by hand": ("glass", 78, 4),
-    "big selection": ("performance", 45, 3),
+    "esc in the search": ("search", 13, 3),
+    "about": ("search", 18, 3),
+    "metadata": ("batch", 38, 4),
+    "back arrow": ("mouse", 75, 1),
+    "back at the start": ("mouse", 21, 3),
+    "editor follows": ("mouse", 45, 1),
+    "boxes": ("mouse", 53, 3),
+    "rectangle": ("mouse", 70, 4),
+    "cover leaves": ("card", 36, 3),
+    "album artist": ("card", 42, 3),
+    "fake boxes": ("card", 29, 3),
+    "turkish about": ("turkish", 20, 3),
+    "player": ("glass", 110, 1),
+    "late songs": ("glass", 75, 1),
+    "no cover": ("glass", 100, 4),
+    "garbled list": ("glass", 55, 1),
+    "editor repair": ("glass", 70, 1),
+    "batch repair": ("glass", 110, 1),
+    "album menu": ("glass", 55, 2),
+    "merge": ("glass", 80, 1),
+    "long album": ("glass", 60, 2),
+    "by hand": ("glass", 78, 2),
+    "big selection": ("performance", 45, 1),
 }
 
 # How long each step took, whole, by its name; and the steps of this part that were tried, with
@@ -1834,6 +1976,8 @@ def time_short(key):
     What the run has left, once the steps that were there before these have taken what they will,
     is spent on the steps still to come that matter most, in the order they stand, and this one is
     left out when it is not among those that fit."""
+    if STEPS_ASKED is not None:
+        return None
     stands, _, _ = NEW_STEPS[key]
     speed = machine_speed(stands)
     elapsed = time.time() - started
@@ -2205,6 +2349,22 @@ def library_has_the_keys():
     return nodes
 
 
+def nothing_beside():
+    """The library alone on a wide window: what the inspector opened beside it, once a selection
+    ended (the editor of the song clicked last), is closed as a person closes it. Whoever narrows
+    the window next would find that editor in front of the library otherwise."""
+    nodes = screen()
+    for _ in range(2):
+        if title_field(nodes) is None and not find(r"^Edit \d+ songs$", nodes):
+            break
+        key(KEY_CTRL, KEY_W)
+        nodes = screen()
+        if find("^Discard$", nodes):
+            tap(find("^Discard$", nodes)[0])
+            nodes = screen()
+    return nodes
+
+
 def apply_all(wait=20):
     """The batch editor's button that applies, pressed once it can be: it is dimmed until something
     is changed, and a press on it before that does nothing."""
@@ -2228,10 +2388,11 @@ LONG_ALBUM = 30
 PINK = 0xE91E63
 GREY = 0x607D8B
 
-# The garbled text, as the owner's songs had it: Turkish read as Latin-1 ("Mo?ollar" with the
-# byte 0xF0), and UTF-8 read as Windows-1252 ("MoÄŸollar").
+# The garbled text, as the owner's songs had it: Turkish in Windows-1254 read as Latin-1 ("Moðollar",
+# the byte 0xF0 where a ğ was), and UTF-8 read as Windows-1252 ("MoÄŸollar").
 GOOD = "Moğollar"
 UTF8_AS_1252 = "MoÄŸollar"
+TURKISH_AS_LATIN1 = "Moðollar"
 LATIN1_X = "MoXollar"
 
 
@@ -2248,16 +2409,26 @@ def late_specs():
             "garbled title", "garbled-title.mp3", title=UTF8_AS_1252, artist=GOOD,
             album="1968 - 2000", date="1968", track="1", genre="Rock",
         ),
-        # Written as the owner's files were: Turkish in Windows-1254 where a reader takes Latin-1,
-        # so that the letter is the byte 0xF0 ("Moðollar"). The tag is written with a plain letter
-        # and the byte put in its place afterwards.
+        # What the code is meant to catch: Turkish in Windows-1254 read as Latin-1, which is the
+        # letter ð where the ğ was ("Moðollar"; the test of the code says it is put right). Written
+        # as the text itself, which a tag stores as UTF-16 and a reader cannot take for another
+        # character set: it reaches the app as it is.
         song(
-            "garbled b", "garbled-b.mp3", patch=(LATIN1_X, "Moðollar"), title="Zz Turkish B",
-            artist="Zz Turkish", album="Zz Turkish", album_artist=LATIN1_X, date="1970", track="1",
+            "garbled b", "garbled-b.mp3", title="Zz Turkish B", artist="Zz Turkish",
+            album="Zz Turkish", album_artist=TURKISH_AS_LATIN1, date="1970", track="1",
         ),
         song(
             "garbled c", "garbled-c.mp3", title="Zz Turkish C", artist="Zz Turkish",
             album="Zz Turkish", album_artist=UTF8_AS_1252, date="1970", track="2",
+        ),
+        # As the owner's files were written: the byte 0xF0 itself, in a tag marked Latin-1. What the
+        # media store makes of it is the platform's to say (it picks a character set from the text
+        # it is given, and may take the byte for a ğ): this song only tells, and is not counted on.
+        # The tag is written with a plain letter and the byte put in its place afterwards.
+        song(
+            "garbled d", "garbled-d.mp3", patch=(LATIN1_X, TURKISH_AS_LATIN1), title="Zz Turkish D",
+            artist="Zz Latin One", album="Zz Latin One", album_artist=LATIN1_X, date="1971",
+            track="1",
         ),
         song(
             "control", "control.mp3", title="Dauðalogn", artist="Sigur Rós", album="Zz Control",
@@ -2294,24 +2465,31 @@ def late_specs():
     return songs
 
 
+# The late songs a step reads back with FFprobe, to see that a write changed only what it should: the
+# others are known by their titles alone, and each probe is two more programs to start.
+PROBED = ("garbled title", "garbled b", "garbled c", "garbled d", "merge one", "merge two")
+
+
 def make_late_songs(folder, work):
     """The late songs as files in [folder] (the work they take, pictures and tag files, in [work]),
-    each as what FFprobe says of it: {key: {"file": name, "title": title, "probe": what it says}}."""
+    four at a time, each as what FFprobe says of it where a step will want that:
+    {key: {"file": name, "title": title, "probe": what it says, or None}}."""
     os.makedirs(folder, exist_ok=True)
     os.makedirs(work, exist_ok=True)
+    specs = late_specs()
     pictures = {}
-    made = {}
-    for key_name, file_name, tags, color, patch in late_specs():
-        cover = None
-        if color is not None:
-            if color not in pictures:
-                pictures[color] = os.path.join(work, f"cover-{color:06x}.jpg")
-                subprocess.run(
-                    ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
-                     f"color=c=0x{color:06x}:s=600x600", "-frames:v", "1", pictures[color]],
-                    check=True,
-                )
-            cover = pictures[color]
+    for _, _, _, color, _ in specs:
+        if color is not None and color not in pictures:
+            pictures[color] = os.path.join(work, f"cover-{color:06x}.jpg")
+            subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+                 f"color=c=0x{color:06x}:s=600x600", "-frames:v", "1", pictures[color]],
+                check=True,
+            )
+
+    def make(spec):
+        key_name, file_name, tags, color, patch = spec
+        cover = pictures[color] if color is not None else None
         meta = os.path.join(work, file_name + ".txt")
         with open(meta, "w", encoding="utf-8") as file:
             file.write(";FFMETADATA1\n" + "".join(f"{name}={value}\n" for name, value in tags.items()))
@@ -2335,8 +2513,14 @@ def make_late_songs(folder, work):
                 raise Failed(f"{file_name} does not hold {patch[0]!r} to be put right")
             with open(path, "wb") as file:
                 file.write(data.replace(was, now))
-        made[key_name] = {"file": file_name, "title": tags["title"], "probe": probe(path)}
-    return made
+        return key_name, {
+            "file": file_name,
+            "title": tags["title"],
+            "probe": probe(path) if key_name in PROBED else None,
+        }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        return dict(pool.map(make, specs))
 
 
 # What the late songs were, once they have come: None until they are on the device and listed.
@@ -2481,6 +2665,7 @@ def find_metadata_for_album():
             for trouble in troubles:
                 if find(trouble, nodes):
                     home()
+                    nothing_beside()
                     raise Skipped(f"the sources answered: {trouble}")
             if find("^Albums found$", nodes):
                 break
@@ -2499,6 +2684,9 @@ def find_metadata_for_album():
     if find(r"^Filled in from", nodes) or find("^Will be written to", nodes):
         raise Failed("closing the sheet with Esc filled something in")
     home()
+    # With the batch editor closed the selection is over, and the inspector shows the song clicked
+    # last: the steps after this one start with the library alone.
+    nothing_beside()
     return f"the sheet listed what the sources found ({found[:6]}); Esc closed it with nothing filled in"
 
 
@@ -2511,8 +2699,9 @@ def pressing(how):
     def press(nodes):
         if how == "the arrow":
             arrow = find(BACK_ARROW, nodes)
-            if arrow:
-                tap(arrow[0])
+            if not arrow:
+                raise Failed(f"the album's toolbar has no arrow: {said_on(nodes)[:12]}")
+            tap(arrow[0])
         elif how == "Esc":
             key(KEY_ESCAPE)
         else:
@@ -2521,44 +2710,76 @@ def pressing(how):
     return press
 
 
-def album_back_arrow():
-    """Leaving an album takes one press: of the arrow in its toolbar, with a song of the album open
-    beside it (the owner had to press twice), and of Esc and the Back key. The albums are listed
-    again, and the editor beside them is gone."""
+def album_state(nodes):
+    """What is in front after a press, in a few words for the report."""
+    if the_albums(nodes):
+        return "the albums are listed"
+    if an_album(nodes):
+        shown = title_field(nodes)
+        if shown is not None:
+            return f"the album is still open, with the editor of {shown!r} beside it"
+        if find("^Pick a song$", nodes):
+            return "the album is still open, with nothing beside it"
+        return "the album is still open"
+    return f"something else is in front: {said_on(nodes)[:8]}"
+
+
+def album_left_by(how):
+    """An album opened (for the arrow, with a song of it open beside it, as the owner had it) and
+    one press of [how]: the albums are listed again, with nothing beside them. A second press is
+    tried when the first was not enough, so that the report tells a press that was one too few from
+    one that does nothing. A picture is taken after each press."""
     nodes = albums_place()
-    slow, notes = [], []
-    for how in ("the arrow", "Esc", "the Back key"):
-        nodes = open_album("Discovery", nodes)
-        beside = ""
-        if how == "the arrow":
-            opened = list_titles(nodes)[0]
-            tap(list_row(opened, nodes))
-            nodes = wait_for(
-                lambda found, wanted=opened: title_field(found) == wanted,
-                25,
-                f"the editor of {opened!r}",
-            )
-            beside = f", with {opened!r} open beside it"
-            screenshot("an-album-and-a-song-beside-it")
-        press = pressing(how)
+    nodes = open_album("Discovery", nodes)
+    beside = ""
+    if how == "the arrow":
+        opened = list_titles(nodes)[0]
+        tap(list_row(opened, nodes))
+        nodes = wait_for(
+            lambda found, wanted=opened: title_field(found) == wanted,
+            25,
+            f"the editor of {opened!r}",
+        )
+        beside = f", with {opened!r} open beside it"
+        screenshot("an-album-and-a-song-beside-it")
+    press = pressing(how)
+    after_first = ""
+    pressed = 0
+    for pressed in (1, 2):
         press(nodes)
-        deadline = time.time() + 6
+        deadline = time.time() + (6 if pressed == 1 else 10)
         while True:
             nodes = screen()
             if the_albums(nodes) or time.time() > deadline:
                 break
             time.sleep(0.5)
-        if not the_albums(nodes):
-            slow.append(how)
-            press(nodes)
-            nodes = wait_for(the_albums, 15, "the albums after a second press")
-        elif beside and not find("Pick a song", nodes):
-            slow.append(f"{how}: the editor stayed beside the albums")
-        notes.append(f"{how}{beside}")
+        screenshot(f"the-album-after-{slug(how)}" + ("" if pressed == 1 else "-again"))
+        if the_albums(nodes):
+            break
+        if pressed == 1:
+            after_first = album_state(nodes)
+    if not the_albums(nodes):
+        raise Failed(
+            f"{how}{beside} did not leave the album, a second press neither. After the first press: "
+            f"{after_first}; after the second: {album_state(nodes)}"
+        )
+    if pressed == 2:
+        raise Failed(f"{how}{beside} needed two presses to leave the album: after the first, {after_first}")
+    if beside and not find("Pick a song", nodes):
+        raise Failed(f"one press of {how}{beside} left the album, and the editor stayed beside the albums")
+    return f"one press of {how}{beside} left the album"
+
+
+def album_back_arrow():
+    """Leaving an album takes one press: of the arrow in its toolbar, with a song of the album open
+    beside it (the owner had to press twice), of Esc and of the Back key. Each is tried by itself
+    and said, so that one run tells which of them does not."""
+    parts = Parts()
+    for how in ("the arrow", "Esc", "the Back key"):
+        if not parts.check(how, lambda how=how: album_left_by(how)):
+            home()
     key(KEY_CTRL, KEY_1)
-    if slow:
-        raise Failed(f"one press did not leave the album: {slow}")
-    return "one press left the album: " + "; ".join(notes)
+    return parts.report()
 
 
 def back_at_the_start():
@@ -2590,12 +2811,16 @@ def back_at_the_start():
     time.sleep(1)
     left = front_package()
     if left == PACKAGE:
+        # The twelve Back presses went back through the places the library remembers: it is on
+        # one of them, not on the Songs the next step counts on.
+        home()
         return (
             f"with a mouse the last pointer, Back left {stays} in front; after a tap it did too, "
             f"which the emulator's kind of window may explain: there is no contrast to show"
         )
     launch_app()
     wait_for(lambda found: bool(find(LIBRARY, found)), 25, "the library after the app came back")
+    home()
     return (
         f"with a mouse the last pointer, Back left {stays} in front; after a tap, {left} was: "
         f"as on a phone"
@@ -2604,54 +2829,78 @@ def back_at_the_start():
 
 def editor_follows_the_selection():
     """The editor beside the library shows what is chosen in it: the song clicked last, not the one
-    before; a song selected with Ctrl; the two selected together; and a plain mouse click ends the
-    selection and shows the song clicked."""
+    before; a song selected with Ctrl; the songs selected together; and a plain mouse click ends the
+    selection and shows the song clicked. Each is tried by itself, so that one that fails does not
+    hide the others."""
     if not mouse_works:
         raise NotBegun("no mouse")
+    # The step before leaves the library on one of the places it remembers, not on the Songs.
+    home()
     nodes = screen()
     order = list_titles(nodes)
     if len(order) < 4:
-        raise Failed(f"the list shows {order}")
+        raise Failed(f"the list shows {order}: {said_on(nodes)[:12]}")
     first, second, third, fourth = order[:4]
-    # A plain click opens a song, whether a finger or a mouse made it; then the next one.
-    tap(list_row(first, nodes))
-    nodes = wait_for(lambda found: title_field(found) == first, 25, f"the editor of {first!r}")
-    tap(list_row(second, nodes))
-    nodes = wait_for(lambda found: title_field(found) == second, 25, f"the editor of {second!r}")
-    if any(node.is_field and node.text == first for node in nodes):
-        raise Failed(f"the editor of {first!r} is still beside the library")
-    seen = [f"{second!r} replaced {first!r}"]
+    parts = Parts()
+
+    def replaces():
+        # A plain click opens a song, whether a finger or a mouse made it; then the next one.
+        seen = screen()
+        tap(list_row(first, seen))
+        seen = wait_for(lambda found: title_field(found) == first, 25, f"the editor of {first!r}")
+        tap(list_row(second, seen))
+        seen = wait_for(lambda found: title_field(found) == second, 25, f"the editor of {second!r}")
+        if any(node.is_field and node.text == first for node in seen):
+            raise Failed(f"the editor of {first!r} is still beside the library")
+        return f"{second!r} replaced {first!r}"
+
+    parts.check("a click on the next song", replaces)
     with LiveMouse() as mouse:
-        click_on(mouse, list_row(third, nodes), held=Gesture.KEY_LEFTCTRL)
-        nodes = wait_for(
-            lambda found: selected_count(found) >= 1
-            and (title_field(found) == third or find(r"^Edit \d+ songs$", found)),
-            25,
-            f"the editor of {third!r} selected",
-        )
-        together = bool(find(r"^Edit \d+ songs$", nodes))
-        seen.append(
-            f"Ctrl+click on {third!r} selected {selected_count(nodes)} and the editor showed "
-            + ("both together" if together else "it alone")
-        )
-        click_on(mouse, list_row(fourth, nodes), held=Gesture.KEY_LEFTCTRL)
-        nodes = wait_for(
-            lambda found: selected_count(found) >= 2 and find(r"^Edit \d+ songs$", found),
-            25,
-            "the songs selected together",
-        )
-        screenshot("songs-together-in-the-editor")
-        seen.append(f"a second Ctrl+click: {selected_count(nodes)} selected, edited together")
-        click_on(mouse, list_row(first, nodes))
-        nodes = wait_for(
-            lambda found: selected_count(found) == 0
-            and title_field(found) == first
-            and not find(r"^Edit \d+ songs$", found),
-            25,
-            f"the selection ended and the editor of {first!r}",
-        )
-        seen.append(f"a plain click on {first!r} ended the selection and opened it")
-    return "; ".join(seen)
+
+        def ctrl_adds():
+            seen = screen()
+            click_on(mouse, list_row(third, seen), held=Gesture.KEY_LEFTCTRL)
+            seen = wait_for(
+                lambda found: selected_count(found) >= 1
+                and (title_field(found) == third or find(r"^Edit \d+ songs$", found)),
+                25,
+                f"the editor of {third!r} selected",
+            )
+            together = bool(find(r"^Edit \d+ songs$", seen))
+            return (
+                f"Ctrl+click on {third!r} selected {selected_count(seen)} and the editor showed "
+                + ("both together" if together else "it alone")
+            )
+
+        parts.check("Ctrl+click", ctrl_adds)
+
+        def ctrl_again():
+            seen = screen()
+            click_on(mouse, list_row(fourth, seen), held=Gesture.KEY_LEFTCTRL)
+            seen = wait_for(
+                lambda found: selected_count(found) >= 2 and find(r"^Edit \d+ songs$", found),
+                25,
+                "the songs selected together",
+            )
+            screenshot("songs-together-in-the-editor")
+            return f"a second Ctrl+click: {selected_count(seen)} selected, edited together"
+
+        parts.check("a second Ctrl+click", ctrl_again)
+
+        def plain_ends():
+            seen = screen()
+            click_on(mouse, list_row(first, seen))
+            wait_for(
+                lambda found: selected_count(found) == 0
+                and title_field(found) == first
+                and not find(r"^Edit \d+ songs$", found),
+                25,
+                f"the selection ended and the editor of {first!r}",
+            )
+            return f"a plain click on {first!r} ended the selection and opened it"
+
+        parts.check("a plain click while songs are selected", plain_ends)
+    return parts.report()
 
 
 def shift_on_boxes(mouse, nodes, where, rows_wanted=3):
@@ -2713,6 +2962,10 @@ def drag_from(mouse, listed, index, y_offset=None):
     x = node.left + (node.right - node.left) // 2
     y = node.top + y_offset if y_offset is not None else (node.top + node.bottom) // 2
     at = mouse.go_to(x, y)
+    if landed_row(at, [node]) is None:
+        # Ten small moves did not bring it (the run that tried this with Ctrl held stopped a row's
+        # height short): once more, from where it stands.
+        at = mouse.go_to(x, y)
     if landed_row(at, [node]) is None:
         raise Skipped(f"the pointer could not be brought to row {index + 1}: it is at {at}")
     mouse.press(Gesture.BTN_LEFT)
@@ -2818,7 +3071,8 @@ def cover_leaves_the_list():
     save, with no rescan and no reopening. The song is the SD card's second, which has none."""
     if not card_listed:
         raise NotBegun("no songs on an SD card")
-    if not cover_search_worked:
+    if not cover_search_worked and STEPS_ASKED is None:
+        # Asked for by name, it looks for the cover itself: the sources answer or they do not.
         raise NotBegun("no cover was found to save")
     key(KEY_CTRL, KEY_1)
     nodes = wait_for(lambda found: bool(sidebar_item("No cover", found)), 15, "the sidebar")
@@ -2922,10 +3176,18 @@ def boxes_in_the_fake_list():
 # --- The full-screen player ---------------------------------------------------------------------
 
 
-def full_player():
-    """The player's bar opens the full-screen player: on the wide window and on a phone's layout it
-    shows the song and Edit tags; Back closes it and leaves the library where it was."""
+def player_in_front(nodes):
+    """The full-screen player is in front: it has Edit tags and the queue ("Up next") on screen, on
+    the wide window and on a phone's layout alike."""
+    return bool(find("^Edit tags$", nodes)) and bool(find("^Up next$", nodes))
+
+
+def open_the_player():
+    """The full-screen player in front, opened from the player's bar: songs are played first when
+    there is no bar to open it from."""
     nodes = screen()
+    if player_in_front(nodes):
+        return nodes
     opener = find("^Open the player$", nodes)
     if not opener:
         play = find("^Play all$", nodes)
@@ -2936,35 +3198,105 @@ def full_player():
             lambda found: bool(find("^Open the player$", found)), 20, "the player's bar"
         )
         opener = find("^Open the player$", nodes)
+    tap(opener[0])
+    return wait_for(player_in_front, 20, "the full-screen player")
+
+
+def gone_after(press, timeout=10):
+    """[press] made, the screen read until the full-screen player is gone: how long that took, and
+    the screen then; None for the time when it was still in front after [timeout] seconds."""
+    press()
+    began = time.time()
+    nodes = screen()
+    while player_in_front(nodes):
+        if time.time() - began > timeout:
+            return None, nodes
+        time.sleep(0.5)
+        nodes = screen()
+    return time.time() - began, nodes
+
+
+def close_the_player():
+    """The full-screen player closed with its own button when nothing else closed it, so that what
+    comes after finds the library. What was needed, in words; nothing when it was not in front."""
+    nodes = screen()
+    if not player_in_front(nodes):
+        return ""
+    for _ in range(3):
+        close = find("^Close$", nodes)
+        if close:
+            tap(close[0])
+        else:
+            key(KEY_BACK)
+        time.sleep(1.5)
+        nodes = screen()
+        if not player_in_front(nodes):
+            return "its Close button closed it"
+    home()
+    return "not even its Close button closed it"
+
+
+def full_player():
+    """The player's bar opens the full-screen player: on the wide window and on a phone's layout it
+    shows the song and Edit tags. It closes with Back and leaves the library where it was. Each way
+    of closing it is tried by itself, with a picture after the press, and a player that stayed is
+    closed by its Close button, so that what comes after is not hurt by it: Back right after it
+    opens, before the window changes; Esc as well; Back on a phone's layout; and Back once the window
+    has been a phone's and is wide again (the one that did not close it, once)."""
+    parts = Parts()
     try:
-        tap(opener[0])
-        wait_for(
-            lambda found: bool(find("^Edit tags$", found)) and not find(LIBRARY, found),
-            20,
-            "the full-screen player",
-        )
+        open_the_player()
         screenshot("the-full-player-wide")
-        shell("wm size 1080x1920")
-        shell("wm density 420")
-        try:
-            time.sleep(4)
-            wait_for(
-                lambda found: bool(find("^Edit tags$", found)), 15, "the full-screen player on a phone"
-            )
-            screenshot("the-full-player-on-a-phone")
-        finally:
-            shell("wm size reset")
-            shell("wm density reset")
-            time.sleep(3)
-        key(KEY_BACK)
-        wait_for(
-            lambda found: bool(find(LIBRARY, found)) and not find("^Edit tags$", found),
-            15,
-            "the library",
+
+        def closed_by(how, code, route):
+            open_the_player()
+            phone = route != "wide"
+            try:
+                if phone:
+                    shell("wm size 1080x1920")
+                    shell("wm density 420")
+                    time.sleep(4)
+                    wait_for(player_in_front, 15, "the full-screen player on a phone's layout")
+                    screenshot("the-full-player-on-a-phone")
+                if route == "wide again":
+                    shell("wm size reset")
+                    shell("wm density reset")
+                    phone = False
+                    time.sleep(3)
+                    wait_for(player_in_front, 15, "the full-screen player on the wide window again")
+                took, nodes = gone_after(lambda: key(code))
+                screenshot(f"the-player-after-{slug(how)}-{slug(route)}")
+            finally:
+                if phone:
+                    shell("wm size reset")
+                    shell("wm density reset")
+                    time.sleep(3)
+            if took is None:
+                then = close_the_player()
+                raise Failed(f"the player was still in front 10 s after the press; {then}")
+            if not any(node.package == PACKAGE for node in nodes):
+                launch_app()
+                raise Failed(f"the app was left, and the player was not closed: {said_on(nodes)[:8]}")
+            if route != "phone" and not find(LIBRARY, nodes):
+                try:
+                    wait_for(lambda found: bool(find(LIBRARY, found)), 6, "the library")
+                except Failed as missing:
+                    raise Failed(f"the player went, and the library is not in front: {missing}")
+            return f"it closed the player{'' if took < 2 else f' in {took:.0f} s'}"
+
+        parts.check("Back, right after it opens", lambda: closed_by("Back", KEY_BACK, "wide"))
+        parts.check("Esc, right after it opens", lambda: closed_by("Esc", KEY_ESCAPE, "wide"))
+        parts.check("Back, on a phone's layout", lambda: closed_by("Back", KEY_BACK, "phone"))
+        parts.check(
+            "Back, once the window is wide again after a phone's",
+            lambda: closed_by("Back", KEY_BACK, "wide again"),
         )
     finally:
-        shell("input keyevent 127")  # Pause: music through the steps after would be noise.
-    return "the player's bar opened the full-screen player, wide and on a phone's layout; Back closed it"
+        try:
+            close_the_player()
+        finally:
+            shell("input keyevent 127")  # Pause: music through the steps after would be noise.
+    return parts.report()
 
 
 # --- The late songs come: what holds no cover, what is garbled ----------------------------------
@@ -3020,19 +3352,48 @@ def late_songs_arrive():
             key(KEY_F5)
             asked_again = True
         time.sleep(3)
+    held = media_store_album_artists(("garbled-b.mp3", "garbled-d.mp3"))
     late_state = {
         "songs": made,
         "baseline": baseline,
         "albums_before": albums_before,
         "listed": now,
+        "album_artists": held,
     }
     screenshot("late-songs-listed")
     return (
         f"{len(made)} songs made and {pushed} files pushed to {LATE}; listed {now - before} new "
         f"songs {time.time() - began:.0f} s after the rescan{note}. The sidebar counted "
         f"{baseline if baseline is not None else 'no settled number of'} songs without a cover "
-        f"before and {albums_before} albums"
+        f"before and {albums_before} albums. The media store holds the album artist of the song "
+        f"with the text itself as {spelled(held.get('garbled-b.mp3'))}, and of the one with the "
+        f"byte 0xF0 in a tag marked Latin-1 as {spelled(held.get('garbled-d.mp3'))}"
     )
+
+
+def media_store_album_artists(file_names):
+    """What the media store holds as the album artist of each of the late songs [file_names], as the
+    device prints it: {file name: text}; a song it does not list has no entry."""
+    said = shell(
+        "content query --uri content://media/external/audio/media --projection _data:album_artist"
+    )
+    held = {}
+    for line in said.splitlines():
+        match = re.search(r"_data=(.*), album_artist=(.*)$", line.strip())
+        if match:
+            for name in file_names:
+                if match.group(1).endswith(f"/Late/{name}"):
+                    held[name] = match.group(2)
+    return held
+
+
+def spelled(text):
+    """A text with its letters outside ASCII named, for a report that is read on a screen where a
+    ð and a ğ look alike."""
+    if text is None:
+        return "nothing (the song is not listed)"
+    odd = " ".join(f"U+{ord(letter):04X}" for letter in text if ord(letter) > 127)
+    return f"{text!r}" + (f" ({odd})" if odd else "")
 
 
 GARBLED_TITLE = re.compile(r"^Mo\S{1,3}ollar$")
@@ -3168,16 +3529,19 @@ def no_cover_lists():
 
 def garbled_lists():
     """The songs whose text looks garbled are counted by the sidebar and listed apart: the song
-    whose title is UTF-8 read as Windows-1252, and the two that have it in their album artist; the
-    control, an Icelandic title that is right as it is, is not in the list. None of the albums
-    shows letters of another script (the library once read the text of one as Chinese). The chip
-    for this list is there only where there is no sidebar: not tried here."""
+    whose title is UTF-8 read as Windows-1252, the one whose album artist is UTF-8 read so, and the
+    one whose album artist is Turkish read as Latin-1 ("Moðollar", which the code puts right); the
+    control, an Icelandic title that is right as it is, is not in the list. A fourth song, with the
+    byte 0xF0 itself in a tag marked Latin-1, may be there or not, as the media store has read the
+    byte: it is told of and not counted on. None of the albums shows letters of another script (the
+    library once read the text of one as Chinese). The chip for this list is there only where there
+    is no sidebar: not tried here."""
     state = late_ready()
     parts = Parts()
     key(KEY_CTRL, KEY_1)
 
     def counted():
-        deadline = time.time() + 90
+        deadline = time.time() + 60
         while True:
             nodes = screen()
             said = sidebar_count("Garbled text", nodes)
@@ -3186,7 +3550,7 @@ def garbled_lists():
                 state["garbled"] = count
                 return f"the sidebar counts {said}"
             if time.time() > deadline:
-                raise Failed(f"the sidebar counts {said!r} songs with garbled text after 90 s, not 3")
+                raise Failed(f"the sidebar counts {said!r} songs with garbled text after 60 s, not 3")
             time.sleep(2)
 
     parts.check("the sidebar counts them", counted)
@@ -3205,7 +3569,17 @@ def garbled_lists():
             raise Failed(f"the list holds {titles}; it lacks {missing}")
         if any(CJK.search(words) for words in said_on(nodes)):
             raise Failed(f"letters of another script are on the list: {said_on(nodes)[:30]}")
-        return f"it lists {titles}"
+        count = number_in(sidebar_count("Garbled text", nodes))
+        if count is not None and len(titles) != count and count <= 14:
+            raise Failed(f"the list holds {len(titles)} songs, the sidebar counts {count}: {titles}")
+        latin_one = "Zz Turkish D" in titles
+        state["latin_one_listed"] = latin_one
+        held = (state.get("album_artists") or {}).get("garbled-d.mp3")
+        return (
+            f"it lists {titles}. The song with the byte 0xF0 in a Latin-1 tag is "
+            f"{'listed' if latin_one else 'not listed'}: the media store gave the app "
+            f"{spelled(held)} as its album artist"
+        )
 
     parts.check("the place lists them, and not the control", listed)
 
@@ -3252,15 +3626,42 @@ def open_garbled_title():
 NOTICE = r"^(This looks garbled|These look garbled)$"
 
 
+def saved_or_closed(timeout=90):
+    """Ctrl+S pressed in the editor of a song that the save takes out of the list it was opened
+    from: waits until the editor says that it saved (or that nothing is changed), or is gone, which
+    it is once its song has left the list (the editor stays in a build that keeps it for its own
+    save: both are the save). The system's question whether the app may change the file is
+    answered. What came, in words."""
+    deadline = time.time() + timeout
+    nodes = []
+    gone = 0
+    while time.time() < deadline:
+        nodes = screen()
+        mine = any(node.package == PACKAGE for node in nodes)
+        if not mine and find(r"^(Allow|ALLOW)$", nodes):
+            tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+            continue
+        if find(r"^(Saved|No changes)$", nodes):
+            return "the editor said it saved"
+        # Twice running: a screen read while the editor is redrawn is not a closed editor.
+        gone = gone + 1 if mine and title_field(nodes) is None else 0
+        if gone >= 2:
+            return "the editor was gone (its song had left the list)"
+        time.sleep(0.5)
+    raise Failed(f"neither Saved nor an editor that closed after {timeout} s: {said_on(nodes)[:30]}")
+
+
 def editor_repair():
     """The editor of the song whose title is garbled says so and offers to put it right; that is a
-    change to save, and what is written is "Moğollar" with every other tag as it was."""
+    change to save, and what is written is "Moğollar" with every other tag as it was. The save is
+    told by the file and the list, and by the editor's message or its being gone."""
     state = late_ready()
     song = state["songs"]["garbled title"]
     parts = Parts()
     shown = open_garbled_title()
     nodes = screen()
     holds = {}
+    counted = {}
 
     def offered():
         if not find(NOTICE, nodes):
@@ -3275,13 +3676,15 @@ def editor_repair():
 
     holds["offered"] = parts.check("the editor offers the repair", offered)
     if not holds["offered"]:
-        key(KEY_CTRL, KEY_W)
+        nothing_beside()
         return parts.report()
 
     def repaired():
         tap(find("^Repair$", nodes)[0].pressed_as())
         after = wait_for(lambda found: title_field(found) == GOOD, 15, "the title put right")
         gone = wait_for(lambda found: not find(NOTICE, found), 10, "the notice gone")
+        # What the sidebar counts just before the save: the list falls from here.
+        counted["before"] = number_in(sidebar_count("Garbled text", gone))
         return f"the title field holds {title_field(gone) or title_field(after)!r}"
 
     holds["repaired"] = parts.check("Repair puts the title right in the editor", repaired)
@@ -3289,36 +3692,40 @@ def editor_repair():
 
         def saved():
             key(KEY_CTRL, KEY_S)
-            saved_when(r"^(Saved|No changes)$", 90)
+            how = saved_or_closed(90)
             after = probe(pull(song["file"], LATE))
             wrote = after["tags"].get("title")
             if wrote != GOOD:
-                raise Failed(f"the title in the file is {wrote!r}, not {GOOD!r}")
+                raise Failed(f"the title in the file is {wrote!r}, not {GOOD!r} ({how})")
             try:
                 same_but(after, song["probe"], "title")
             except Failed as reason:
                 raise Failed(f"{song['file']}: {reason}")
-            return f"the file says {wrote!r} (it said {song['probe']['tags'].get('title')!r}); the other tags, the picture and the sound as they were"
+            return (
+                f"{how}; the file says {wrote!r} (it said {song['probe']['tags'].get('title')!r}); "
+                "the other tags, the picture and the sound as they were"
+            )
 
         holds["saved"] = parts.check("the file is written with the right title", saved)
 
         def list_falls():
-            before = state.get("garbled", 3)
+            before = counted.get("before") or state.get("garbled") or 3
             deadline = time.time() + 45
             while True:
-                said = sidebar_count("Garbled text", screen())
+                nodes_ = screen()
+                said = sidebar_count("Garbled text", nodes_)
                 if number_in(said) is not None and number_in(said) < before:
                     return f"the sidebar went from {before} to {said} garbled songs"
                 if time.time() > deadline:
-                    raise Failed(f"the sidebar still counts {said} garbled songs 45 s after the save")
+                    raise Failed(
+                        f"the sidebar still counts {said} garbled songs 45 s after the save, as "
+                        f"before it (it counted {before})"
+                    )
                 time.sleep(2)
 
         if holds.get("saved"):
             parts.check("the saved song leaves the list", list_falls)
-    key(KEY_CTRL, KEY_W)
-    nodes = screen()
-    if find("^Discard$", nodes):
-        tap(find("^Discard$", nodes)[0])
+    nothing_beside()
     return parts.report()
 
 
@@ -3393,7 +3800,13 @@ def batch_repair():
             except Failed as reason:
                 raise Failed(f"{song['file']}: {reason}")
             notes.append(f"{song['file']}: {field} {GOOD!r}")
-        return "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+        said = "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+        if "Zz Turkish D" in listed:
+            # The song with the byte itself: told of, whatever the media store made of the byte.
+            latin_one = songs["garbled d"]
+            wrote = album_artist_of(probe(pull(latin_one["file"], LATE))["tags"])
+            said += f". The song with the byte 0xF0 in a Latin-1 tag was in the list: its album artist is now {spelled(wrote)}"
+        return said
 
     parts.check("the files say the right text and nothing else changed", files)
 
@@ -3404,6 +3817,10 @@ def batch_repair():
             said = sidebar_count("Garbled text", nodes_)
             if number_in(said) == 0 and find("^No garbled text$", nodes_):
                 return f"the list says 'No garbled text' and the sidebar counts {said}"
+            # The song with the byte itself, when the media store gave the app a text that no repair
+            # knows (a replacement character, say), stays: that one is not the batch's to put right.
+            if number_in(said) == 1 and list_titles(nodes_) == ["Zz Turkish D"]:
+                return "only the song with the byte 0xF0 in a Latin-1 tag stayed, with a text no repair knows"
             if time.time() > deadline:
                 raise Failed(f"the garbled list is not empty 60 s after the save: sidebar {said}, {said_on(nodes_)[:20]}")
             time.sleep(2)
@@ -3845,6 +4262,13 @@ def big_selection():
     home()
     nodes = screen()
     total = number_in(sidebar_count("Songs", nodes)) or 0
+    if total < 150:
+        # The long library is the speed step's. When that did not get as far, or was not asked for,
+        # it is made here (copied once, so that it costs nothing when it is there).
+        long_library()
+        home()
+        nodes = screen()
+        total = number_in(sidebar_count("Songs", nodes)) or 0
     if total < 150:
         raise Skipped(f"only {total} songs are listed")
     if not find("^Pick a song$", nodes):
@@ -5109,7 +5533,17 @@ try:
 finally:
     failed = [name for name, outcome, _ in results if outcome == "FAILED"]
     with open(os.path.join(out_dir, "report.txt"), "w", encoding="utf-8") as report:
-        report.write(f"{len(results)} steps, {len(failed)} failed, in {time.time() - started:.0f} s\n\n")
+        report.write(f"{len(results)} steps, {len(failed)} failed, in {time.time() - started:.0f} s\n")
+        if STEPS_ASKED is not None:
+            tried = [name for name, outcome, _ in results if outcome != "not asked for" and name not in SETUP]
+            left = [name for name, outcome, _ in results if outcome == "not asked for"]
+            report.write(
+                f"SMOKE_STEPS={STEPS_ASKED.pattern!r}: {len(tried)} steps besides the setup were "
+                f"tried, {len(left)} were not asked for\n"
+            )
+            if not any(asked_by_name(name) for name in tried):
+                report.write("It matched the name of no step that was reached.\n")
+        report.write("\n")
         for name, outcome, detail in results:
             report.write(f"[{outcome}] {name}\n")
             if detail:
