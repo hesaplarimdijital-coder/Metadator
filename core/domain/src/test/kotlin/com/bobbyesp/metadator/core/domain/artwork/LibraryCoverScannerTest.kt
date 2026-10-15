@@ -49,20 +49,6 @@ class LibraryCoverScannerTest {
         override suspend fun readAudioProperties(ref: ContentRef): AudioProperties? = null
     }
 
-    private class MemoryStore(initial: List<CoverCheck> = emptyList()) : CoverCheckStore {
-        val checks = initial.associateByTo(mutableMapOf()) { it.id }
-
-        override suspend fun load(): List<CoverCheck> = checks.values.toList()
-
-        override suspend fun save(checks: List<CoverCheck>) {
-            checks.forEach { this.checks[it.id] = it }
-        }
-
-        override suspend fun remove(ids: Collection<TrackId>) {
-            ids.forEach(checks::remove)
-        }
-    }
-
     private val files =
         CoverFiles(mapOf(withCover.ref to true, without.ref to false, unsupported.ref to null))
 
@@ -84,7 +70,7 @@ class LibraryCoverScannerTest {
 
     @Test
     fun `every song is checked, and those without a picture are listed`() = runTest {
-        val store = MemoryStore()
+        val store = MemoryCoverCheckStore()
         val scanner = scanner(store)
 
         scanner.submit(listOf(withCover, without, unsupported))
@@ -108,7 +94,7 @@ class LibraryCoverScannerTest {
         val kept =
             CoverCheck(without.id, without.dateModifiedEpochSeconds, without.sizeBytes, false)
         val reader = CoverFiles(emptyMap())
-        val scanner = scanner(MemoryStore(listOf(kept)), reader)
+        val scanner = scanner(MemoryCoverCheckStore(listOf(kept)), reader)
 
         scanner.submit(listOf(without))
         runCurrent()
@@ -120,7 +106,7 @@ class LibraryCoverScannerTest {
     @Test
     fun `a song saved with a cover is read again, before songs never read`() = runTest {
         val before = CoverCheck(withCover.id, withCover.dateModifiedEpochSeconds - 60, 900, false)
-        val scanner = scanner(MemoryStore(listOf(before)))
+        val scanner = scanner(MemoryCoverCheckStore(listOf(before)))
 
         scanner.submit(listOf(without, withCover))
         runCurrent()
@@ -132,7 +118,7 @@ class LibraryCoverScannerTest {
     @Test
     fun `a file that could not be opened is tried again next time, an unsupported one is not`() =
         runTest {
-            val store = MemoryStore()
+            val store = MemoryCoverCheckStore()
             val gone = track(4)
             val scanner = scanner(store)
 
@@ -145,7 +131,7 @@ class LibraryCoverScannerTest {
 
     @Test
     fun `a song gone from the library is forgotten`() = runTest {
-        val store = MemoryStore()
+        val store = MemoryCoverCheckStore()
         val scanner = scanner(store)
 
         scanner.submit(listOf(withCover, without))
@@ -161,7 +147,7 @@ class LibraryCoverScannerTest {
     @Test
     fun `nothing is read while more urgent work is`() = runTest {
         val busy = MutableStateFlow(true)
-        val scanner = scanner(MemoryStore(), busy = busy)
+        val scanner = scanner(MemoryCoverCheckStore(), busy = busy)
 
         scanner.submit(listOf(withCover, without))
         runCurrent()
@@ -177,7 +163,7 @@ class LibraryCoverScannerTest {
     @Test
     fun `a large library is checked and kept whole`() = runTest {
         val songs = (1L..60L).map(::track)
-        val store = MemoryStore()
+        val store = MemoryCoverCheckStore()
         val reader = CoverFiles(songs.associate { it.ref to (it.id.value % 2 == 0L) })
         val scanner = scanner(store, reader)
 

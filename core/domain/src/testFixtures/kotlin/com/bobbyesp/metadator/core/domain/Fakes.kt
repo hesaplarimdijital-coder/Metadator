@@ -132,6 +132,37 @@ class FakeIndexer : MediaIndexer {
     }
 }
 
+/** A song of a [FakeLibrary], whose file is at `content://media/external/audio/media/<id>`. */
+fun fakeTrack(
+    id: Long,
+    title: String = "Song $id",
+    artist: String? = "Artist",
+    album: String? = "Album",
+    albumArtist: String? = null,
+    displayName: String = "song$id.mp3",
+) =
+    Track(
+        id = TrackId(id),
+        ref = ContentRef("content://media/external/audio/media/$id"),
+        title = title,
+        artist = artist,
+        album = album,
+        albumArtist = albumArtist,
+        albumId = 1,
+        durationMs = 180_000,
+        trackNumber = id.toInt(),
+        discNumber = null,
+        year = 2001,
+        genre = "Pop",
+        mimeType = "audio/mpeg",
+        sizeBytes = 4_000_000,
+        displayName = displayName,
+        folder = "Music/",
+        dateAddedEpochSeconds = 0,
+        dateModifiedEpochSeconds = 0,
+        artworkRef = null,
+    )
+
 class FakeLibrary(initial: List<Track> = emptyList()) : AudioLibrary {
     val tracks = MutableStateFlow(initial)
 
