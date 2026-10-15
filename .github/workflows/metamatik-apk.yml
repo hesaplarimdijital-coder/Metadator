@@ -255,12 +255,20 @@ jobs:
             "system-images;android-37;google_apis_ps16k;x86_64" \
             2>&1 | tee emulator-start.log
 
+      # "[smoke-steps <regular expression>]" in the commit's message runs only the steps whose names
+      # match, with what they go on from: a few steps tried again in a quarter of an hour.
       - name: Use the app
         id: use
         env:
           SMOKE_TIME_LIMIT: '2700'
+          MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -o pipefail
+          steps=$(printf '%s' "$MESSAGE" | sed -n 's/.*\[smoke-steps \([^]]*\)\].*/\1/p' | head -n 1)
+          if [ -n "$steps" ]; then
+            export SMOKE_STEPS="$steps"
+            echo "Only the steps that match: $steps"
+          fi
           previous=""
           if [ -f metamatik-previous.apk ]; then previous=metamatik-previous.apk; fi
           python3 .github/smoke/smoke.py metamatik.apk smoke-songs smoke-out $previous 2>&1 |

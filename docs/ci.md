@@ -135,6 +135,10 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   again. For a push that only changes the scripts. A push that changes neither the app nor the
   scripts (the docs) says `[skip ci]`, which GitHub reads as not to run at all; a push that runs
   stops the run before it.
+- **`[smoke-steps <regular expression>]` in a commit message** runs only the steps whose names
+  match it (`SMOKE_STEPS`), with the steps that set the run up and those they go on from; the
+  others are reported as not asked for. With `[smoke-only]`, a few steps are tried again on the
+  APK already published in a quarter of an hour.
 - **`[perf-ab <run id>]` in a commit message** adds a job that times this build against the APK
   of that earlier run (its `metamatik` artifact, kept thirty days), on one emulator of its own:
   the earlier one, this one, the earlier one, this one, each installed anew with only the
