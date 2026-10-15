@@ -112,9 +112,16 @@ fun ContextMenuArea(
     ) {
         content()
         if (asked) {
-            // A point for the menu to hang from, where the pointer was.
+            // A point for the menu to hang from, where the pointer was. Solid, not glass: it opens
+            // over whatever the pointer is on, an album's cover as often as a row, and the glass
+            // showed the cover through a menu that over a row is white.
             Box(Modifier.offset { anchor }.size(0.dp)) {
-                ActionMenu(expanded = open, onDismissRequest = { open = false }, actions = shown)
+                ActionMenu(
+                    expanded = open,
+                    onDismissRequest = { open = false },
+                    actions = shown,
+                    glass = false,
+                )
             }
         }
     }
