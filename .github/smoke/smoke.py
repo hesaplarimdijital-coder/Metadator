@@ -4394,6 +4394,10 @@ def glass_on_a_phone():
         home()
         expect("One More Time", 15)
         screenshot("phone-player-glass")
+        # Paused, the bar stays and its row's bars stop moving: with them moving, a reading of the
+        # screen once came back without the rows under them and the selection's bar.
+        shell("input keyevent 127")
+        time.sleep(1)
         key(KEY_CTRL, KEY_A)
         expect(SELECTED, 15)
         expect("^Edit together$", 10)
@@ -4647,6 +4651,17 @@ def open_place(place, layout):
         raise Failed(f"the app closed on {place}, on {layout}: {crash_report()}")
 
 
+def close_details():
+    """Where only one screen shows, what was beside the library is in front of it: the editor the
+    inspector opened for the song clicked last, once a selection ends. Closed, the library is
+    back."""
+    for _ in range(3):
+        if find(LIBRARY):
+            return
+        key(KEY_CTRL, KEY_W)
+        time.sleep(1.5)
+
+
 def visit_places(tag, while_there=None):
     """Each of the library's places opens: on a wide window, from its sidebar; on one with no room
     for a sidebar, from the tabs over the panel; on a phone, from its tabs. [while_there] is done in
@@ -4658,6 +4673,7 @@ def visit_places(tag, while_there=None):
                 shell(f"wm size {size[0]}")
                 shell(f"wm density {size[1]}")
                 time.sleep(4)
+                close_details()
             for place in PLACES:
                 open_place(place, name)
                 if while_there:
