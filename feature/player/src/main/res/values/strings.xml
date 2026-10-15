@@ -12,6 +12,8 @@
     <string name="edit_tags">Edit tags</string>
     <string name="up_next">Up next</string>
     <string name="close">Close</string>
+    <!-- The full player's keys, in the list of keyboard shortcuts -->
+    <string name="player_shortcuts">Player</string>
     <string name="nothing_playing">Nothing is playing</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="lyrics">Lyrics</string>

@@ -230,8 +230,11 @@ fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false })
     // it. A screen added after it would otherwise come first, as the library does once it is back
     // from a collection, and ended its selection unseen behind the player.
     val screensBack = rememberNavigationEventDispatcherOwner()
+    // Off from the moment the player is asked to open: a spring at rest can leave the fraction a
+    // hair short of 1, and the screens behind took Back then, a step of the library's history at
+    // each press, while the player stayed open in front.
     LaunchedEffect(screensBack, playerExpansion) {
-        snapshotFlow { playerExpansion.fraction < 1f }
+        snapshotFlow { !playerExpansion.isOpen && playerExpansion.fraction < 1f }
             .collect { screensBack.navigationEventDispatcher.isEnabled = it }
     }
     val shownDetail = top?.takeIf { it is Editor || it is BatchEditor }

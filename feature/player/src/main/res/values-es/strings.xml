@@ -12,6 +12,8 @@
     <string name="edit_tags">Editar etiquetas</string>
     <string name="up_next">A continuación</string>
     <string name="close">Cerrar</string>
+    <!-- The full player's keys, in the list of keyboard shortcuts -->
+    <string name="player_shortcuts">Reproductor</string>
     <string name="nothing_playing">No suena nada</string>
     <string name="unknown_artist">Artista desconocido</string>
     <string name="lyrics">Letra</string>

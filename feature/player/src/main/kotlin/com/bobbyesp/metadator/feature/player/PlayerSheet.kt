@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.feature.player
 
+import android.view.KeyEvent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -64,6 +65,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -76,6 +78,8 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorAccentTheme
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
 import org.koin.androidx.compose.koinViewModel
@@ -161,7 +165,11 @@ fun PlayerSheet(
     CollapseOnBack(sheet)
     DisposableEffect(sheet, expansion) {
         expansion?.source = { sheet.fraction }
-        onDispose { expansion?.source = null }
+        expansion?.openSource = { sheet.isExpanded }
+        onDispose {
+            expansion?.source = null
+            expansion?.openSource = null
+        }
     }
 
     val viewModel: NowPlayingViewModel = koinViewModel()
@@ -494,6 +502,20 @@ private fun CollapseOnBack(sheet: PlayerSheetState) {
         isBackEnabled = sheet.isExpanded,
         onBackCancelled = sheet::expand,
         onBackCompleted = sheet::collapse,
+    )
+    // Esc too, as the player's own key: left to Android to make a Back of, an Esc from a keyboard
+    // whose map does not say so (the emulator's) never closed it.
+    KeyboardShortcuts(
+        title = stringResource(R.string.player_shortcuts),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_ESCAPE,
+                    stringResource(R.string.close),
+                    enabled = sheet.isExpanded,
+                    action = sheet::collapse,
+                )
+            ),
     )
 }
 

@@ -87,9 +87,13 @@ took), and from a mouse's back button. All three arrive as the same Back, and ea
 one step:
 
 1. A sheet, a dialog or a menu closes: each is a window of its own and takes Back first.
-2. The full player closes. While it covers the screens, they take no Back at all (`MetadatorApp`
-   turns off their dispatcher of navigation events): a screen composed after the player, as the
-   library is again once back from a collection, came before it and ended a selection unseen.
+2. The full player closes. From the moment it is asked to open the screens take no Back at all
+   (`MetadatorApp` turns off their dispatcher of navigation events while `PlayerSheetExpansion`
+   says it is open): a screen composed after the player, as the library is again once back from a
+   collection, came before it and ended a selection unseen; and with the off switch on how far it
+   was open, a spring at rest a hair short of the top let the library's history take each press
+   while the player stayed. Esc is also the player's own shortcut, since Android makes a Back of
+   an Esc only for a keyboard whose map says so.
 3. The selection ends, in the library or a collection.
 4. What is beside the list goes: the editor or the batch editor. An editor with unsaved changes asks
    first.
