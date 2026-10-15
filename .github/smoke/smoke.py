@@ -226,6 +226,17 @@ def screen(attempts=4):
                 tap(wait[0])
                 time.sleep(3)
                 continue
+            # One of the system's own apps closing (Digital Wellbeing, on a freshly booted
+            # emulator) stood in front of three of four timed runs. Not this app: its crash is
+            # this build's to answer for, and stays on screen for the step to fail on.
+            stopped = [node for node in nodes if node.says("keeps stopping")]
+            close = [node for node in nodes if node.says("^Close app$")]
+            if stopped and close and "Metamatik" not in stopped[0].text and len(waited_out) < 10:
+                waited_out.append(stopped[0].text or stopped[0].description)
+                log(f"    the system says {waited_out[-1]!r}: closing it")
+                tap(close[0])
+                time.sleep(2)
+                continue
             return nodes
         time.sleep(1)
     return []

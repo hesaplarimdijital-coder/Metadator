@@ -283,14 +283,15 @@ jobs:
           gh release upload metamatik-apk smoke-report.txt smoke.zip --clobber
 
 
-  # Only when a push asks for it, with "[perf-ab <run id>]" in its message: this build and the APK
-  # of that earlier run timed on one emulator, one after the other, twice each. The machines the
-  # runs get differ in speed more than one build from the next, so two builds are only compared on
-  # one machine. The earlier APK is taken from its run's artifact, which lasts thirty days.
+  # Only when a push asks for it, with "[perf-ab <run id>]" in its message: the APK published (this
+  # build's, or with [smoke-only] the one before) and the APK of that earlier run, timed on one
+  # emulator, one after the other, twice each. The machines the runs get differ in speed more than
+  # one build from the next, so two builds are only compared on one machine. The earlier APK is
+  # taken from its run's artifact, which lasts thirty days.
   perf:
     name: Time it against an earlier build
     needs: apk
-    if: ${{ !cancelled() && needs.apk.result == 'success' && contains(github.event.head_commit.message, '[perf-ab ') }}
+    if: ${{ !cancelled() && (needs.apk.result == 'success' || needs.apk.result == 'skipped') && contains(github.event.head_commit.message, '[perf-ab ') }}
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 60
