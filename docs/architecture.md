@@ -231,7 +231,8 @@ panes change, and side by side they never do, so it took no Back at all and Andr
 app. While the full player covers the screens, their back is off (a dispatcher of navigation events
 of their own, turned off), so that a screen composed after the player cannot take Back before it.
 At the start, a desktop's window stays where it is (`StayAtTheStart`, `DesktopWindow` in
-`MainActivity`); a phone goes home.
+`MainActivity`); a phone goes home. That handler is the first added, so the last asked, and it is
+off while the full player is open, whatever order the player's own handler was added in.
 
 Every transition between screens is in `NavigationMotion`:
 

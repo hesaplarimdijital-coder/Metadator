@@ -99,9 +99,15 @@ import org.koin.compose.koinInject
 fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false }) {
     val backStack = rememberNavBackStack(Library)
     val navigator = rememberNavigator(backStack, onExit)
+    val playerExpansion = rememberPlayerSheetExpansion()
+    // Read where Back at the start is decided, not here: the fraction moves at every frame.
+    val playerClosed by
+        remember(playerExpansion) {
+            derivedStateOf { playerExpansion.fraction == 0f }
+        }
     // First of all that takes Back: of those that want it, the one added last has it, so this
-    // has what nobody else wanted.
-    StayAtTheStart { isDesktopWindow() && backStack.size == 1 }
+    // has what nobody else wanted. Never while the player is open, whatever that order.
+    StayAtTheStart { isDesktopWindow() && backStack.size == 1 && playerClosed }
     val overlay = rememberOverlaySceneStrategy<NavKey>()
     // The player is not a destination, so it is not told how much room it has as one is: the shell
     // measures the window for it, and for the panels.
@@ -213,7 +219,6 @@ fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false })
         )
 
     val playerLayout = PlayerLayout.forWindow(width = windowWidth, height = windowHeight)
-    val playerExpansion = rememberPlayerSheetExpansion()
     // The screens, recorded for what floats over all of them to blur: their menus, and the bar of
     // the player, which is their sibling here.
     val backdrop = rememberHazeState()
@@ -296,6 +301,13 @@ fun MetadatorApp(onExit: () -> Unit, isDesktopWindow: () -> Boolean = { false })
  * home, as from any app, and this stays out of the way. In a desktop's window Android minimizes the
  * window: a second press of Esc, or of a mouse's back button, and the window was gone from under
  * the pointer. There, while [atTheStart] says so, Back does nothing.
+ *
+ * Of the handlers that want Back, the one added last has it. This one is added before all others,
+ * once: what is composed after it comes first, the screens' own (a selection to end, a place to go
+ * back to) however often a change of layout adds them again. Whether the full player is open is the
+ * shell's to know, and [atTheStart] says no while it is: on the emulator, after a change of layout,
+ * Back reached this rather than the player, which stayed open. Back is the player's then, whatever
+ * order the two were added in.
  */
 @Composable
 private fun StayAtTheStart(atTheStart: () -> Boolean) {

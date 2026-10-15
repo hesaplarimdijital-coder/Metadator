@@ -96,7 +96,9 @@ one step:
    attention", a card): the last ten are kept, like a browser's, with the library's saved state.
 7. At the start, a phone goes home, as Android does from any app. A desktop's window stays as it
    is (`StayAtTheStart`): Android would minimize it, and a second press of Esc or of the mouse's
-   button took the window from under the pointer.
+   button took the window from under the pointer. It is the last to be asked, as the first added
+   of those that take Back, and it is off while the full player is open at all: after a change of
+   layout, Back went to it rather than to the player, which stayed open.
 
 Steps 4 and 5 are list-detail's, which used to take none of them: it went back until its panes
 changed, and with the library and the editor side by side they stay as they are whatever is in
