@@ -218,7 +218,9 @@ checks of the library, and counts nothing for the sidebar.
 - `showSelection` is what a list shows on its own as its selection changes: the same, but never over
   a detail that holds something, since nobody chose it. Nothing selected takes away only what the
   list asked for last, its selection or the song clicked in it: a file or a song opened by hand over
-  that stays when the list changes under it.
+  that stays when the list changes under it. The list lets go of the song clicked when a change of
+  what is listed (the search, a filter, the place) leaves it out, not when the song's own save takes
+  it off the list (`LibraryState.clicked`): its editor stays, with what the save said.
 - `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
 - `goBack` takes one step: what Back does.
 
