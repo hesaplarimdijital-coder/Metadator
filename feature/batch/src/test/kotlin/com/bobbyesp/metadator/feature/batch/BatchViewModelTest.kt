@@ -184,6 +184,24 @@ class BatchViewModelTest {
         assertEquals(listOf(BatchEffect.Close), effects)
         assertNull(runner.progress.value)
     }
+
+    @Test
+    fun `undo all says how many of the songs it put back, when not all`() = runTest {
+        val batch = batch()
+        val said = messagesOf(batch)
+        advanceUntilIdle()
+        batch.setAlbum("Discovery")
+        batch.onIntent(BatchIntent.Apply)
+        advanceUntilIdle()
+        // One backup is gone by then.
+        backups.backups.remove(batch.state.value.progress!!.backups.first())
+
+        batch.onIntent(BatchIntent.UndoAll)
+        advanceUntilIdle()
+
+        assertEquals(strings.plural(R.plurals.batch_undone_partly, 3, 2, 3), said.last().text)
+        assertEquals(listOf("Discovery"), files.files.getValue(tracks.first().ref).tags["ALBUM"])
+    }
 }
 
 /** Pictures picked by URI, each a PNG; once [hold] is called, each waits for [release]. */

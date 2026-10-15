@@ -520,7 +520,18 @@ class BatchViewModel(
         val backups = currentState.progress?.backups.orEmpty()
         launch {
             val restored = backups.count { restore(it) == RestoreOutcome.Restored }
-            showMessage(UiMessage(strings.plural(R.plurals.batch_undone, restored, restored)))
+            // "3 songs restored" said of 5 hid that two kept the batch's changes: a backup gone, or
+            // a file that would not be written back.
+            val said =
+                if (restored < backups.size) {
+                    strings.plural(
+                        R.plurals.batch_undone_partly,
+                        backups.size,
+                        restored,
+                        backups.size,
+                    )
+                } else strings.plural(R.plurals.batch_undone, restored, restored)
+            showMessage(UiMessage(said))
             runner.clear()
             sendEffect(BatchEffect.Close)
         }
@@ -537,6 +548,12 @@ class BatchViewModel(
             )
         }
 
+    /** A failure of what the user pressed (Apply, Undo all) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
+
     companion object {
         val EditableFields =
             listOf(
@@ -550,12 +567,6 @@ class BatchViewModel(
             )
         private const val PARALLEL_READS = 4
         private const val REPAIRS_SHOWN = 3
-    }
-
-    /** A failure of what the user pressed (Apply, Undo all) is said on screen, not only logged. */
-    override fun onUnhandledError(error: Throwable) {
-        super.onUnhandledError(error)
-        showMessage(unexpectedErrorMessage(strings))
     }
 }
 

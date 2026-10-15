@@ -56,6 +56,10 @@
         <item quantity="one">%1$d şarkı geri yüklendi</item>
         <item quantity="other">%1$d şarkı geri yüklendi</item>
     </plurals>
+    <plurals name="batch_undone_partly">
+        <item quantity="one">%2$d şarkıdan %1$d tanesi geri yüklendi</item>
+        <item quantity="other">%2$d şarkıdan %1$d tanesi geri yüklendi</item>
+    </plurals>
     <string name="batch_cancelled">Durduruldu. O ana kadar kaydedilen şarkılar değişikliklerini korur.</string>
     <string name="batch_undo_all">Tümünü geri al</string>
     <string name="batch_finish">Bitir</string>

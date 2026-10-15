@@ -791,6 +791,12 @@ class LibraryViewModel(
         }
     }
 
+    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
+
     private companion object {
         const val KEY_TAB = "tab"
         const val KEY_SEARCH = "search"
@@ -799,12 +805,6 @@ class LibraryViewModel(
         /** How many places Back goes through: a few steps back, not the whole day's browsing. */
         const val MAX_HISTORY = 10
         val MIN_REFRESH = 900.milliseconds
-    }
-
-    /** A failure of what the user pressed (Rescan) is said on screen, not only logged. */
-    override fun onUnhandledError(error: Throwable) {
-        super.onUnhandledError(error)
-        showMessage(unexpectedErrorMessage(strings))
     }
 }
 

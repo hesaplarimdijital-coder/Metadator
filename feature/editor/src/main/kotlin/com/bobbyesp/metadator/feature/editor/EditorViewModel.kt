@@ -553,17 +553,17 @@ class EditorViewModel(
         savedState[KEY_PENDING] = null
     }
 
+    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
+    override fun onUnhandledError(error: Throwable) {
+        super.onUnhandledError(error)
+        showMessage(unexpectedErrorMessage(strings))
+    }
+
     private companion object {
         /** Named anew with the map, so that the JSON kept before is never read as one. */
         const val KEY_PENDING = "pending_edits"
 
         /** The formats [CheckLosslessUseCase] reads, by the names their files go by. */
         val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave")
-    }
-
-    /** A failure of what the user pressed (Undo) is said on screen, not only logged. */
-    override fun onUnhandledError(error: Throwable) {
-        super.onUnhandledError(error)
-        showMessage(unexpectedErrorMessage(strings))
     }
 }
