@@ -1759,7 +1759,7 @@ UPDATE_STEP = "Installed over the build before it, it opens what that one left"
 
 # Where these steps stand in the run: the seconds the first run had taken when it got there.
 STANDS = {
-    "search": 287,
+    "search": 347,
     "batch": 631,
     "mouse": 823,
     "card": 924,
@@ -2900,7 +2900,10 @@ def boxes_in_the_fake_list():
     if len(boxes(nodes)) < 2:
         raise Skipped(f"the Fake FLAC list holds {list_titles(nodes)}, no range to take")
     with LiveMouse() as mouse:
-        return shift_on_boxes(mouse, nodes, "the Fake FLAC list", rows_wanted=2)
+        done = shift_on_boxes(mouse, nodes, "the Fake FLAC list", rows_wanted=2)
+    # The step after this one counts on the Songs, not on this list.
+    key(KEY_CTRL, KEY_1)
+    return done
 
 
 # --- The full-screen player ---------------------------------------------------------------------
@@ -4866,6 +4869,8 @@ def main():
     step("The library checks its lossless songs, and lists the fake ones", quality_scan)
     step("F1 lists the keyboard shortcuts", shortcut_list)
     step("Ctrl+F searches", search)
+    step("Tab and Enter open a song without a mouse", keyboard_alone)
+    # After the keyboard step, which counts its Tab presses from where the search left the focus.
     step(
         "Esc in the search field clears it, then leaves it",
         within("esc in the search", esc_in_the_search_field),
@@ -4876,7 +4881,6 @@ def main():
         within("about", about_says_who),
         required=False,
     )
-    step("Tab and Enter open a song without a mouse", keyboard_alone)
     step(
         "A genuine FLAC is called genuine",
         verdict_of("One More Time", ["Looks like real lossless"]),
