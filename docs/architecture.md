@@ -218,7 +218,9 @@ checks of the library, and counts nothing for the sidebar.
 - `showSelection` is what a list shows on its own as its selection changes: the same, but never over
   a detail that holds something, since nobody chose it. Nothing selected takes away only what the
   list asked for last, its selection or the song clicked in it: a file or a song opened by hand over
-  that stays when the list changes under it.
+  that stays when the list changes under it. The list lets go of the song clicked when a change of
+  what is listed (the search, a filter, the place) leaves it out, not when the song's own save takes
+  it off the list (`LibraryState.clicked`): its editor stays, with what the save said.
 - `leave` is a list's arrow: the list goes with what is beside it, but for what holds something.
 - `goBack` takes one step: what Back does.
 
@@ -229,7 +231,8 @@ panes change, and side by side they never do, so it took no Back at all and Andr
 app. While the full player covers the screens, their back is off (a dispatcher of navigation events
 of their own, turned off), so that a screen composed after the player cannot take Back before it.
 At the start, a desktop's window stays where it is (`StayAtTheStart`, `DesktopWindow` in
-`MainActivity`); a phone goes home.
+`MainActivity`); a phone goes home. That handler is the first added, so the last asked, and it is
+off while the full player is open, whatever order the player's own handler was added in.
 
 Every transition between screens is in `NavigationMotion`:
 

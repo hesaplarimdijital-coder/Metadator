@@ -39,6 +39,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -61,6 +62,9 @@ class LibraryViewModelTest {
             }
         )
     private val backups = FakeBackupStore()
+
+    /** The device's songs, as the library reads them: a test saves a song's tags here. */
+    private val device = FakeLibrary(tracks)
     private lateinit var covers: LibraryCoverScanner
     private lateinit var batches: BatchRunner
 
@@ -76,7 +80,7 @@ class LibraryViewModelTest {
         val save = SaveTagChangesUseCase(files, files, backups, FakeIndexer(), hold)
         batches = BatchRunner(this, save, backups, hold)
         return LibraryViewModel(
-            library = FakeLibrary(tracks),
+            library = device,
             player = FakePlayer(),
             quality = quality,
             covers = covers,
@@ -96,6 +100,14 @@ class LibraryViewModelTest {
 
     private fun ids(vararg ids: Long) = ids.mapTo(mutableSetOf()) { TrackId(it) }
 
+    /** Song [id] as it is listed at first, as a row hands it over when it is clicked. */
+    private fun song(id: Long) = tracks.single { it.id == TrackId(id) }
+
+    /** Saves song [id] as [edit] makes it: the library has that version of it from then on. */
+    private fun save(id: Long, edit: (Track) -> Track) {
+        device.tracks.value = device.tracks.value.map { if (it.id == TrackId(id)) edit(it) else it }
+    }
+
     private val LibraryViewModel.selection
         get() = state.value.selection
 
@@ -113,11 +125,70 @@ class LibraryViewModelTest {
     fun `a range starts from the song opened with a click`() = runTest {
         val library = startedLibrary()
 
-        library.onIntent(LibraryIntent.Opened(TrackId(5)))
+        library.onIntent(LibraryIntent.Opened(song(5)))
         library.onIntent(LibraryIntent.SelectRangeTo(TrackId(3)))
 
-        assertEquals(TrackId(5), library.state.value.clicked)
+        assertEquals(TrackId(5), library.state.value.clicked?.id)
         assertEquals(ids(3, 4, 5), library.selection)
+    }
+
+    @Test
+    fun `a song clicked stays when its own save takes it off a smart list`() = runTest {
+        val library = startedLibrary()
+        library.onIntent(LibraryIntent.ShowSection(LibrarySection.NeedsAttention))
+        advanceUntilIdle()
+        library.onIntent(LibraryIntent.Opened(song(2)))
+
+        // Its album artist filled in and saved: it needs no attention any more.
+        save(2) { it.copy(albumArtist = "Daft Punk") }
+        advanceUntilIdle()
+
+        val state = library.state.value
+        assertFalse(TrackId(2) in state.listing.listedIds)
+        // Still the song clicked: its editor stays beside the list, with what the save said.
+        assertEquals(TrackId(2), state.clicked?.id)
+        // Another place that lists it, as the songs all do, keeps it.
+        library.onIntent(LibraryIntent.ShowSection(LibrarySection.Browse(LibraryTab.Songs)))
+        advanceUntilIdle()
+        assertEquals(TrackId(2), library.state.value.clicked?.id)
+    }
+
+    @Test
+    fun `a song clicked goes when a search leaves it out, and when the place does`() = runTest {
+        val library = startedLibrary()
+        library.onIntent(LibraryIntent.Opened(song(2)))
+
+        library.onIntent(LibraryIntent.Search("Homework"))
+        advanceUntilIdle()
+        assertNull(library.state.value.clicked)
+
+        // Saved out of a search, then the albums: the same songs, with no new listing.
+        library.onIntent(LibraryIntent.Opened(song(4)))
+        save(4) { it.copy(album = "Discovery") }
+        advanceUntilIdle()
+        assertEquals(TrackId(4), library.state.value.clicked?.id)
+        library.onIntent(LibraryIntent.ShowSection(LibrarySection.Browse(LibraryTab.Albums)))
+        assertNull(library.state.value.clicked)
+    }
+
+    @Test
+    fun `a song clicked in a collection stays when its own save takes it out of it`() = runTest {
+        val collection = libraryViewModel()
+        collection.onIntent(
+            LibraryIntent.ShowCollection(
+                CollectionType.Album,
+                tracks.first().collectionKey(CollectionType.Album)!!,
+            )
+        )
+        advanceUntilIdle()
+        collection.onIntent(LibraryIntent.Opened(song(2)))
+
+        save(2) { it.copy(album = "Homework") }
+        advanceUntilIdle()
+
+        val state = collection.state.value
+        assertEquals(listOf(TrackId(1), TrackId(3)), state.tracks.map { it.id })
+        assertEquals(TrackId(2), state.clicked?.id)
     }
 
     @Test

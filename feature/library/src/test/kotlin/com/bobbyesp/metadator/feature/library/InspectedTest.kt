@@ -24,7 +24,7 @@ class InspectedTest {
             listing = Listing(tracks = tracks),
             // Taken from the end of the list: the batch editor has them in the order listed.
             selection = tracks.takeLast(selected).reversed().mapTo(LinkedHashSet()) { it.id },
-            clicked = clicked?.let(::TrackId),
+            clicked = clicked?.let(::track),
         )
 
     @Test
@@ -50,14 +50,19 @@ class InspectedTest {
     }
 
     @Test
-    fun `one song selected is its editor, and none the song clicked while it is listed`() {
+    fun `one song selected is its editor, and none the song clicked, listed or not`() {
         assertEquals(Editor(tracks.last().ref.uri), Inspected(state(selected = 1)).target().key)
 
         val clicked = Inspected(state(selected = 0, clicked = 7))
         assertFalse(clicked.selected)
         assertEquals(Inspected.Target(Editor(tracks[6].ref.uri), false), clicked.target())
 
-        assertNull(Inspected(state(selected = 0, clicked = 999)).target().key)
+        // Taken off the list by its own save: the library keeps it clicked until the list changes.
+        assertEquals(
+            Editor(track(999).ref.uri),
+            Inspected(state(selected = 0, clicked = 999)).target().key,
+        )
+        assertNull(Inspected(state(selected = 0)).target().key)
     }
 
     @Test

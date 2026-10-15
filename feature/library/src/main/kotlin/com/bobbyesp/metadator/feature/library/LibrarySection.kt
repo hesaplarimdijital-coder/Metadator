@@ -87,7 +87,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
             state = state,
             onIntent = rememberIntents(viewModel),
             onOpenTrack = { track ->
-                viewModel.onIntent(LibraryIntent.Opened(track.id))
+                viewModel.onIntent(LibraryIntent.Opened(track))
                 navigator.showDetail(Editor(track.ref.uri))
             },
             onFindCover = {
@@ -131,7 +131,7 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
                 LibraryActions(
                     onIntent = onIntent,
                     onOpenTrack = { track ->
-                        onIntent(LibraryIntent.Opened(track.id))
+                        onIntent(LibraryIntent.Opened(track))
                         navigator.showDetail(Editor(track.ref.uri))
                     },
                     onFindCover = {
@@ -159,9 +159,13 @@ fun EntryProviderScope<NavKey>.librarySection(navigator: Navigator) {
 /**
  * Where a list shares the window with its inspector, the inspector shows what is selected in it, as
  * a desktop's file manager does: the songs selected together in the batch editor, one song in its
- * editor, and with nothing selected the song last opened with a click while it is listed, or
- * nothing. Left to the clicks alone, the inspector stayed on the song opened before songs were
- * selected, and an editor of a song no longer listed stayed beside a list of others.
+ * editor, and with nothing selected the song last opened with a click, or nothing. Left to the
+ * clicks alone, the inspector stayed on the song opened before songs were selected, and an editor
+ * of a song no longer listed stayed beside a list of others: the song clicked goes once a change of
+ * what is listed (a search, a filter, another place) leaves it out. Its own save taking it off the
+ * list, as a song repaired leaves "Garbled text", does not take it away: its editor stays, with
+ * what the save said and its Undo, until another song is clicked or the list is changed
+ * ([LibraryState.clicked]).
  *
  * Only a change of the selection moves it, not what it is when the list comes back into sight: the
  * inspector then shows what was left there (a file opened, the song playing). A selection that
@@ -236,10 +240,9 @@ internal class Inspected(private val state: LibraryState) {
 
     /** What the inspector shows, and whether that is the selection. */
     fun target(): Target {
-        if (!selected) {
-            val clicked = state.clicked?.let { id -> state.tracks.firstOrNull { it.id == id } }
-            return Target(clicked?.let { Editor(it.ref.uri) }, selected = false)
-        }
+        // The song clicked, listed or not: its own save may have taken it off the list, and the
+        // library says when it goes ([LibraryState.clicked]).
+        if (!selected) return Target(state.clicked?.let { Editor(it.ref.uri) }, selected = false)
         if (unfollowed > 0) return Target(null, selected = true)
         val songs = state.selectedSongs
         val key =

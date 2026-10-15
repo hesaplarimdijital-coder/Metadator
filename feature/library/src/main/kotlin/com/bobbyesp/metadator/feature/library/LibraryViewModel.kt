@@ -137,10 +137,15 @@ data class LibraryState(
      */
     val collection: TrackCollection? = null,
     /**
-     * The song last opened with a click, while it is listed: what the inspector beside the list
-     * shows once nothing is selected, and where a range taken with Shift starts.
+     * The song last opened with a click: what the inspector beside the list shows once nothing is
+     * selected, and where a range taken with Shift starts. A change of what is listed (the search,
+     * a filter or a chip, the place) lets go of it when it leaves it out. A change of the songs
+     * does not, while the library has it: its own save can take it off a list such as "Garbled
+     * text" or "No cover", and its editor stays beside the list with what the save said and its
+     * Undo, rather than vanish under the hands. Kept as it was clicked, for which song and file it
+     * is, which a save leaves as they were.
      */
-    val clicked: TrackId? = null,
+    val clicked: Track? = null,
     /**
      * The places of the library visited before this one, the last one last: where Back goes, as a
      * browser's does, before it leaves the library.
@@ -265,7 +270,7 @@ sealed interface LibraryIntent {
     data class ShowCollection(val type: CollectionType, val key: String) : LibraryIntent
 
     /** A song was opened with a click ([LibraryState.clicked]). */
-    data class Opened(val id: TrackId) : LibraryIntent
+    data class Opened(val track: Track) : LibraryIntent
 
     /**
      * Selects exactly [ids] or, with [add], adds them to what is selected: what a drag over the
@@ -403,7 +408,14 @@ class LibraryViewModel(
             is LibraryIntent.SelectTab -> {
                 savedState[KEY_TAB] = intent.tab.name
                 setState {
-                    copy(tab = intent.tab, selection = emptySet(), collectionSelection = emptySet())
+                    copy(
+                        tab = intent.tab,
+                        selection = emptySet(),
+                        collectionSelection = emptySet(),
+                        // The same songs listed another way, which makes no new listing: the song
+                        // clicked goes here if it is not listed, as in showSection.
+                        clicked = clicked?.takeIf { it.id in listing.listedIds },
+                    )
                 }
             }
             LibraryIntent.ToggleNeedsAttention ->
@@ -482,8 +494,8 @@ class LibraryViewModel(
             }
             is LibraryIntent.ShowCollection -> showCollection(intent.type, intent.key)
             is LibraryIntent.Opened -> {
-                selectionAnchor = intent.id
-                setState { copy(clicked = intent.id) }
+                selectionAnchor = intent.track.id
+                setState { copy(clicked = intent.track) }
             }
             is LibraryIntent.SelectIds -> {
                 intent.anchor?.let { selectionAnchor = it }
@@ -561,6 +573,7 @@ class LibraryViewModel(
         val tab = (section as? LibrarySection.Browse)?.tab ?: LibraryTab.Songs
         savedState[KEY_TAB] = tab.name
         setState { copy(tab = tab, selection = emptySet(), collectionSelection = emptySet()) }
+        val listed = query.value
         updateQuery {
             copy(
                 filter =
@@ -572,6 +585,11 @@ class LibraryViewModel(
                         garbledText = section == LibrarySection.GarbledText,
                     )
             )
+        }
+        // A place that lists the songs listed already, as the albums do the songs', makes no new
+        // listing to let go of the song clicked once a save took it off the list: it goes here.
+        if (query.value == listed) {
+            setState { copy(clicked = clicked?.takeIf { it.id in listing.listedIds }) }
         }
     }
 
@@ -598,7 +616,7 @@ class LibraryViewModel(
                 .map { all ->
                     val found = all.collection(type, key, shown)
                     if (found != null) shown = found.tracks.map { it.id }
-                    presentCollection(all.size, found)
+                    presentCollection(all, found)
                 }
                 .flowOn(dispatchers.default)
                 .catch {
@@ -610,7 +628,7 @@ class LibraryViewModel(
     }
 
     private fun presentCollection(
-        total: Int,
+        all: List<Track>,
         found: TrackCollection?,
     ): LibraryState.() -> LibraryState {
         val tracks = found?.tracks.orEmpty()
@@ -619,11 +637,13 @@ class LibraryViewModel(
         return {
             copy(
                 loading = false,
-                totalTracks = total,
+                totalTracks = all.size,
                 collection = found,
                 listing = listing,
                 selection = selection.filterTo(mutableSetOf()) { it in ids },
-                clicked = clicked?.takeIf { it in ids },
+                // Only the songs change what a collection lists: the song clicked, saved into
+                // another album, stays clicked beside the one it left.
+                clicked = clicked?.takeIf { it.id in ids || all.hasSong(it) },
             )
         }
     }
@@ -748,6 +768,9 @@ class LibraryViewModel(
         val collections: List<TrackCollection> = albums + artists + folders
         val listedKeys = collections.mapTo(mutableSetOf()) { it.key }
         return {
+            // Listed by another filter than the last listing: the user changed what is listed. By
+            // the same one, the songs changed (a save, a batch, a rescan, what a check found).
+            val relisted = filter != this.listing.filter
             copy(
                 loading = false,
                 totalTracks = all.size,
@@ -757,7 +780,7 @@ class LibraryViewModel(
                 garbledCount = garbledIds.size,
                 storages = storages,
                 selection = selection.filterTo(mutableSetOf()) { it in visibleIds },
-                clicked = clicked?.takeIf { it in visibleIds },
+                clicked = clicked?.takeIf { it.id in visibleIds || !relisted && all.hasSong(it) },
                 collectionSelection =
                     collectionSelection.filterTo(mutableSetOf()) { it in listedKeys },
             )
@@ -839,6 +862,12 @@ private fun String.toPlace(): LibrarySection? =
             LibrarySection.OnStorage(Storage.Removable(removePrefix("removable:")))
         else -> null
     }
+
+/**
+ * Whether the library has [song], in whatever version: a save makes another version of the same
+ * song. A song gone from the library is not there to edit.
+ */
+private fun List<Track>.hasSong(song: Track): Boolean = any { it.id == song.id }
 
 /** What the check of covers found, as the sidebar and the chips count it. */
 private data class CoverCounts(

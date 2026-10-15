@@ -49,8 +49,8 @@ them went.
 
 **The inspector follows the selection** (`InspectorFollowsSelection` in the library): two songs or
 more selected are the batch editor for them, one is its editor, and with nothing selected it is the
-song last opened with a click while it is listed, or nothing. Albums, artists or folders selected
-are their songs: two albums selected are the batch editor for both, which offers to merge them.
+song last opened with a click, or nothing. Albums, artists or folders selected are their songs:
+two albums selected are the batch editor for both, which offers to merge them.
 More than a hundred songs are not followed: the batch editor reads every song it is given, and
 Ctrl+A on a large library had it read thousands of files nobody asked for. The inspector says how
 many are selected instead, with Edit together (Ctrl+E) to open the batch editor for them on purpose.
@@ -60,7 +60,12 @@ unsaved changes (`Navigator.showSelection`): they stay in sight until saved or t
 selection is shown from its next change. A song or a file opened by hand stays until the selection
 changes, and stays when the list changes under it: a search or a smart list that leaves out the
 song clicked before closes that song's editor, when it is what is beside the list, and nothing
-else. On a phone nothing follows: the selection is edited together from its bar.
+else. The song's own save taking it off the list does not close it: repaired in "Garbled text",
+given a cover in "No cover", saved into another album while that album is open, the song leaves
+the list and its editor stays, with "Saved" and its Undo, until another song is clicked or what is
+listed is changed (the search, a filter or a chip, the place): only those are judged by what they
+leave out (`LibraryState.clicked`). On a phone nothing follows: the selection is edited together
+from its bar.
 
 **A collection is a list with its own beside it.** Opening an album, an artist or a folder from
 the library starts it with nothing beside it (`Navigator.goTo` drops what the library showed there,
@@ -91,7 +96,9 @@ one step:
    attention", a card): the last ten are kept, like a browser's, with the library's saved state.
 7. At the start, a phone goes home, as Android does from any app. A desktop's window stays as it
    is (`StayAtTheStart`): Android would minimize it, and a second press of Esc or of the mouse's
-   button took the window from under the pointer.
+   button took the window from under the pointer. It is the last to be asked, as the first added
+   of those that take Back, and it is off while the full player is open at all: after a change of
+   layout, Back went to it rather than to the player, which stayed open.
 
 Steps 4 and 5 are list-detail's, which used to take none of them: it went back until its panes
 changed, and with the library and the editor side by side they stay as they are whatever is in
