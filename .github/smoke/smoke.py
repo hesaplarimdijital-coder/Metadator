@@ -31,12 +31,16 @@ EXTERNAL = "com.bobbyesp.metadator.ExternalEditorActivity"
 MUSIC = "/sdcard/Music/Discovery"
 
 # Key codes, as android.view.KeyEvent numbers them.
+KEY_BACK = 4
 KEY_1 = 8
+KEY_2 = 9
 KEY_4 = 11
 KEY_A = 29
 KEY_E = 33
 KEY_F = 34
 KEY_K = 39
+KEY_L = 40
+KEY_O = 43
 KEY_R = 46
 KEY_S = 47
 KEY_W = 51
@@ -121,6 +125,11 @@ class Skipped(Exception):
     """A step could not be tried, for a reason that is not the app's."""
 
 
+class NotBegun(Skipped):
+    """A step that could not begin (no time left for it, no device it needs): nothing was touched,
+    so there is nothing to tidy up after it."""
+
+
 class Node:
     """One thing on the screen. What it says is often said by what is inside it: a row's title
     is a text within the row, and it is the row that is clicked and that has the focus."""
@@ -137,6 +146,7 @@ class Node:
         self.focused = get("focused") == "true"
         self.selected = get("selected") == "true"
         self.checked = get("checked") == "true"
+        self.enabled = get("enabled") != "false"
         # A song's row, while songs are being selected, is a check box, and one that is checked
         # says it takes no click: it is still what a click on it lands on.
         self.takes_click = self.clickable or get("checkable") == "true"
@@ -349,9 +359,13 @@ def slug(name):
 def step(name, action, required=True):
     """Tries [action], and writes down how it went and what the screen showed after it."""
     log(f"--- {name}")
-    outcome, detail = "ok", ""
+    began = time.time()
+    running_new[0] = None
+    outcome, detail, tidy = "ok", "", True
     try:
         detail = action() or ""
+    except NotBegun as reason:
+        outcome, detail, tidy = "not tried", str(reason), False
     except Skipped as reason:
         outcome, detail = "not tried", str(reason)
     except Exception as error:  # Whatever went wrong, the next step is still worth trying.
@@ -360,6 +374,9 @@ def step(name, action, required=True):
         log(traceback.format_exc())
     log(f"    {outcome} {detail}")
     results.append((name, outcome, str(detail)))
+    if not tidy:
+        running_new[0] = None
+        return False
     try:
         if outcome != "ok":
             screen()
@@ -369,6 +386,12 @@ def step(name, action, required=True):
             log(f"    back to the library: {home()}")
     except Exception as error:
         log(f"    could not tidy up: {error}")
+    took = time.time() - began
+    step_times[name] = took
+    if running_new[0]:
+        new_steps_run.append((running_new[0], took))
+        running_new[0] = None
+    log(f"    took {took:.0f} s")
     return outcome == "ok"
 
 
@@ -383,7 +406,10 @@ def home():
             continue
         if not any(node.package == PACKAGE for node in nodes):
             # A dialog of the system's, or another app: back to this one.
-            if find(r"^(Deny|Don.t allow|Cancel)$", nodes):
+            if any("documentsui" in node.package for node in nodes):
+                # The system's file picker, opened with Ctrl+O: it is left with Back.
+                key(KEY_BACK)
+            elif find(r"^(Deny|Don.t allow|Cancel)$", nodes):
                 tap(find(r"^(Deny|Don.t allow|Cancel)$", nodes)[0])
             else:
                 shell(f"am start -n {PACKAGE}/{MAIN}")
@@ -391,7 +417,17 @@ def home():
         elif find("^Close$", nodes) and find("^Up next$", nodes):
             # The full-screen player, over the library.
             tap(find("^Close$", nodes)[0])
-        elif shortcuts_open(nodes) or find("^Find a cover$", nodes):
+        elif (
+            shortcuts_open(nodes)
+            or find("^Find a cover$", nodes)
+            or find(r"^Find the album.s metadata$", nodes)
+        ):
+            key(KEY_ESCAPE)
+        elif find("^Open in a new window$", nodes) or (
+            find("^Open$", nodes) and find("^Play$", nodes)
+        ):
+            # A menu of the second mouse button, left open. It is a window of its own, and the dump
+            # of the window in front holds the menu alone: it is known by its items.
             key(KEY_ESCAPE)
         elif find("^Discard$", nodes):
             tap(find("^Discard$", nodes)[0])
@@ -399,21 +435,59 @@ def home():
             tap(find("^Finish$", nodes)[0])
         elif find(r"^Edit \d+ songs$", nodes):
             key(KEY_CTRL, KEY_W)
+        elif not find(LIBRARY, nodes) and find("^Edit tags$", nodes):
+            # The full-screen player: Back closes it.
+            key(KEY_BACK)
+        elif not find(LIBRARY, nodes) and find(BACK_ARROW, nodes):
+            # An album's screen, or a page of the settings: the arrow in its toolbar.
+            tap(find(BACK_ARROW, nodes)[0])
         elif not find(LIBRARY, nodes):
             # The editor alone on a narrow window, or a second window: closed, the library is back.
             key(KEY_CTRL, KEY_W)
-        elif find(SELECTED, nodes) and find("Stop selecting", nodes):
+        elif find("Stop selecting", nodes):
             tap(find("Stop selecting", nodes)[0])
         elif find("^Clear search$", nodes):
             tap(find("^Clear search$", nodes)[0])
         elif find("^Clear filters$", nodes):
             tap(find("^Clear filters$", nodes)[0])
+        elif [chip for chip in filter_chips(nodes) if chip.checked]:
+            tap([chip for chip in filter_chips(nodes) if chip.checked][0])
+        elif place_shown(nodes) not in (None, "Songs", "Şarkılar"):
+            # Albums, a smart list, a place of the storage: the Songs are one key away.
+            key(KEY_CTRL, KEY_1)
         elif all(find(re.escape(title), nodes) for title in SONGS):
             return "the library, with its four songs"
+        elif (number_in(sidebar_count("Songs", nodes)) or 0) >= LONG_LIBRARY and find(
+            "^Aerodynamic$", nodes
+        ):
+            # Once the long library is there the four songs are not all on one screen.
+            return "the library, with its long list"
         else:
             key(KEY_CTRL, KEY_1)
         time.sleep(1.2)
     return f"not restored: {said_on(screen())[:25]}"
+
+
+# The arrow in the toolbar of an album's screen and of the settings' pages.
+BACK_ARROW = r"^(Back|Geri)$"
+
+
+def filter_chips(nodes):
+    """The chips over the list that narrow it to the songs without a cover or with garbled text."""
+    return [
+        node.pressed_as()
+        for node in nodes
+        if node.top < 100
+        and re.fullmatch(r"(No cover|Missing covers|Garbled text|Kapaksız|Kapağı eksik|Bozuk karakterler) \(\d+\)", node.text)
+    ]
+
+
+def place_shown(nodes):
+    """The place of the sidebar that is chosen: the one item of it that is selected."""
+    for node in nodes:
+        if node.selected and node.right <= 240 and node.children:
+            return node.children[0].text
+    return None
 
 
 # --- The songs, on the device and as files ----------------------------------------------------
@@ -1235,7 +1309,7 @@ class Gesture:
     EV_SYN, EV_KEY, EV_REL = 0, 1, 2
     REL_X, REL_Y = 0, 1
     BTN_LEFT, BTN_RIGHT = 272, 273
-    KEY_LEFTCTRL, KEY_LEFTSHIFT = 29, 42
+    KEY_ESC, KEY_LEFTCTRL, KEY_LEFTSHIFT = 1, 29, 42
     MOUSE, KEYS = 1, 2
 
     # The system takes a moment to set a new device up; what is sent before is lost.
@@ -1265,7 +1339,7 @@ class Gesture:
                 "bus": "usb",
                 "configuration": [
                     {"type": 100, "data": [self.EV_KEY]},
-                    {"type": 101, "data": [self.KEY_LEFTCTRL, self.KEY_LEFTSHIFT]},
+                    {"type": 101, "data": [self.KEY_ESC, self.KEY_LEFTCTRL, self.KEY_LEFTSHIFT]},
                 ],
             },
         ]
@@ -1462,6 +1536,16 @@ class LiveMouse:
         if held:
             self.hold(held, False)
         time.sleep(0.6)
+
+    def press(self, button):
+        """The button goes down where the pointer is, and stays down until [release]: with
+        [go_to] in between, it is a drag."""
+        self._inject(Gesture.MOUSE, [Gesture.EV_KEY, button, 1, 0, 0, 0], 90)
+        time.sleep(0.4)
+
+    def release(self, button):
+        self._inject(Gesture.MOUSE, [Gesture.EV_KEY, button, 0, 0, 0, 0])
+        time.sleep(0.8)
 
 
 def mouse_events(newer_than_ms=20000):
@@ -1666,6 +1750,2157 @@ def tooltip_on_hover():
     return f"the pointer rested at {at}, on the button: see picture {picture}"
 
 
+# --- What the round of changes after the first run on a device is tried with -------------------
+#
+# The steps from here to the SD card's were written from the code of the screens, before any run on
+# a device that has what they try: none is required, and the first runs say which hold. The run is
+# long already. Each step says here what it costs and how much it matters, and a run that is late
+# leaves out the ones that matter least, and says so in the report.
+
+# The seconds a run may take, as far as these steps can tell, before some are left out. The job
+# gives the whole run an hour, the emulator's start (up to ten minutes) included, and the report is
+# published by a step that a job cancelled for its time does not run; forty minutes is the aim. A
+# run that should try them all, once, can be given more, but not much: SMOKE_TIME_LIMIT=2700 leaves
+# the start and the report their time.
+TIME_LIMIT = float(os.environ.get("SMOKE_TIME_LIMIT", "2400"))
+
+# The first run on a device took this many seconds in all, and this many of them over installing the
+# build before this one, which waits on the network more than the machine decides.
+FIRST_RUN = 1629
+FIRST_UPDATE = 102
+UPDATE_STEP = "Installed over the build before it, it opens what that one left"
+
+# Where these steps stand in the run: the seconds the first run had taken when it got there.
+STANDS = {
+    "search": 347,
+    "batch": 631,
+    "mouse": 823,
+    "card": 924,
+    "turkish": 951,
+    "glass": 1246,
+    "performance": 1627,
+}
+
+# Each step: where it stands, what it costs (the seconds it should take on the machine of the first
+# run, its picture taken after it included), how much it matters (1 the most), in the order main()
+# calls them. The costs are counted, not measured: smoke.log has the steps' real times once a run
+# has been, and these are to be set from it.
+NEW_STEPS = {
+    "esc in the search": ("search", 20, 3),
+    "about": ("search", 27, 2),
+    "metadata": ("batch", 45, 3),
+    "back arrow": ("mouse", 38, 1),
+    "back at the start": ("mouse", 30, 2),
+    "editor follows": ("mouse", 35, 1),
+    "boxes": ("mouse", 56, 1),
+    "rectangle": ("mouse", 45, 2),
+    "cover leaves": ("card", 45, 2),
+    "album artist": ("card", 52, 1),
+    "fake boxes": ("card", 30, 3),
+    "turkish about": ("turkish", 27, 3),
+    "player": ("glass", 30, 3),
+    "late songs": ("glass", 30, 1),
+    "no cover": ("glass", 52, 2),
+    "garbled list": ("glass", 24, 1),
+    "editor repair": ("glass", 44, 1),
+    "batch repair": ("glass", 50, 1),
+    "album menu": ("glass", 52, 2),
+    "merge": ("glass", 70, 1),
+    "long album": ("glass", 60, 4),
+    "by hand": ("glass", 78, 4),
+    "big selection": ("performance", 45, 3),
+}
+
+# How long each step took, whole, by its name; and the steps of this part that were tried, with
+# the seconds they took, which the costs above are corrected by.
+step_times = {}
+new_steps_run = []
+running_new = [None]
+
+
+def machine_speed(stands):
+    """How much slower than the first run's machine this one is (or faster), by the steps that were
+    there before these ones: the time they have taken so far over the time they took then, leaving
+    out the step of the update, which depends on the network. Kept within what a machine can
+    be."""
+    elapsed = time.time() - started
+    mine = elapsed - sum(took for _, took in new_steps_run) - step_times.get(UPDATE_STEP, 0.0)
+    theirs = STANDS[stands] - FIRST_UPDATE
+    return min(2.0, max(0.7, mine / max(theirs, 60.0)))
+
+
+def time_short(key):
+    """Why the step [key] is left out, when the run is too late for it; None when it has the time.
+    What the run has left, once the steps that were there before these have taken what they will,
+    is spent on the steps still to come that matter most, in the order they stand, and this one is
+    left out when it is not among those that fit."""
+    stands, _, _ = NEW_STEPS[key]
+    speed = machine_speed(stands)
+    elapsed = time.time() - started
+    left = TIME_LIMIT - elapsed - speed * (FIRST_RUN - STANDS[stands])
+    if new_steps_run:
+        counted = sum(NEW_STEPS[name][1] for name, _ in new_steps_run)
+        scale = min(2.5, max(0.6, sum(took for _, took in new_steps_run) / counted))
+    else:
+        scale = speed
+    names = list(NEW_STEPS)
+    ahead = names[names.index(key) :]
+    for name in sorted(ahead, key=lambda each: (NEW_STEPS[each][2], names.index(each))):
+        cost = NEW_STEPS[name][1] * scale
+        if cost <= left:
+            left -= cost
+            if name == key:
+                return None
+        elif name == key:
+            return (
+                f"left out, the run is late: {elapsed:.0f} s in, this machine about {speed:.2f} "
+                f"times as slow as the first run's, and the steps of this kind that matter more "
+                f"leave no room for this one under {TIME_LIMIT:.0f} s"
+            )
+    return None
+
+
+def within(key, action):
+    """[action], when the run has the time for it."""
+
+    def tried():
+        why = time_short(key)
+        if why:
+            raise NotBegun(why)
+        running_new[0] = key
+        return action()
+
+    return tried
+
+
+class Parts:
+    """The checks one step makes, each tried by itself: one that fails does not hide the others,
+    and the report says which held and which did not."""
+
+    def __init__(self):
+        self.held, self.broken, self.left_out = [], [], []
+
+    def check(self, what, action):
+        """Tries [action]; what it returns is what held. True when it held."""
+        try:
+            said = action()
+        except Skipped as why:
+            self.left_out.append(f"{what}: {why}")
+            return False
+        except Exception as error:  # Failed, or something the step did not foresee
+            log(traceback.format_exc())
+            reason = str(error) if isinstance(error, Failed) else f"{type(error).__name__}: {error}"
+            self.broken.append(f"{what}: {reason}")
+            return False
+        self.held.append(f"{what}: {said}" if said else what)
+        return True
+
+    def report(self):
+        held = "; ".join(self.held)
+        if self.broken:
+            raise Failed(
+                "; ".join(self.broken) + (f". What held: {held}" if held else "")
+            )
+        if not self.held:
+            raise Skipped("; ".join(self.left_out) or "nothing was tried")
+        return held + (f". Not tried: {'; '.join(self.left_out)}" if self.left_out else "")
+
+
+def launch_app():
+    """The app brought to the front the way every step here starts it: the task it has is shown
+    again."""
+    shell(f"am start -W -n {PACKAGE}/{MAIN}", timeout=90)
+    time.sleep(1.5)
+
+
+def front_package():
+    """The app in front, as the system says it: the package of the activity that is resumed. The
+    screen's tree is asked when the system's words are not the ones expected."""
+    said = shell("dumpsys activity activities", timeout=60)
+    found = re.search(
+        r"(?:[tT]opResumedActivity|mResumedActivity|ResumedActivity)[=:]\s*"
+        r"ActivityRecord\{\S+ u\d+ ([\w.]+)/",
+        said,
+    )
+    if found:
+        return found.group(1)
+    said = shell("dumpsys window", timeout=60)
+    found = re.search(r"mCurrentFocus=Window\{\S+ u\d+ ([\w.]+)/", said)
+    if found:
+        return found.group(1)
+    packages = [node.package for node in screen() if node.package]
+    return PACKAGE if PACKAGE in packages else (packages[0] if packages else None)
+
+
+def wait_for(check, timeout=20, what="the screen"):
+    """Reads the screen until [check] holds of what it shows, and returns what was read then."""
+    deadline = time.time() + timeout
+    nodes = []
+    while True:
+        nodes = screen()
+        if nodes and check(nodes):
+            return nodes
+        if time.time() > deadline:
+            raise Failed(f"{what} did not come in {timeout} s. On screen: {said_on(nodes)[:30]}")
+        time.sleep(0.5)
+
+
+def saved_when(done, timeout=90):
+    """Waits until the app says [done], and answers the system if it asks to change a file: it asks
+    once for each file, and not again for one that was allowed earlier in the run."""
+    deadline = time.time() + timeout
+    nodes = []
+    while time.time() < deadline:
+        nodes = screen()
+        if not any(node.package == PACKAGE for node in nodes) and find(r"^(Allow|ALLOW)$", nodes):
+            tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+            continue
+        if find(done, nodes):
+            return nodes
+        time.sleep(0.5)
+    raise Failed(f"nothing says /{done}/ after {timeout} s: {said_on(nodes)[:30]}")
+
+
+# --- What the steps look for on the wide window's screens ---------------------------------------
+# The panel of the list ends where the editor beside it begins, and the player's bar starts under it.
+PANEL_RIGHT = 1530
+BAR_TOP = 1000
+SONGS_PLACE = ("Songs", "Şarkılar")
+
+
+def list_row(title, nodes):
+    """What a click on the row or the album's tile that names [title] lands on, in the panel of the
+    list: not the editor's field that says the same, nor the player's bar, which names the song that
+    plays."""
+    found = [
+        node
+        for node in nodes
+        if node.text == title
+        and not node.is_field
+        and node.right <= PANEL_RIGHT
+        and node.top < BAR_TOP
+    ]
+    if not found:
+        raise Failed(f"no row says {title!r}: {said_on(nodes)[:30]}")
+    return min(found, key=lambda node: (node.left, node.top)).pressed_as()
+
+
+def boxes(nodes):
+    """The check boxes of the rows of a list, from the top one down. The head of a table has one
+    too, for all of them; it is not in a row. Nor are the chips over the list, which hold one
+    each: a row is far wider than a chip."""
+    return sorted(
+        (
+            node
+            for node in nodes
+            if node.kind.endswith("CheckBox")
+            and node.parent is not None
+            and node.parent.takes_click
+            and node.parent.right - node.parent.left > 300
+            and node.right <= PANEL_RIGHT
+            and 100 <= node.top < BAR_TOP
+        ),
+        key=lambda node: node.top,
+    )
+
+
+def row_title(box):
+    """The title of the song whose row has [box]: the first text in the row."""
+    texts = [
+        node.text for node in box.parent.within() if node.kind.endswith("TextView") and node.text
+    ]
+    return texts[0] if texts else ""
+
+
+def list_titles(nodes):
+    """The songs the list shows, from the top one down."""
+    return [row_title(box) for box in boxes(nodes)]
+
+
+def checked_titles(nodes):
+    """The songs whose boxes are checked, from the top one down."""
+    return [row_title(box) for box in boxes(nodes) if box.checked]
+
+
+def selected_count(nodes):
+    """How many the head says are selected ("3 songs selected", "2 albums selected"); 0 when it
+    says none."""
+    for node in nodes:
+        found = re.fullmatch(r"(\d+) (?:songs? |albums? |artists? |folders? )?selected", node.text)
+        if found:
+            return int(found.group(1))
+    return 0
+
+
+def labeled_field(label, nodes):
+    """The text field of the editor that has [label] over its text."""
+    for node in nodes:
+        if node.is_field and any(child.text == label for child in node.children):
+            return node
+    return None
+
+
+def title_field(nodes):
+    """The title the editor beside the library holds; None while there is no editor of a song."""
+    field = labeled_field("Title", nodes)
+    return field.text if field is not None else None
+
+
+def sidebar_item(label, nodes):
+    """The place of the sidebar that has [label]."""
+    for node in nodes:
+        if node.text == label and node.right <= 240 and node.parent is not None:
+            return node.parent
+    return None
+
+
+def sidebar_count(label, nodes):
+    """What the sidebar says is in its place [label]: "4", or "4 · 20%" while it is counting."""
+    item = sidebar_item(label, nodes)
+    if item is None:
+        return None
+    others = [child.text for child in item.children if child.text and child.text != label]
+    return others[0] if others else None
+
+
+def number_in(text):
+    found = re.search(r"\d[\d,]*", text or "")
+    return int(found.group().replace(",", "")) if found else None
+
+
+def settled_count(label, nodes):
+    """The number the sidebar counts in [label] once it is not in the middle of a check ("4 · 20%",
+    "4 · waiting"): None until then."""
+    said = sidebar_count(label, nodes)
+    if said is None or re.search(r"[·%]|waiting", said):
+        return None
+    return number_in(said)
+
+
+def chip_said(pattern, nodes):
+    """The words of a chip over the list ("No cover (3)") and the chip, when one says [pattern]."""
+    for node in nodes:
+        if node.top < 100 and re.fullmatch(pattern, node.text):
+            return node.text, node.pressed_as()
+    return None, None
+
+
+def menu_labels(nodes, anchor):
+    """The words of the items of the menu that has an item saying [anchor]: a column of rows that
+    take a click, each with its words first and sometimes a hint after them."""
+    for node in nodes:
+        if re.fullmatch(anchor, node.text):
+            item = node.pressed_as()
+            if item.parent is None or not item.takes_click:
+                continue
+            column = sorted(
+                (other for other in item.parent.children if other.takes_click),
+                key=lambda other: other.top,
+            )
+            return [
+                next((n.text for n in other.within() if n.kind.endswith("TextView") and n.text), "")
+                for other in column
+            ]
+    return []
+
+
+def the_albums(nodes):
+    """Whether the library is in front, with no album open over it."""
+    return bool(find(LIBRARY, nodes)) and not find("^Edit all$", nodes)
+
+
+def an_album(nodes):
+    """Whether an album's own screen is in front: its buttons are there, and the library's places
+    are not."""
+    return bool(find("^Edit all$", nodes)) and not find(LIBRARY, nodes)
+
+
+def albums_place(tile="Discovery"):
+    """The Albums place, once the tile named [tile] is there."""
+    key(KEY_CTRL, KEY_2)
+    return wait_for(
+        lambda found: bool(find(f"^{re.escape(tile)}$", found)) and the_albums(found),
+        20,
+        "the Albums place",
+    )
+
+
+def open_album(title, nodes):
+    """The album's own screen: a tap on its tile."""
+    tap(list_row(title, nodes))
+    return wait_for(an_album, 20, f"the screen of {title!r}")
+
+
+def click_on(mouse, node, held=None, button=None):
+    """The pointer is brought to the middle of [node], and clicks."""
+    at = mouse.go_to(*aim(node))
+    if landed_row(at, [node]) is None:
+        raise Skipped(f"the pointer could not be brought to {node}: it is at {at}")
+    mouse.click(button or Gesture.BTN_LEFT, held=held)
+
+
+def type_into(label, words):
+    """What a field of the editor holds is replaced by [words], typed as a person types."""
+    for _ in range(3):
+        field = labeled_field(label, screen())
+        if field is None:
+            raise Failed(f"no field is labeled {label!r}")
+        tap(field)
+        key(KEY_CTRL, KEY_A)
+        shell("input text " + words.replace(" ", "%s"))
+        time.sleep(1)
+        now = labeled_field(label, screen())
+        if now is not None and now.text == words:
+            return
+        log(f"    typed {words!r} into {label!r}: it holds {now.text if now else None!r}, again")
+    raise Failed(f"the field {label!r} never held {words!r}")
+
+
+def tags_but(tags, *names):
+    """A file's tags without the named ones (and the other names an album artist goes by)."""
+    return {
+        name: value
+        for name, value in tags.items()
+        if name not in names
+        and not ("album_artist" in names and name in ("albumartist", "album artist"))
+    }
+
+
+def album_artist_of(tags):
+    return next(
+        (tags[name] for name in ("album_artist", "albumartist", "album artist") if name in tags),
+        None,
+    )
+
+
+def same_but(after, was, *names):
+    """Whether a file written by the app has what it had, except [names]: its other tags, its
+    pictures and its sound."""
+    if tags_but(after["tags"], *names) != tags_but(was["tags"], *names):
+        raise Failed(f"other tags changed: {tags_but(was['tags'], *names)} -> {tags_but(after['tags'], *names)}")
+    if after["sound"] != was["sound"] or not after["sound"]:
+        raise Failed("the sound changed")
+    if after["pictures"] != was["pictures"]:
+        raise Failed(f"the picture changed: {was['pictures']} -> {after['pictures']}")
+
+
+def stop_selecting(nodes=None):
+    """The selection ended with its own button, whatever kind it is."""
+    nodes = screen() if nodes is None else nodes
+    button = find("Stop selecting", nodes)
+    if button:
+        tap(button[0])
+    return button
+
+
+def library_has_the_keys():
+    """Out of every field first: Ctrl+A selects the songs only while the library has the keys, and
+    in a field it selects the field's text. Esc empties a search and leaves it, as a person does."""
+    nodes = screen()
+    for _ in range(3):
+        if not any(node.is_field and node.focused for node in nodes):
+            break
+        key(KEY_ESCAPE)
+        nodes = screen()
+    return nodes
+
+
+def apply_all(wait=20):
+    """The batch editor's button that applies, pressed once it can be: it is dimmed until something
+    is changed, and a press on it before that does nothing."""
+
+    def ready(found):
+        return any(node.pressed_as().enabled for node in find(r"^Apply to all$", found))
+
+    nodes = wait_for(ready, wait, "the button that applies, enabled")
+    tap(next(node for node in find(r"^Apply to all$", nodes) if node.pressed_as().enabled))
+    return nodes
+
+
+# --- The songs that come late ------------------------------------------------------------------
+#
+# Made here, put in a folder of their own once the steps that count the songs on screen are done,
+# and found by a rescan. Every one has a cover but those the cover tests are about, so that the
+# count of songs without one is the number of those and the few the run had.
+
+LATE = "/sdcard/Music/Late"
+LONG_ALBUM = 30
+PINK = 0xE91E63
+GREY = 0x607D8B
+
+# The garbled text, as the owner's songs had it: Turkish read as Latin-1 ("Mo?ollar" with the
+# byte 0xF0), and UTF-8 read as Windows-1252 ("MoÄŸollar").
+GOOD = "Moğollar"
+UTF8_AS_1252 = "MoÄŸollar"
+LATIN1_X = "MoXollar"
+
+
+def late_specs():
+    """The songs that come late: (key, file name, tags, the cover's colour or None, text to put in
+    place of other text in the file). Their titles sort after the four songs' but those the garbled
+    text tests are about, so that the phone's short list still shows them."""
+
+    def song(key_name, file_name, color=GREY, patch=None, **tags):
+        return (key_name, file_name, tags, color, patch)
+
+    songs = [
+        song(
+            "garbled title", "garbled-title.mp3", title=UTF8_AS_1252, artist=GOOD,
+            album="1968 - 2000", date="1968", track="1", genre="Rock",
+        ),
+        # Written as the owner's files were: Turkish in Windows-1254 where a reader takes Latin-1,
+        # so that the letter is the byte 0xF0 ("Moðollar"). The tag is written with a plain letter
+        # and the byte put in its place afterwards.
+        song(
+            "garbled b", "garbled-b.mp3", patch=(LATIN1_X, "Moðollar"), title="Zz Turkish B",
+            artist="Zz Turkish", album="Zz Turkish", album_artist=LATIN1_X, date="1970", track="1",
+        ),
+        song(
+            "garbled c", "garbled-c.mp3", title="Zz Turkish C", artist="Zz Turkish",
+            album="Zz Turkish", album_artist=UTF8_AS_1252, date="1970", track="2",
+        ),
+        song(
+            "control", "control.mp3", title="Dauðalogn", artist="Sigur Rós", album="Zz Control",
+            date="2002", track="1",
+        ),
+        song(
+            "bare", "zz-bare.mp3", color=None, title="Zz Bare", artist="Zz Cover Test",
+            album="Zz Bare Album", date="2021", track="1",
+        ),
+        song(
+            "pictured 1", "zz-pictured-1.mp3", color=None, title="Zz Pictured 1",
+            artist="Zz Cover Test", album="Zz Pictured", date="2021", track="1",
+        ),
+        song(
+            "pictured 2", "zz-pictured-2.mp3", color=PINK, title="Zz Pictured 2",
+            artist="Zz Cover Test", album="Zz Pictured", date="2021", track="2",
+        ),
+        song(
+            "merge one", "zz-merge-one.mp3", title="Zz Merge One", artist="Zz Merge Artist",
+            album="A Merge One", date="2022", track="1",
+        ),
+        song(
+            "merge two", "zz-merge-two.mp3", title="Zz Merge Two", artist="Zz Merge Artist",
+            album="A Merge Two", date="2022", track="1",
+        ),
+    ]
+    for number in range(1, LONG_ALBUM + 1):
+        songs.append(
+            song(
+                f"long {number:02d}", f"zz-long-{number:02d}.mp3", title=f"Zz Long {number:02d}",
+                artist="Zz Long Artist", album="Zz Long", date="2023", track=str(number),
+            )
+        )
+    return songs
+
+
+def make_late_songs(folder, work):
+    """The late songs as files in [folder] (the work they take, pictures and tag files, in [work]),
+    each as what FFprobe says of it: {key: {"file": name, "title": title, "probe": what it says}}."""
+    os.makedirs(folder, exist_ok=True)
+    os.makedirs(work, exist_ok=True)
+    pictures = {}
+    made = {}
+    for key_name, file_name, tags, color, patch in late_specs():
+        cover = None
+        if color is not None:
+            if color not in pictures:
+                pictures[color] = os.path.join(work, f"cover-{color:06x}.jpg")
+                subprocess.run(
+                    ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+                     f"color=c=0x{color:06x}:s=600x600", "-frames:v", "1", pictures[color]],
+                    check=True,
+                )
+            cover = pictures[color]
+        meta = os.path.join(work, file_name + ".txt")
+        with open(meta, "w", encoding="utf-8") as file:
+            file.write(";FFMETADATA1\n" + "".join(f"{name}={value}\n" for name, value in tags.items()))
+        path = os.path.join(folder, file_name)
+        command = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=330:duration=2"]
+        if cover:
+            command += ["-i", cover, "-i", meta, "-map", "0:a", "-map", "1:v", "-map_metadata", "2",
+                        "-c:v", "copy", "-metadata:s:v", "title=Album cover",
+                        "-metadata:s:v", "comment=Cover (front)", "-disposition:v", "attached_pic"]
+        else:
+            command += ["-i", meta, "-map", "0:a", "-map_metadata", "1"]
+        # Version 3 of the tag format: the text that is plain ASCII is stored as Latin-1 there, which
+        # is what the song patched below needs, and the rest as UTF-16.
+        command += ["-c:a", "libmp3lame", "-b:a", "64k", "-id3v2_version", "3", path]
+        subprocess.run(command, check=True)
+        if patch:
+            with open(path, "rb") as file:
+                data = file.read()
+            was, now = patch[0].encode("latin-1"), patch[1].encode("latin-1")
+            if was not in data:
+                raise Failed(f"{file_name} does not hold {patch[0]!r} to be put right")
+            with open(path, "wb") as file:
+                file.write(data.replace(was, now))
+        made[key_name] = {"file": file_name, "title": tags["title"], "probe": probe(path)}
+    return made
+
+
+# What the late songs were, once they have come: None until they are on the device and listed.
+late_state = None
+
+
+# --- Esc in the search field, and who made the app ---------------------------------------------
+
+
+def search_field(nodes):
+    """The search field over the list."""
+    fields = [node for node in nodes if node.is_field and node.top < 100]
+    return fields[0] if fields else None
+
+
+def esc_in_the_search_field():
+    """Esc in the search field is the field's. The first takes what was typed out of it, and the
+    caret stays; the second gives the focus up. Neither is Back: the library stays on the place it
+    was on (it used to go to the place before)."""
+    if place_shown(screen()) not in SONGS_PLACE:
+        home()
+    place = "Songs"
+    key(KEY_CTRL, KEY_F)
+    type_text("aero")
+    key(KEY_ESCAPE)
+    nodes = screen()
+    field = search_field(nodes)
+    if field is None:
+        raise Failed(f"the search field is gone after the first Esc: {said_on(nodes)[:20]}")
+    if field.text:
+        raise Failed(f"the first Esc left {field.text!r} in the field")
+    if not field.focused:
+        raise Failed("the first Esc took the focus out of the field along with the text")
+    if not find("^One More Time$", nodes):
+        raise Failed("the list is still narrowed after the first Esc")
+    key(KEY_ESCAPE)
+    nodes = screen()
+    field = search_field(nodes)
+    if field is not None and field.focused:
+        raise Failed("the field still has the focus after the second Esc")
+    if not find(LIBRARY, nodes) or place_shown(nodes) not in SONGS_PLACE:
+        raise Failed(
+            f"the second Esc took the library from {place} to {place_shown(nodes)}: "
+            f"{said_on(nodes)[:12]}"
+        )
+    return "the first Esc cleared the field and kept the caret in it, the second left it, and the library stayed on Songs"
+
+
+def about_page(settings_label, about_label, wanted, back_label):
+    """The Settings page from the sidebar, then its About page, which says who made the app; and
+    back out of both."""
+    nodes = screen()
+    entry = [node for node in find(f"^{settings_label}$", nodes) if node.right <= 240]
+    if not entry:
+        raise Failed(f"the sidebar has no {settings_label!r}: {said_on(nodes)[:30]}")
+    try:
+        tap(entry[0].pressed_as())
+        nodes = wait_for(lambda found: bool(find(f"^{about_label}$", found)), 15, "the Settings")
+        tap(find(f"^{about_label}$", nodes)[0].pressed_as())
+        try:
+            nodes = wait_for(lambda found: bool(find(f"^{wanted}$", found)), 8, "the About page")
+        except Failed:
+            # Below the fold of a short window.
+            shell("input swipe 960 800 960 300 300")
+            nodes = wait_for(lambda found: bool(find(f"^{wanted}$", found)), 10, "the About page")
+        screenshot("about-" + slug(wanted)[:20])
+        return find(f"^{wanted}$", nodes)[0].text
+    finally:
+        for _ in range(4):
+            back = find(back_label)
+            if not back:
+                break
+            tap(back[0])
+            time.sleep(0.8)
+
+
+def about_says_who():
+    """Settings, About: the page names who developed the app."""
+    words = about_page("Settings", "About", "Developed by Project Ark", BACK_ARROW)
+    return f"the About page says {words!r}"
+
+
+# What the About page said in Turkish, from the step that speaks Turkish: None until it is tried,
+# then (whether it held, or None when it was left out, and what it said).
+turkish_about = None
+
+
+def about_in_turkish():
+    """Called in the Turkish step, where the app speaks Turkish already. What happens is kept for the
+    step that reports it: this never fails the step it is called in."""
+    global turkish_about
+    why = time_short("turkish about")
+    if why:
+        turkish_about = (None, why)
+        return
+    began_at = time.time()
+    try:
+        words = about_page("Ayarlar", "Hakkında", "Project Ark tarafından geliştirildi", r"^Geri$")
+        turkish_about = (True, f"the About page says {words!r}")
+    except Exception as error:  # Not the Turkish step's to fail.
+        turkish_about = (False, f"{type(error).__name__}: {error}")
+        log(traceback.format_exc())
+    new_steps_run.append(("turkish about", time.time() - began_at))
+
+
+def turkish_about_reported():
+    if turkish_about is None:
+        raise NotBegun("the Turkish step did not get as far as the About page")
+    held, words = turkish_about
+    if held is None:
+        raise NotBegun(words)
+    if not held:
+        raise Failed(words)
+    return words
+
+
+# --- Find metadata for the album (online) -------------------------------------------------------
+
+
+def find_metadata_for_album():
+    """Ctrl+L in the batch editor of the four songs opens the sheet that looks the album up; it
+    lists what the sources found, and Esc closes it with nothing filled in."""
+    library_has_the_keys()
+    key(KEY_CTRL, KEY_A)
+    key(KEY_CTRL, KEY_E)
+    wait_for(
+        lambda found: bool(find(r"^Edit 4 songs$", found)), 30, "the batch editor of the four songs"
+    )
+    key(KEY_CTRL, KEY_L)
+    sheet = r"^Find the album.s metadata$"
+    troubles = (
+        "offline",
+        "No albums found",
+        "The search failed",
+        "sources are busy",
+        "Every source is turned off",
+    )
+    deadline = time.time() + 45
+    while True:
+        nodes = screen()
+        if find(sheet, nodes):
+            for trouble in troubles:
+                if find(trouble, nodes):
+                    home()
+                    raise Skipped(f"the sources answered: {trouble}")
+            if find("^Albums found$", nodes):
+                break
+        if time.time() > deadline:
+            raise Failed(f"the sheet said nothing in 45 s: {said_on(nodes)[:30]}")
+        time.sleep(1)
+    found = [
+        words
+        for words in said_on(nodes)
+        if re.search(r"match$|^Has \d+ of 4|^\d+ tracks?$|^Looked for|^Choosing one", words)
+        and len(words) < 220
+    ]
+    screenshot("album-metadata-found")
+    key(KEY_ESCAPE)
+    nodes = wait_for(lambda found_: not find(sheet, found_), 15, "the sheet closed")
+    if find(r"^Filled in from", nodes) or find("^Will be written to", nodes):
+        raise Failed("closing the sheet with Esc filled something in")
+    home()
+    return f"the sheet listed what the sources found ({found[:6]}); Esc closed it with nothing filled in"
+
+
+# --- Back, and what the editor beside the library shows ----------------------------------------
+
+
+def pressing(how):
+    """What a person presses to leave an album: the arrow in its toolbar, Esc or the Back key."""
+
+    def press(nodes):
+        if how == "the arrow":
+            arrow = find(BACK_ARROW, nodes)
+            if arrow:
+                tap(arrow[0])
+        elif how == "Esc":
+            key(KEY_ESCAPE)
+        else:
+            key(KEY_BACK)
+
+    return press
+
+
+def album_back_arrow():
+    """Leaving an album takes one press: of the arrow in its toolbar, with a song of the album open
+    beside it (the owner had to press twice), and of Esc and the Back key. The albums are listed
+    again, and the editor beside them is gone."""
+    nodes = albums_place()
+    slow, notes = [], []
+    for how in ("the arrow", "Esc", "the Back key"):
+        nodes = open_album("Discovery", nodes)
+        beside = ""
+        if how == "the arrow":
+            opened = list_titles(nodes)[0]
+            tap(list_row(opened, nodes))
+            nodes = wait_for(
+                lambda found, wanted=opened: title_field(found) == wanted,
+                25,
+                f"the editor of {opened!r}",
+            )
+            beside = f", with {opened!r} open beside it"
+            screenshot("an-album-and-a-song-beside-it")
+        press = pressing(how)
+        press(nodes)
+        deadline = time.time() + 6
+        while True:
+            nodes = screen()
+            if the_albums(nodes) or time.time() > deadline:
+                break
+            time.sleep(0.5)
+        if not the_albums(nodes):
+            slow.append(how)
+            press(nodes)
+            nodes = wait_for(the_albums, 15, "the albums after a second press")
+        elif beside and not find("Pick a song", nodes):
+            slow.append(f"{how}: the editor stayed beside the albums")
+        notes.append(f"{how}{beside}")
+    key(KEY_CTRL, KEY_1)
+    if slow:
+        raise Failed(f"one press did not leave the album: {slow}")
+    return "one press left the album: " + "; ".join(notes)
+
+
+def back_at_the_start():
+    """Back at the start of the app does not take it away on a desktop: the window counts as one
+    while the last pointer was a mouse. A finger's touch makes it a phone's again, and then Back
+    takes the app to the background. The mouse stays plugged in while Back is pressed, and the
+    Back presses are enough to go through every place the library remembers (ten) and one more."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    with LiveMouse() as mouse:
+        # The pointer moves over the app: that is all it takes for the window to feel a mouse.
+        mouse.move(3, 3)
+        mouse.move(-3, -3)
+        shell("for i in 1 2 3 4 5 6 7 8 9 10 11 12; do input keyevent 4; sleep 0.4; done", timeout=60)
+        time.sleep(1)
+        stays = front_package()
+    nodes = screen()
+    if stays != PACKAGE or not find(LIBRARY, nodes):
+        launch_app()
+        raise Failed(
+            f"Back at the start, with a mouse the last pointer, left the app: {stays} was in front, "
+            f"and the screen said {said_on(nodes)[:12]}"
+        )
+    screenshot("back-at-the-start-with-a-mouse")
+    # The contrast: a finger touched the screen, and Back takes the app away, as on a phone.
+    shell("input tap 700 130")
+    time.sleep(0.5)
+    key(KEY_BACK)
+    time.sleep(1)
+    left = front_package()
+    if left == PACKAGE:
+        return (
+            f"with a mouse the last pointer, Back left {stays} in front; after a tap it did too, "
+            f"which the emulator's kind of window may explain: there is no contrast to show"
+        )
+    launch_app()
+    wait_for(lambda found: bool(find(LIBRARY, found)), 25, "the library after the app came back")
+    return (
+        f"with a mouse the last pointer, Back left {stays} in front; after a tap, {left} was: "
+        f"as on a phone"
+    )
+
+
+def editor_follows_the_selection():
+    """The editor beside the library shows what is chosen in it: the song clicked last, not the one
+    before; a song selected with Ctrl; the two selected together; and a plain mouse click ends the
+    selection and shows the song clicked."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    nodes = screen()
+    order = list_titles(nodes)
+    if len(order) < 4:
+        raise Failed(f"the list shows {order}")
+    first, second, third, fourth = order[:4]
+    # A plain click opens a song, whether a finger or a mouse made it; then the next one.
+    tap(list_row(first, nodes))
+    nodes = wait_for(lambda found: title_field(found) == first, 25, f"the editor of {first!r}")
+    tap(list_row(second, nodes))
+    nodes = wait_for(lambda found: title_field(found) == second, 25, f"the editor of {second!r}")
+    if any(node.is_field and node.text == first for node in nodes):
+        raise Failed(f"the editor of {first!r} is still beside the library")
+    seen = [f"{second!r} replaced {first!r}"]
+    with LiveMouse() as mouse:
+        click_on(mouse, list_row(third, nodes), held=Gesture.KEY_LEFTCTRL)
+        nodes = wait_for(
+            lambda found: selected_count(found) >= 1
+            and (title_field(found) == third or find(r"^Edit \d+ songs$", found)),
+            25,
+            f"the editor of {third!r} selected",
+        )
+        together = bool(find(r"^Edit \d+ songs$", nodes))
+        seen.append(
+            f"Ctrl+click on {third!r} selected {selected_count(nodes)} and the editor showed "
+            + ("both together" if together else "it alone")
+        )
+        click_on(mouse, list_row(fourth, nodes), held=Gesture.KEY_LEFTCTRL)
+        nodes = wait_for(
+            lambda found: selected_count(found) >= 2 and find(r"^Edit \d+ songs$", found),
+            25,
+            "the songs selected together",
+        )
+        screenshot("songs-together-in-the-editor")
+        seen.append(f"a second Ctrl+click: {selected_count(nodes)} selected, edited together")
+        click_on(mouse, list_row(first, nodes))
+        nodes = wait_for(
+            lambda found: selected_count(found) == 0
+            and title_field(found) == first
+            and not find(r"^Edit \d+ songs$", found),
+            25,
+            f"the selection ended and the editor of {first!r}",
+        )
+        seen.append(f"a plain click on {first!r} ended the selection and opened it")
+    return "; ".join(seen)
+
+
+def shift_on_boxes(mouse, nodes, where, rows_wanted=3):
+    """The box of the first row is clicked: that song is selected; Shift on the box of the third
+    (the last, in a list of two) selects them all, from the first. Ends the selection."""
+    boxed = boxes(nodes)
+    count = min(rows_wanted, len(boxed))
+    if count < 2:
+        raise Failed(f"{where} shows {len(boxed)} check boxes: {said_on(nodes)[:30]}")
+    wanted = [row_title(box) for box in boxed[:count]]
+    tap(boxed[0])
+    nodes = wait_for(lambda found: selected_count(found) == 1, 15, f"one song selected in {where}")
+    if checked_titles(nodes) != wanted[:1]:
+        raise Failed(f"in {where} the box of {wanted[0]!r} checked {checked_titles(nodes)}")
+    # The rows moved up when the selection's head came: the boxes are read again.
+    click_on(mouse, boxes(nodes)[count - 1], held=Gesture.KEY_LEFTSHIFT)
+    nodes = wait_for(
+        lambda found: selected_count(found) == count, 15, f"{count} songs selected in {where}"
+    )
+    if checked_titles(nodes) != wanted:
+        raise Failed(
+            f"in {where} Shift on the box of {wanted[-1]!r} left {checked_titles(nodes)} checked, "
+            f"not {wanted}"
+        )
+    screenshot("shift-on-a-box-" + slug(where))
+    stop_selecting(nodes)
+    wait_for(
+        lambda found: selected_count(found) == 0 and len(boxes(found)) >= count,
+        15,
+        "the selection ended",
+    )
+    return f"a box selected {wanted[0]!r} and Shift on the box of {wanted[-1]!r} selected the {count}"
+
+
+def boxes_and_shift():
+    """In an album's screen, as in the library's Songs: a click on the box of a row selects the song,
+    and Shift on the box of the third selects the three from the first."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    parts = Parts()
+    nodes = albums_place()
+    nodes = open_album("Discovery", nodes)
+    with LiveMouse() as mouse:
+        parts.check("in an album's screen", lambda: shift_on_boxes(mouse, nodes, "an album's screen"))
+        arrow = find(BACK_ARROW)
+        if arrow:
+            tap(arrow[0])
+        wait_for(the_albums, 15, "the albums")
+        key(KEY_CTRL, KEY_1)
+        nodes = wait_for(lambda found: len(boxes(found)) >= 4, 15, "the Songs")
+        parts.check("in the Songs", lambda: shift_on_boxes(mouse, nodes, "the Songs"))
+    return parts.report()
+
+
+def drag_from(mouse, listed, index, y_offset=None):
+    """The pointer is brought onto the row [index] of [listed] with the button pressed there: at
+    the row's middle, or [y_offset] from its top."""
+    node = listed[index]
+    x = node.left + (node.right - node.left) // 2
+    y = node.top + y_offset if y_offset is not None else (node.top + node.bottom) // 2
+    at = mouse.go_to(x, y)
+    if landed_row(at, [node]) is None:
+        raise Skipped(f"the pointer could not be brought to row {index + 1}: it is at {at}")
+    mouse.press(Gesture.BTN_LEFT)
+    return x
+
+
+def drag_to_select():
+    """A rectangle dragged with the mouse over the rows selects the ones it touches and opens none;
+    with Ctrl held where it begins it adds to the selection; without, it replaces it; and Esc in the
+    middle of it ends the rectangle and nothing else."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    nodes = screen()
+    order = list_titles(nodes)
+    if len(order) < 4:
+        raise Failed(f"the list shows {order}")
+    parts = Parts()
+    state = {"nodes": nodes}
+
+    def listed():
+        return [box.parent for box in boxes(state["nodes"])]
+
+    with LiveMouse() as mouse:
+
+        def rectangle():
+            rows_ = listed()
+            x = drag_from(mouse, rows_, 0)
+            try:
+                mouse.go_to(x, (rows_[2].top + rows_[2].bottom) // 2)
+                screenshot("a-rectangle-being-dragged")
+            finally:
+                mouse.release(Gesture.BTN_LEFT)
+            state["nodes"] = wait_for(
+                lambda found: selected_count(found) == 3 and find(r"^Edit 3 songs$", found),
+                25,
+                "three songs selected by the rectangle",
+            )
+            if checked_titles(state["nodes"]) != order[:3]:
+                raise Failed(f"it selected {checked_titles(state['nodes'])}, not {order[:3]}")
+            return "dragged over three rows it selected them, and opened none"
+
+        def with_ctrl():
+            rows_ = listed()
+            mouse.hold(Gesture.KEY_LEFTCTRL, True)
+            try:
+                x = drag_from(mouse, rows_, 3, y_offset=8)
+                try:
+                    mouse.go_to(x, rows_[3].top + 30)
+                finally:
+                    mouse.release(Gesture.BTN_LEFT)
+            finally:
+                mouse.hold(Gesture.KEY_LEFTCTRL, False)
+            state["nodes"] = wait_for(
+                lambda found: selected_count(found) == 4 and find(r"^Edit 4 songs$", found),
+                25,
+                "four songs selected, the fourth added by a rectangle with Ctrl",
+            )
+            return "with Ctrl it added the fourth to the three"
+
+        def without_ctrl():
+            rows_ = listed()
+            x = drag_from(mouse, rows_, 3, y_offset=8)
+            try:
+                mouse.go_to(x, rows_[3].top + 30)
+            finally:
+                mouse.release(Gesture.BTN_LEFT)
+            state["nodes"] = wait_for(
+                lambda found: selected_count(found) == 1 and title_field(found) == order[3],
+                25,
+                f"only {order[3]!r} selected, and open",
+            )
+            return "without it, only the row dragged on stayed, and its editor opened"
+
+        def esc_in_the_middle():
+            rows_ = listed()
+            x = drag_from(mouse, rows_, 0)
+            try:
+                mouse.go_to(x, (rows_[1].top + rows_[1].bottom) // 2)
+                mouse.hold(Gesture.KEY_ESC, True)
+                mouse.hold(Gesture.KEY_ESC, False)
+                mouse.go_to(x, (rows_[3].top + rows_[3].bottom) // 2)
+            finally:
+                mouse.release(Gesture.BTN_LEFT)
+            state["nodes"] = wait_for(lambda found: selected_count(found) >= 1, 15, "a selection")
+            chosen = checked_titles(state["nodes"])
+            if chosen != order[:2]:
+                raise Failed(f"it left {chosen} selected, not {order[:2]}")
+            return "Esc ended the rectangle at the second row: the two it had touched stayed"
+
+        parts.check("a rectangle", rectangle)
+        parts.check("Ctrl", with_ctrl)
+        parts.check("a plain drag", without_ctrl)
+        parts.check("Esc in the middle", esc_in_the_middle)
+    stop_selecting()
+    return parts.report()
+
+
+# --- A cover saved to a song takes it off the list of those without one (online) ---------------
+
+
+def cover_leaves_the_list():
+    """The songs without a cover are listed, and a song given one stops being: within seconds of the
+    save, with no rescan and no reopening. The song is the SD card's second, which has none."""
+    if not card_listed:
+        raise NotBegun("no songs on an SD card")
+    if not cover_search_worked:
+        raise NotBegun("no cover was found to save")
+    key(KEY_CTRL, KEY_1)
+    nodes = wait_for(lambda found: bool(sidebar_item("No cover", found)), 15, "the sidebar")
+    before_count = settled_count("No cover", nodes)
+    tap(sidebar_item("No cover", nodes))
+    # The check of the covers may not have reached the card's songs yet: the list fills as it goes.
+    nodes = wait_for(
+        lambda found: place_shown(found) == "No cover" and "Da Funk" in list_titles(found),
+        60,
+        "Da Funk on the list of songs without a cover",
+    )
+    tap(list_row("Da Funk", nodes))
+    wait_for(lambda found: title_field(found) == "Da Funk", 40, "the editor of Da Funk")
+    key(KEY_CTRL, KEY_K)
+    use, reasons = read_cover_sheet()
+    tap(use)
+    expect_gone("Other covers|Use this cover", 20)
+    expect(r"\d+ × \d+ px", 90)
+    key(KEY_CTRL, KEY_S)
+    saved_at = time.time()
+    nodes = saved_when(r"^(Saved|No changes)$", 90)
+    saved_after = time.time() - saved_at
+    deadline = time.time() + 40
+    while True:
+        nodes = screen()
+        if "Da Funk" not in list_titles(nodes):
+            break
+        if time.time() > deadline:
+            raise Failed("Da Funk is still on the list of songs without a cover 40 s after the save")
+        time.sleep(1)
+    gone_after = time.time() - saved_at
+    screenshot("the-song-left-the-no-cover-list")
+    now = settled_count("No cover", nodes)
+    key(KEY_CTRL, KEY_W)
+    key(KEY_CTRL, KEY_1)
+    return (
+        f"Da Funk, saved in {saved_after:.0f} s, was off the list {gone_after:.0f} s after the tap "
+        f"on Ctrl+S; the sidebar counted {before_count} and then {now}"
+    )
+
+
+def album_artist_written():
+    """The songs of an album edited together are written with what was set for all of them: the
+    album artist of the SD card's album, read back from the files, with everything else as it was."""
+    if not card_listed:
+        raise NotBegun("no songs on an SD card")
+    folder = f"{card['root']}/{CARD_FOLDER}"
+    names = list(CARD_SONGS.values())
+    was = {name: probe(pull(name, folder)) for name in names}
+    nodes = albums_place("Homework")
+    nodes = open_album("Homework", nodes)
+    tap(find("^Edit all$", nodes)[0])
+    wait_for(
+        lambda found: bool(find(r"^Edit 2 songs$", found))
+        and labeled_field("Album artists", found) is not None,
+        30,
+        "the batch editor of Homework",
+    )
+    new = "Daft Punk and Friends"
+    type_into("Album artists", new)
+    apply_all()
+    nodes = saved_when(r"^Done$", 180)
+    saved = next((node.text for node in nodes if re.search(r"songs? saved", node.text)), "")
+    if find(r"couldn.t be saved", nodes) or not saved:
+        raise Failed(f"the batch did not save both songs: {said_on(nodes)}")
+    screenshot("homework-saved")
+    tap(find("^Finish$", nodes)[0])
+    home()
+    notes = []
+    for name in names:
+        after = probe(pull(name, folder))
+        wrote = album_artist_of(after["tags"])
+        if wrote != new:
+            raise Failed(f"{name}: the album artist is {wrote!r} in the file, not {new!r}")
+        try:
+            same_but(after, was[name], "album_artist")
+        except Failed as reason:
+            raise Failed(f"{name}: {reason}")
+        notes.append(f"{name}: album artist {album_artist_of(was[name]['tags'])!r} -> {wrote!r}")
+    return f"{saved}. " + "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+
+
+def boxes_in_the_fake_list():
+    """A box and Shift on a box in a smart list too: the Fake FLAC list holds the two fake songs
+    once the card's are there; a box selects the first, Shift on the box of the second takes both."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    if not card_listed:
+        raise NotBegun("no songs on an SD card: the list holds one fake song, no range to take")
+    home()
+    nodes = open_place_of("Fake FLAC")
+    if len(boxes(nodes)) < 2:
+        raise Skipped(f"the Fake FLAC list holds {list_titles(nodes)}, no range to take")
+    with LiveMouse() as mouse:
+        done = shift_on_boxes(mouse, nodes, "the Fake FLAC list", rows_wanted=2)
+    # The step after this one counts on the Songs, not on this list.
+    key(KEY_CTRL, KEY_1)
+    return done
+
+
+# --- The full-screen player ---------------------------------------------------------------------
+
+
+def full_player():
+    """The player's bar opens the full-screen player: on the wide window and on a phone's layout it
+    shows the song and Edit tags; Back closes it and leaves the library where it was."""
+    nodes = screen()
+    opener = find("^Open the player$", nodes)
+    if not opener:
+        play = find("^Play all$", nodes)
+        if not play:
+            raise Skipped("no player bar, and nothing to play")
+        tap(play[0])
+        nodes = wait_for(
+            lambda found: bool(find("^Open the player$", found)), 20, "the player's bar"
+        )
+        opener = find("^Open the player$", nodes)
+    try:
+        tap(opener[0])
+        wait_for(
+            lambda found: bool(find("^Edit tags$", found)) and not find(LIBRARY, found),
+            20,
+            "the full-screen player",
+        )
+        screenshot("the-full-player-wide")
+        shell("wm size 1080x1920")
+        shell("wm density 420")
+        try:
+            time.sleep(4)
+            wait_for(
+                lambda found: bool(find("^Edit tags$", found)), 15, "the full-screen player on a phone"
+            )
+            screenshot("the-full-player-on-a-phone")
+        finally:
+            shell("wm size reset")
+            shell("wm density reset")
+            time.sleep(3)
+        key(KEY_BACK)
+        wait_for(
+            lambda found: bool(find(LIBRARY, found)) and not find("^Edit tags$", found),
+            15,
+            "the library",
+        )
+    finally:
+        shell("input keyevent 127")  # Pause: music through the steps after would be noise.
+    return "the player's bar opened the full-screen player, wide and on a phone's layout; Back closed it"
+
+
+# --- The late songs come: what holds no cover, what is garbled ----------------------------------
+
+
+def late_ready():
+    """The late songs, once they have come: a step that needs them does not begin without."""
+    if late_state is None:
+        raise NotBegun("the late songs did not come")
+    return late_state
+
+
+def push_late(folder):
+    """The folder of the late songs onto the device: how many files it holds."""
+    shell(f"mkdir -p {LATE}")
+    adb("push", folder + "/.", LATE + "/", timeout=300)
+    listed = shell(f"ls {LATE}")
+    names = [name for name in sorted(os.listdir(folder)) if name.endswith(".mp3")]
+    for name in names:
+        if name not in listed:  # An adb that takes no folder: one by one.
+            adb("push", os.path.join(folder, name), f"{LATE}/{name}", timeout=120)
+    return len(names)
+
+
+def late_songs_arrive():
+    """The late songs are made, put in a folder of their own on the device and found by a rescan.
+    What the sidebar counted before is kept, to tell what they add."""
+    global late_state
+    home()
+    nodes = screen()
+    baseline = settled_count("No cover", nodes)
+    albums_before = number_in(sidebar_count("Albums", nodes))
+    before = listed_count()
+    folder = os.path.join(out_dir, "late")
+    made = make_late_songs(folder, os.path.join(out_dir, "late-work"))
+    pushed = push_late(folder)
+    target = before + len(made)
+    began = time.time()
+    key(KEY_CTRL, KEY_R)
+    asked_again = False
+    note = ""
+    while True:
+        now = listed_count()
+        if now >= target:
+            break
+        if time.time() > began + 90 and now >= target - 2:
+            note = f" ({target - now} of them were not listed after 90 s)"
+            break
+        if time.time() > began + 150:
+            raise Failed(f"{now} songs are listed {time.time() - began:.0f} s after the rescan, not {target}")
+        # A media store that was still busy when it was asked heard nothing: ask once more.
+        if not asked_again and time.time() > began + 60:
+            key(KEY_F5)
+            asked_again = True
+        time.sleep(3)
+    late_state = {
+        "songs": made,
+        "baseline": baseline,
+        "albums_before": albums_before,
+        "listed": now,
+    }
+    screenshot("late-songs-listed")
+    return (
+        f"{len(made)} songs made and {pushed} files pushed to {LATE}; listed {now - before} new "
+        f"songs {time.time() - began:.0f} s after the rescan{note}. The sidebar counted "
+        f"{baseline if baseline is not None else 'no settled number of'} songs without a cover "
+        f"before and {albums_before} albums"
+    )
+
+
+GARBLED_TITLE = re.compile(r"^Mo\S{1,3}ollar$")
+CJK = re.compile("[぀-ヿ㐀-鿿가-힯]")
+WITH_COVER = ("Zz Pictured 2", "Dauðalogn", "Zz Long 01", "Zz Merge One", "Zz Merge Two")
+
+
+def open_place_of(label, empty=None, timeout=20):
+    """A place of the sidebar chosen, and its list in front: the screen then. [empty] is what an
+    empty list says, when it may be empty."""
+    nodes = screen()
+    item = sidebar_item(label, nodes)
+    if item is None:
+        raise Failed(f"the sidebar has no {label!r}: {said_on(nodes)[:30]}")
+    tap(item)
+    return wait_for(
+        lambda found: place_shown(found) == label
+        and (bool(boxes(found)) or bool(empty and find(empty, found))),
+        timeout,
+        f"the list {label!r}",
+    )
+
+
+def no_cover_lists():
+    """The songs whose files hold no cover are counted by the sidebar ("· N%" says it is still
+    counting) and listed: by its "No cover" place and by the chip over the Songs; and the albums
+    with such a song by the chip over the Albums. A song with a cover is in none of them."""
+    state = late_ready()
+    parts = Parts()
+    key(KEY_CTRL, KEY_1)
+    seen = []
+    result = {}
+
+    def counted():
+        deadline = time.time() + 90
+        lower = 2 if state["baseline"] is None else state["baseline"] + 2
+        while True:
+            nodes = screen()
+            said = sidebar_count("No cover", nodes)
+            if said is not None and said not in seen:
+                seen.append(said)
+            settled = settled_count("No cover", nodes)
+            if settled is not None and settled >= lower:
+                break
+            if time.time() > deadline:
+                raise Failed(
+                    f"the sidebar still says {said!r} for the songs without a cover after 90 s; "
+                    f"it should count {lower} or more. It said {seen}"
+                )
+            time.sleep(2)
+        result["count"] = settled
+        if state["baseline"] is not None and settled != state["baseline"] + 2:
+            raise Failed(
+                f"the sidebar counts {settled} songs without a cover, not {state['baseline']} and "
+                f"the 2 late ones: {seen}"
+            )
+        return f"it counted {settled} (it said {seen})"
+
+    parts.check("the sidebar counts them", counted)
+
+    def place():
+        nodes = open_place_of("No cover")
+        titles = list_titles(nodes)
+        result["titles"] = titles
+        missing = [title for title in ("Zz Bare", "Zz Pictured 1") if title not in titles]
+        wrong = [title for title in WITH_COVER if title in titles]
+        if missing or wrong:
+            raise Failed(f"the list holds {titles[:12]}; it lacks {missing} and has {wrong}")
+        count = result.get("count")
+        if count is not None and len(titles) != count and count <= 14:
+            raise Failed(f"the list holds {len(titles)} songs, the sidebar counted {count}: {titles}")
+        screenshot("the-songs-without-a-cover")
+        return f"it lists {len(titles)}: {titles[:8]}"
+
+    parts.check("the place lists them", place)
+
+    def songs_chip():
+        key(KEY_CTRL, KEY_1)
+        nodes = wait_for(
+            lambda found: place_shown(found) in SONGS_PLACE and bool(boxes(found)), 15, "the Songs"
+        )
+        words, chip = chip_said(r"No cover \(\d+\)", nodes)
+        if chip is None:
+            raise Failed(f"the Songs have no chip for the songs without a cover: {said_on(nodes)[:20]}")
+        count = number_in(words)
+        if result.get("count") is not None and count != result["count"]:
+            raise Failed(f"the chip says {words!r}, the sidebar counted {result['count']}")
+        tap(chip)
+        nodes = wait_for(
+            lambda found: "Zz Pictured 1" in list_titles(found), 20, "the Songs narrowed by the chip"
+        )
+        titles = list_titles(nodes)
+        wrong = [title for title in WITH_COVER if title in titles]
+        if wrong:
+            raise Failed(f"the chip's list has songs with a cover: {wrong}")
+        _, chip = chip_said(r"No cover \(\d+\)", nodes)
+        if chip is not None:
+            tap(chip)
+        return f"the chip said {words!r} and narrowed the list to {len(titles)} songs"
+
+    parts.check("the chip over the Songs lists them", songs_chip)
+
+    def albums_chip():
+        key(KEY_CTRL, KEY_2)
+        nodes = wait_for(
+            lambda found: bool(find("^Zz Pictured$", found)) and the_albums(found), 20, "the Albums"
+        )
+        words, chip = chip_said(r"Missing covers \(\d+\)", nodes)
+        if chip is None:
+            raise Failed(f"the Albums have no chip for the albums that miss a cover: {said_on(nodes)[:20]}")
+        count = number_in(words)
+        tap(chip)
+        nodes = wait_for(
+            lambda found: not find("^Zz Long$", found) and bool(find("^Zz Pictured$", found)),
+            20,
+            "the Albums narrowed by the chip",
+        )
+        tiles = album_titles(nodes)
+        missing = [title for title in ("Zz Bare Album", "Zz Pictured") if title not in tiles]
+        wrong = [title for title in ("Zz Long", "Zz Control", "A Merge One") if title in tiles]
+        if missing or wrong or (count <= 14 and len(tiles) != count):
+            raise Failed(f"the chip said {words!r} and the grid shows {tiles}")
+        screenshot("the-albums-that-miss-a-cover")
+        _, chip = chip_said(r"Missing covers \(\d+\)", nodes)
+        if chip is not None:
+            tap(chip)
+        return f"the chip said {words!r} and the grid showed {tiles}"
+
+    parts.check("the chip over the Albums lists the albums with one", albums_chip)
+    key(KEY_CTRL, KEY_1)
+    return parts.report()
+
+
+def garbled_lists():
+    """The songs whose text looks garbled are counted by the sidebar and listed apart: the song
+    whose title is UTF-8 read as Windows-1252, and the two that have it in their album artist; the
+    control, an Icelandic title that is right as it is, is not in the list. None of the albums
+    shows letters of another script (the library once read the text of one as Chinese). The chip
+    for this list is there only where there is no sidebar: not tried here."""
+    state = late_ready()
+    parts = Parts()
+    key(KEY_CTRL, KEY_1)
+
+    def counted():
+        deadline = time.time() + 90
+        while True:
+            nodes = screen()
+            said = sidebar_count("Garbled text", nodes)
+            count = number_in(said)
+            if count is not None and count >= 3:
+                state["garbled"] = count
+                return f"the sidebar counts {said}"
+            if time.time() > deadline:
+                raise Failed(f"the sidebar counts {said!r} songs with garbled text after 90 s, not 3")
+            time.sleep(2)
+
+    parts.check("the sidebar counts them", counted)
+
+    def listed():
+        nodes = open_place_of("Garbled text")
+        titles = list_titles(nodes)
+        screenshot("the-garbled-text-list")
+        mine = [title for title in titles if GARBLED_TITLE.match(title)]
+        missing = [title for title in ("Zz Turkish B", "Zz Turkish C") if title not in titles]
+        if not mine:
+            missing.append("the song with the garbled title")
+        if "Dauðalogn" in titles:
+            raise Failed(f"the control, an Icelandic title that is right, is listed: {titles}")
+        if missing:
+            raise Failed(f"the list holds {titles}; it lacks {missing}")
+        if any(CJK.search(words) for words in said_on(nodes)):
+            raise Failed(f"letters of another script are on the list: {said_on(nodes)[:30]}")
+        return f"it lists {titles}"
+
+    parts.check("the place lists them, and not the control", listed)
+
+    def control_is_a_song():
+        key(KEY_CTRL, KEY_1)
+        nodes = wait_for(
+            lambda found: place_shown(found) in SONGS_PLACE and bool(boxes(found)), 15, "the Songs"
+        )
+        if "Dauðalogn" not in list_titles(nodes):
+            raise Failed(f"the control is not among the songs: {list_titles(nodes)}")
+        return "the control is a song among the others"
+
+    parts.check("the control is a song like the others", control_is_a_song)
+
+    def albums_read_right():
+        key(KEY_CTRL, KEY_2)
+        nodes = wait_for(
+            lambda found: bool(find("^Zz Control$", found)) and the_albums(found), 20, "the Albums"
+        )
+        tiles = album_titles(nodes)
+        state["turkish_tiles"] = tiles.count("Zz Turkish")
+        if any(CJK.search(words) for words in said_on(nodes)):
+            raise Failed(f"letters of another script are in the albums: {said_on(nodes)}")
+        key(KEY_CTRL, KEY_1)
+        return f"the albums read right ({tiles.count('Zz Turkish')} of them are called Zz Turkish)"
+
+    parts.check("no album reads as another script", albums_read_right)
+    return parts.report()
+
+
+def open_garbled_title():
+    """The song whose title is garbled, opened in the editor from the list of the garbled ones:
+    its title as the list shows it."""
+    key(KEY_CTRL, KEY_1)
+    nodes = open_place_of("Garbled text")
+    titles = [title for title in list_titles(nodes) if GARBLED_TITLE.match(title)]
+    if not titles:
+        raise Failed(f"the list of garbled text lacks the garbled title: {list_titles(nodes)}")
+    tap(list_row(titles[0], nodes))
+    wait_for(lambda found: title_field(found) == titles[0], 40, f"the editor of {titles[0]!r}")
+    return titles[0]
+
+
+NOTICE = r"^(This looks garbled|These look garbled)$"
+
+
+def editor_repair():
+    """The editor of the song whose title is garbled says so and offers to put it right; that is a
+    change to save, and what is written is "Moğollar" with every other tag as it was."""
+    state = late_ready()
+    song = state["songs"]["garbled title"]
+    parts = Parts()
+    shown = open_garbled_title()
+    nodes = screen()
+    holds = {}
+
+    def offered():
+        if not find(NOTICE, nodes):
+            raise Failed(f"the editor of {shown!r} does not say that it looks garbled: {said_on(nodes)[:30]}")
+        lines = [node.text for node in nodes if re.fullmatch(rf"Title: {re.escape(GOOD)}\?", node.text)]
+        if not lines:
+            raise Failed(f"the notice does not say what the title should be: {said_on(nodes)[:30]}")
+        if not find("^Repair$", nodes):
+            raise Failed("the notice has no Repair button")
+        screenshot("the-editor-offers-to-repair")
+        return f"{shown!r} is said to look garbled; the notice says {lines[0]!r}"
+
+    holds["offered"] = parts.check("the editor offers the repair", offered)
+    if not holds["offered"]:
+        key(KEY_CTRL, KEY_W)
+        return parts.report()
+
+    def repaired():
+        tap(find("^Repair$", nodes)[0].pressed_as())
+        after = wait_for(lambda found: title_field(found) == GOOD, 15, "the title put right")
+        gone = wait_for(lambda found: not find(NOTICE, found), 10, "the notice gone")
+        return f"the title field holds {title_field(gone) or title_field(after)!r}"
+
+    holds["repaired"] = parts.check("Repair puts the title right in the editor", repaired)
+    if holds["repaired"]:
+
+        def saved():
+            key(KEY_CTRL, KEY_S)
+            saved_when(r"^(Saved|No changes)$", 90)
+            after = probe(pull(song["file"], LATE))
+            wrote = after["tags"].get("title")
+            if wrote != GOOD:
+                raise Failed(f"the title in the file is {wrote!r}, not {GOOD!r}")
+            try:
+                same_but(after, song["probe"], "title")
+            except Failed as reason:
+                raise Failed(f"{song['file']}: {reason}")
+            return f"the file says {wrote!r} (it said {song['probe']['tags'].get('title')!r}); the other tags, the picture and the sound as they were"
+
+        holds["saved"] = parts.check("the file is written with the right title", saved)
+
+        def list_falls():
+            before = state.get("garbled", 3)
+            deadline = time.time() + 45
+            while True:
+                said = sidebar_count("Garbled text", screen())
+                if number_in(said) is not None and number_in(said) < before:
+                    return f"the sidebar went from {before} to {said} garbled songs"
+                if time.time() > deadline:
+                    raise Failed(f"the sidebar still counts {said} garbled songs 45 s after the save")
+                time.sleep(2)
+
+        if holds.get("saved"):
+            parts.check("the saved song leaves the list", list_falls)
+    key(KEY_CTRL, KEY_W)
+    nodes = screen()
+    if find("^Discard$", nodes):
+        tap(find("^Discard$", nodes)[0])
+    return parts.report()
+
+
+def batch_repair():
+    """The garbled list selected whole is edited together: the batch editor offers to put the text
+    of its songs right, with the switch off; switched on and applied, the files say "Moğollar" in
+    the album artist, with every other tag as it was, and the list is empty."""
+    state = late_ready()
+    songs = state["songs"]
+    parts = Parts()
+    key(KEY_CTRL, KEY_1)
+    nodes = open_place_of("Garbled text")
+    listed = list_titles(nodes)
+    if len(listed) < 2:
+        raise Failed(f"the list of garbled text holds {listed}")
+    library_has_the_keys()
+    key(KEY_CTRL, KEY_A)
+    nodes = wait_for(
+        lambda found: selected_count(found) >= 2 and bool(find(r"^Edit \d+ songs$", found)),
+        45,
+        "the batch editor beside the list",
+    )
+    count = selected_count(nodes)
+    nodes = wait_for(lambda found: bool(find("^Repair garbled text$", found)), 45, "the repair card")
+    switch = find("^Repair garbled text$", nodes)[0].pressed_as()
+    previews = [node.text for node in nodes if "→" in node.text and node.left >= PANEL_RIGHT]
+    screenshot("the-repair-card")
+
+    def card():
+        if switch.checked:
+            raise Failed("the repair is on before anyone asked for it")
+        if not previews:
+            raise Failed(f"the card shows nothing of what it would change: {said_on(nodes)[:30]}")
+        if not any(words.endswith(GOOD) for words in previews):
+            raise Failed(f"the card does not show the right text: {previews}")
+        return f"off at first, it shows {previews[:3]}"
+
+    parts.check("the card is there, off, and shows what it would do", card)
+
+    def applied():
+        tap(switch)
+        def switched_on(found):
+            cards = find("^Repair garbled text$", found)
+            return bool(cards) and cards[0].pressed_as().checked
+
+        wait_for(switched_on, 10, "the repair switched on")
+        apply_all()
+        done = saved_when(r"^Done$", 180)
+        saved = next((node.text for node in done if re.search(r"songs? saved", node.text)), "")
+        if find(r"couldn.t be saved", done) or not saved:
+            raise Failed(f"the batch did not save every song: {said_on(done)}")
+        screenshot("garbled-text-repaired")
+        tap(find("^Finish$", done)[0])
+        return saved
+
+    if not parts.check("switched on and applied it saves", applied):
+        return parts.report()
+
+    def files():
+        notes = []
+        wanted = [("garbled b", "album_artist"), ("garbled c", "album_artist")]
+        if any(GARBLED_TITLE.match(title) for title in listed):
+            wanted.append(("garbled title", "title"))
+        for name, field in wanted:
+            song = songs[name]
+            after = probe(pull(song["file"], LATE))
+            wrote = album_artist_of(after["tags"]) if field == "album_artist" else after["tags"].get(field)
+            if wrote != GOOD:
+                raise Failed(f"{song['file']}: the {field} in the file is {wrote!r}, not {GOOD!r}")
+            try:
+                same_but(after, song["probe"], field)
+            except Failed as reason:
+                raise Failed(f"{song['file']}: {reason}")
+            notes.append(f"{song['file']}: {field} {GOOD!r}")
+        return "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+
+    parts.check("the files say the right text and nothing else changed", files)
+
+    def empty():
+        deadline = time.time() + 60
+        while True:
+            nodes_ = screen()
+            said = sidebar_count("Garbled text", nodes_)
+            if number_in(said) == 0 and find("^No garbled text$", nodes_):
+                return f"the list says 'No garbled text' and the sidebar counts {said}"
+            if time.time() > deadline:
+                raise Failed(f"the garbled list is not empty 60 s after the save: sidebar {said}, {said_on(nodes_)[:20]}")
+            time.sleep(2)
+
+    parts.check("the list is empty", empty)
+
+    def one_album():
+        key(KEY_CTRL, KEY_2)
+        nodes_ = wait_for(
+            lambda found: bool(find("^Zz Control$", found)) and the_albums(found), 20, "the Albums"
+        )
+        now = album_titles(nodes_).count("Zz Turkish")
+        before = state.get("turkish_tiles")
+        was = "an unknown number" if before is None else before
+        if now != 1:
+            raise Failed(f"{now} albums are called Zz Turkish (there were {was}), not one")
+        return f"{was} albums called Zz Turkish became {now}"
+
+    parts.check("the two albums are one", one_album)
+    key(KEY_CTRL, KEY_1)
+    return f"{count} songs selected; " + parts.report()
+
+
+# --- Albums: the second button, a cover, merging ------------------------------------------------
+
+
+def album_titles(nodes):
+    """The albums the grid shows, by their tiles, from the top left down."""
+    tiles = [
+        node
+        for node in nodes
+        if node.takes_click
+        and node.kind.endswith("View")
+        and 150 < node.right - node.left < 260
+        and node.bottom - node.top > node.right - node.left
+        and node.right <= PANEL_RIGHT
+        and node.top < BAR_TOP
+    ]
+    tiles.sort(key=lambda node: (node.top // 10, node.left))
+    return [
+        next((each.text for each in node.within() if each.kind.endswith("TextView") and each.text), "")
+        for node in tiles
+    ]
+
+
+def region_colour(left, top, right, bottom):
+    """The average colour of a part of the screen, as red, green and blue out of 255."""
+    picture = adb("exec-out", "screencap", "-p", binary=True, timeout=60)
+    cropped = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-vf",
+         f"crop={right - left}:{bottom - top}:{left}:{top},scale=1:1", "-frames:v", "1",
+         "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"],
+        input=picture,
+        capture_output=True,
+        check=True,
+    ).stdout
+    if len(cropped) < 3:
+        raise Failed("the screen could not be read as a picture")
+    return tuple(cropped[:3])
+
+
+def tile_colour(tile):
+    """The colour of the middle of an album's cover in the grid: the cover is the square at the
+    top of its tile, and its edges (rounded) are left out."""
+    side = tile.right - tile.left
+    inset = side // 5
+    return region_colour(tile.left + inset, tile.top + inset, tile.right - inset, tile.top + side - inset)
+
+
+def colour_distance(seen, wanted):
+    """How far apart two colours are, by the channel that differs most."""
+    target = ((wanted >> 16) & 255, (wanted >> 8) & 255, wanted & 255)
+    return max(abs(a - b) for a, b in zip(seen, target))
+
+
+def select_albums(titles, mouse=None):
+    """The albums chosen with Ctrl and a click each, one after the other: the screen at the end.
+    Given a mouse, the one that is plugged in already (two of the same name would not do)."""
+    if mouse is None:
+        with LiveMouse() as own:
+            return select_albums(titles, own)
+    nodes = screen()
+    if selected_count(nodes):
+        stop_selecting(nodes)
+        nodes = wait_for(
+            lambda found: selected_count(found) == 0 and the_albums(found), 15, "the selection ended"
+        )
+    for number, title in enumerate(titles, 1):
+        click_on(mouse, list_row(title, nodes), held=Gesture.KEY_LEFTCTRL)
+        nodes = wait_for(
+            lambda found, wanted=number: selected_count(found) == wanted,
+            15,
+            f"{number} albums selected",
+        )
+    return nodes
+
+
+def album_menu():
+    """An album shows the cover of the first of its songs that has one. The mouse's second button
+    on an album opens its menu (Open, Play, Shuffle, Edit all, Select) and does not open it; on one
+    of two selected albums the menu also has Edit together and Merge albums; Esc closes it."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    late_ready()
+    parts = Parts()
+    nodes = albums_place("Discovery")
+    nodes = wait_for(
+        lambda found: bool(find("^Zz Pictured$", found)) and bool(find("^Zz Bare Album$", found)),
+        30,
+        "the late albums",
+    )
+
+    def cover():
+        pictured = list_row("Zz Pictured", nodes)
+        bare = list_row("Zz Bare Album", nodes)
+        deadline = time.time() + 25
+        while True:
+            got = tile_colour(pictured)
+            off = colour_distance(got, PINK)
+            if off <= 45:
+                break
+            if time.time() > deadline:
+                raise Failed(
+                    f"the album whose first song has no cover and whose second has a pink one shows "
+                    f"{got}, not the pink {(PINK >> 16, (PINK >> 8) & 255, PINK & 255)}"
+                )
+            time.sleep(2)
+        other = tile_colour(bare)
+        screenshot("album-covers-in-the-grid")
+        if colour_distance(other, PINK) <= 45:
+            raise Failed(f"the album with no cover at all shows the pink too: {other}")
+        return f"the tile of Zz Pictured shows {got}, the one of Zz Bare Album {other}"
+
+    parts.check("an album shows the cover of the first of its songs that has one", cover)
+    with LiveMouse() as mouse:
+
+        def alone():
+            tile = list_row("Discovery", nodes)
+            click_on(mouse, tile, button=Gesture.BTN_RIGHT)
+            # A menu is a window of its own: the dump of the window in front holds the menu alone.
+            try:
+                shown = wait_for(lambda found: bool(find(r"^Open$", found)), 10, "the album's menu")
+            except Failed:
+                if an_album(screen()):
+                    raise Failed("the second button opened the album instead of its menu")
+                raise
+            labels = menu_labels(shown, r"^Open$")
+            screenshot("an-albums-menu")
+            wanted = ["Open", "Play", "Shuffle", "Edit all", "Select"]
+            if sorted(labels) != sorted(wanted):
+                raise Failed(f"the menu holds {labels}, not {wanted}")
+            key(KEY_ESCAPE)
+            closed = wait_for(lambda found: not find(r"^Open$", found), 10, "the menu closed")
+            if selected_count(closed) or not the_albums(closed):
+                raise Failed("Esc did more than close the menu")
+            return f"the menu held {labels}; Esc closed it"
+
+        parts.check("the second button opens an album's menu", alone)
+
+        def several():
+            chosen = select_albums(("A Merge One", "A Merge Two"), mouse)
+            click_on(mouse, list_row("A Merge Two", chosen), button=Gesture.BTN_RIGHT)
+            shown = wait_for(lambda found: bool(find(r"^Open$", found)), 10, "the menu of a selected album")
+            labels = menu_labels(shown, r"^Open$")
+            screenshot("the-menu-of-two-selected-albums")
+            missing = [label for label in ("Edit together", "Merge albums") if label not in labels]
+            if missing or "Select" in labels:
+                raise Failed(f"the menu of one of two selected albums holds {labels}; it lacks {missing}")
+            key(KEY_ESCAPE)
+            closed = wait_for(lambda found: not find(r"^Open$", found), 10, "the menu closed")
+            if selected_count(closed) != 2:
+                raise Failed(f"Esc left {selected_count(closed)} albums selected, not the two")
+            return f"on one of two selected albums the menu held {labels}; Esc closed it and kept the two"
+
+        parts.check("the menu of one of two selected albums", several)
+    return parts.report()
+
+
+def merge_albums():
+    """Two albums selected are merged: the batch editor opens with the card for it; one title is
+    typed, the merge taken, and applied. The files of both songs say one album and one album artist
+    with every other tag as it was, and the library lists one album where there were two."""
+    state = late_ready()
+    one, two = state["songs"]["merge one"], state["songs"]["merge two"]
+    nodes = albums_place("A Merge One")
+    before_albums = number_in(sidebar_count("Albums", nodes))
+    if selected_count(nodes) != 2:
+        nodes = select_albums(("A Merge One", "A Merge Two"))
+    head = [node for node in find("^Merge albums$", nodes) if node.top < 200]
+    if not head:
+        raise Failed(f"the head of the selected albums has no Merge albums: {said_on(nodes)[:20]}")
+    if not head[0].pressed_as().enabled:
+        raise Failed("Merge albums is not enabled with two albums selected")
+    tap(head[0].pressed_as())
+    nodes = wait_for(
+        lambda found: bool(find(r"^These songs are in 2 albums$", found)), 60, "the merge card"
+    )
+    lines = {node.text for node in nodes if node.left >= PANEL_RIGHT}
+    if not {"A Merge One", "A Merge Two"} <= lines:
+        raise Failed(f"the card names {sorted(lines)[:12]}, not the two albums")
+    screenshot("the-merge-card")
+    tap(find("^Merge into one album$", nodes)[0].pressed_as())
+    wait_for(lambda found: bool(find(r"^Merge$", found)), 15, "the choices of the merge")
+    type_into("Album", "A Merged")
+    nodes = screen()
+    tap(find(r"^Merge$", nodes)[0].pressed_as())
+    nodes = wait_for(
+        lambda found: bool(find("They will be one album once you apply", found)), 15, "the merge taken"
+    )
+    screenshot("the-merge-taken")
+    apply_all()
+    done = saved_when(r"^Done$", 180)
+    saved = next((node.text for node in done if re.search(r"songs? saved", node.text)), "")
+    if find(r"couldn.t be saved", done) or not saved:
+        raise Failed(f"the batch did not save both songs: {said_on(done)}")
+    tap(find("^Finish$", done)[0])
+    parts = Parts()
+
+    def files():
+        notes = []
+        for song in (one, two):
+            after = probe(pull(song["file"], LATE))
+            album, artist = after["tags"].get("album"), album_artist_of(after["tags"])
+            if album != "A Merged" or artist != "Zz Merge Artist":
+                raise Failed(f"{song['file']} says album {album!r}, album artist {artist!r}")
+            try:
+                same_but(after, song["probe"], "album", "album_artist")
+            except Failed as reason:
+                raise Failed(f"{song['file']}: {reason}")
+            notes.append(f"{song['file']}: {album!r} by {artist!r}")
+        return "; ".join(notes) + ". Every other tag, the picture and the sound as they were"
+
+    parts.check("the files say one album and one album artist", files)
+
+    def library():
+        nodes_ = wait_for(
+            lambda found: bool(find("^A Merged$", found))
+            and not find("^A Merge One$", found)
+            and not find("^A Merge Two$", found)
+            and the_albums(found),
+            45,
+            "the albums after the merge",
+        )
+        now = number_in(sidebar_count("Albums", nodes_))
+        screenshot("two-albums-became-one")
+        return f"the grid lists 'A Merged' and neither of the two; the sidebar counted {before_albums} albums and then {now}"
+
+    parts.check("the library lists one album where there were two", library)
+    return f"{saved}. " + parts.report()
+
+
+# --- A collection longer than the window ---------------------------------------------------------
+
+
+def long_album():
+    """In an album longer than the window: End goes to its last song and Home to its first; a drag
+    that begins on its cover or its name selects nothing; a drag from a song to below the list's
+    edge keeps selecting as the list scrolls under it, and back up it selects fewer."""
+    if not mouse_works:
+        raise NotBegun("no mouse")
+    late_ready()
+    parts = Parts()
+    nodes = albums_place("Zz Long")
+    nodes = open_album("Zz Long", nodes)
+    nodes = wait_for(lambda found: len(boxes(found)) >= 4, 20, "the songs of the album")
+    first = f"Zz Long {1:02d}"
+    last = f"Zz Long {LONG_ALBUM:02d}"
+    if last in list_titles(nodes):
+        raise Skipped(f"all {LONG_ALBUM} songs of the album are in the window")
+
+    def end_key():
+        key(KEY_END)
+        after = wait_for(lambda found: last in list_titles(found), 10, f"{last!r} after End")
+        if first in list_titles(after):
+            raise Failed("End left the first song in view as well as the last")
+        screenshot("the-end-of-a-long-album")
+        key(KEY_HOME)
+        wait_for(lambda found: first in list_titles(found), 10, f"{first!r} after Home")
+        return f"End showed {last!r} and Home {first!r} again"
+
+    parts.check("End goes to the last song, Home to the first", end_key)
+    with LiveMouse() as mouse:
+
+        def from_the_cover():
+            seen = screen()
+            names = [node for node in find(r"^Zz Long$", seen) if node.top < 400 and not node.is_field]
+            rows_ = [box.parent for box in boxes(seen)]
+            if not names or len(rows_) < 3:
+                raise Failed(f"the album's name or its songs are not in view: {said_on(seen)[:20]}")
+            at = mouse.go_to(*names[0].center)
+            if landed_row(at, [names[0]]) is None:
+                raise Skipped(f"the pointer could not be brought to the name: it is at {at}")
+            mouse.press(Gesture.BTN_LEFT)
+            try:
+                mouse.go_to(names[0].center[0], (rows_[2].top + rows_[2].bottom) // 2)
+            finally:
+                mouse.release(Gesture.BTN_LEFT)
+            after = screen()
+            if selected_count(after) or not find("^Pick a song$", after):
+                raise Failed(f"a drag from the name selected {selected_count(after)} songs: {said_on(after)[:20]}")
+            return "a drag from the album's name selected nothing and opened nothing"
+
+        parts.check("a drag from the cover or the name does nothing", from_the_cover)
+
+        def scrolling():
+            seen = screen()
+            rows_ = [box.parent for box in boxes(seen)]
+            if len(rows_) < 3:
+                raise Failed(f"the album shows {len(rows_)} songs")
+            x = drag_from(mouse, rows_, 0)
+            try:
+                edge = max(node.bottom for node in rows_)
+                mouse.go_to(x, min(edge + 45, 1076))
+                time.sleep(2)
+                during = screen()
+                most = selected_count(during)
+                shown = len(boxes(during))
+                screenshot("a-rectangle-scrolling-the-list")
+                mouse.go_to(x, rows_[0].top + 60)
+                time.sleep(1.5)
+                back = selected_count(screen())
+            finally:
+                mouse.release(Gesture.BTN_LEFT)
+            if most < shown + 3:
+                raise Failed(f"below the list's edge the drag had {most} songs selected with {shown} in view")
+            if back >= most:
+                raise Failed(f"back up the selection did not shrink: {most} then {back}")
+            return f"below the edge it had {most} songs selected with {shown} in view; back up, {back}"
+
+        parts.check("a drag below the list's edge scrolls it and keeps selecting", scrolling)
+    stop_selecting()
+    return parts.report()
+
+
+# --- A file opened by hand --------------------------------------------------------------------
+
+
+def pick_a_file(avoid):
+    """Ctrl+O, and a file chosen from what the system's picker shows first (or under Audio): the
+    first whose name does not contain any of [avoid]. Its name."""
+    key(KEY_CTRL, KEY_O)
+    nodes = wait_for(
+        lambda found: any("documentsui" in node.package for node in found), 25, "the system's file picker"
+    )
+    names = re.compile(r"\.(mp3|flac|m4a|ogg|opus|wav|aac)$", re.IGNORECASE)
+    for attempt in range(3):
+        files = [
+            node
+            for node in nodes
+            if names.search(node.text) and not any(word in node.text for word in avoid)
+        ]
+        if files:
+            chosen = files[0]
+            tap(chosen.pressed_as())
+            return chosen.text
+        roots = [
+            node.pressed_as()
+            for node in nodes
+            if re.fullmatch(r"Audio|Recent", node.text) and node.pressed_as().takes_click
+        ]
+        if not roots or attempt == 2:
+            break
+        tap(roots[0] if attempt == 0 else roots[-1])
+        time.sleep(2)
+        nodes = screen()
+    key(KEY_BACK)
+    raise Skipped(f"the picker shows no audio file to choose: {said_on(nodes)[:25]}")
+
+
+def file_opened_by_hand():
+    """A file opened with Ctrl+O stays beside the library when a search hides the song clicked
+    before it; a song clicked, though, goes when a search hides it: "Pick a song" takes its place."""
+    late_ready()
+    parts = Parts()
+    clicked = "Aerodynamic"
+    home()
+    nodes = screen()
+    tap(row(clicked, nodes))
+    wait_for(lambda found: title_field(found) == clicked, 40, f"the editor of {clicked!r}")
+
+    def search_that_hides():
+        key(KEY_CTRL, KEY_F)
+        type_text("Digital")
+        return wait_for(lambda found: clicked not in list_titles(found), 15, "the search")
+
+    def search_cleared():
+        found = find("^Clear search$")
+        if found:
+            tap(found[0])
+        wait_for(lambda seen: clicked in list_titles(seen), 20, "the list whole again")
+
+    def stays():
+        picked = pick_a_file(("Aerodynamic",))
+        opened = wait_for(
+            lambda found: any(node.package == PACKAGE for node in found)
+            and title_field(found) not in (None, clicked),
+            40,
+            "the file opened",
+        )
+        title = title_field(opened)
+        screenshot("a-file-opened-by-hand")
+        shown = search_that_hides()
+        if title_field(shown) != title:
+            raise Failed(f"a search that hides {clicked!r} took the editor of {title!r} away: {said_on(shown)[:20]}")
+        search_cleared()
+        return f"{picked} ({title!r}) stayed beside the library through a search that hides {clicked!r}"
+
+    parts.check("the file opened by hand stays", stays)
+
+    def goes():
+        tap(row(clicked))
+        wait_for(lambda found: title_field(found) == clicked, 40, f"the editor of {clicked!r}")
+        search_that_hides()
+        after = wait_for(lambda found: bool(find("^Pick a song$", found)), 15, "Pick a song")
+        if title_field(after) == clicked:
+            raise Failed(f"the editor of {clicked!r} stayed beside a list that does not have it")
+        screenshot("a-song-hidden-by-a-search")
+        search_cleared()
+        return f"the editor of {clicked!r} gave way to 'Pick a song'"
+
+    parts.check("a song hidden by a search goes", goes)
+    return parts.report()
+
+
+# --- Hundreds of songs selected ----------------------------------------------------------------
+
+
+def transaction_errors():
+    """How many lines of the log say a transaction was too large for the system."""
+    log_text = adb("logcat", "-d", "-b", "all", timeout=90)
+    return len(re.findall(r"TransactionTooLarge|FAILED BINDER TRANSACTION", log_text))
+
+
+def big_selection():
+    """With hundreds of songs listed, Ctrl+A shows beside the list how many are selected and how to
+    edit them together, and opens no editor by itself; Ctrl+E opens the batch editor of all of them;
+    and the app sent to the background with that editor open leaves no transaction too large in the
+    log."""
+    home()
+    nodes = screen()
+    total = number_in(sidebar_count("Songs", nodes)) or 0
+    if total < 150:
+        raise Skipped(f"only {total} songs are listed")
+    if not find("^Pick a song$", nodes):
+        key(KEY_CTRL, KEY_W)
+    parts = Parts()
+    library_has_the_keys()
+    key(KEY_CTRL, KEY_A)
+
+    def placeholder():
+        seen = wait_for(
+            lambda found: any(
+                re.fullmatch(r"\d+ songs selected", node.text) and node.left >= PANEL_RIGHT for node in found
+            ),
+            20,
+            "the placeholder beside the list",
+        )
+        said = [node.text for node in seen if re.fullmatch(r"\d+ songs selected", node.text) and node.left >= PANEL_RIGHT]
+        button = [node for node in find("^Edit together$", seen) if node.left >= PANEL_RIGHT]
+        if not button:
+            raise Failed(f"the placeholder has no Edit together: {said_on(seen)[:30]}")
+        if find(r"^Edit \d+ songs$", seen):
+            raise Failed("a batch editor opened by itself for the whole selection")
+        screenshot("hundreds-of-songs-selected")
+        return f"{said[0]!r} with Edit together, and no batch editor"
+
+    parts.check("Ctrl+A shows how many are selected, and no editor", placeholder)
+    errors = transaction_errors()
+    key(KEY_CTRL, KEY_E)
+
+    def batch():
+        seen = wait_for(lambda found: bool(find(r"^Edit \d+ songs$", found)), 60, "the batch editor")
+        screenshot("hundreds-of-songs-edited-together")
+        return find(r"^Edit \d+ songs$", seen)[0].text
+
+    opened = parts.check("Ctrl+E opens the batch editor of all of them", batch)
+    if opened:
+        shell("input keyevent 3")  # Home: the app is sent to the background, with its state saved.
+        time.sleep(5)
+        now = transaction_errors()
+        launch_app()
+
+        def background():
+            if now > errors:
+                raise Failed(f"the log has {now - errors} lines about a transaction too large after Home")
+            seen = wait_for(
+                lambda found: any(node.package == PACKAGE for node in found), 30, "the app back"
+            )
+            again = "the editor was there" if find(r"^Edit \d+ songs$", seen) else "the library was there"
+            return f"Home with the batch editor open left no transaction too large in the log; back, {again}"
+
+        parts.check("Home leaves no transaction too large", background)
+        key(KEY_CTRL, KEY_W)
+    stop_selecting()
+    return parts.report()
+
+
 # --- Songs on the SD card ----------------------------------------------------------------------
 
 card_listed = False
@@ -1820,6 +4055,7 @@ def turkish():
         screenshot("turkish-shortcuts")
         key(KEY_ESCAPE)
         expect_shortcuts(shown=False, title="^Klavye kısayolları$")
+        about_in_turkish()
     finally:
         shell(f"cmd locale set-app-locales {PACKAGE} --locales en-US")
         time.sleep(4)
@@ -2647,6 +4883,17 @@ def main():
     step("F1 lists the keyboard shortcuts", shortcut_list)
     step("Ctrl+F searches", search)
     step("Tab and Enter open a song without a mouse", keyboard_alone)
+    # After the keyboard step, which counts its Tab presses from where the search left the focus.
+    step(
+        "Esc in the search field clears it, then leaves it",
+        within("esc in the search", esc_in_the_search_field),
+        required=False,
+    )
+    step(
+        "Settings, About says who developed the app",
+        within("about", about_says_who),
+        required=False,
+    )
     step(
         "A genuine FLAC is called genuine",
         verdict_of("One More Time", ["Looks like real lossless"]),
@@ -2686,6 +4933,11 @@ def main():
         required=cover_search_worked,
     )
     step("Back in the library", leave_batch)
+    step(
+        "Ctrl+L looks up the album's metadata, and Esc leaves it unwritten (network)",
+        within("metadata", find_metadata_for_album),
+        required=False,
+    )
     step("The activity follows its display without being recreated", follows_the_display)
     step("A narrow window shows one pane at a time", compact_layout)
     step("A mouse can be plugged in", plug_mouse, required=False)
@@ -2693,6 +4945,31 @@ def main():
     step("A song opens in a window of its own", open_in_new_window, required=False)
     step("Ctrl and Shift change what a click selects", ctrl_click_selects, required=False)
     step("A button says what it does under the pointer", tooltip_on_hover, required=False)
+    step(
+        "One press leaves an album: its arrow, Esc, the Back key",
+        within("back arrow", album_back_arrow),
+        required=False,
+    )
+    step(
+        "Back at the start of the app keeps it in front while a mouse is the pointer",
+        within("back at the start", back_at_the_start),
+        required=False,
+    )
+    step(
+        "The editor beside the library follows the selection",
+        within("editor follows", editor_follows_the_selection),
+        required=False,
+    )
+    step(
+        "A box selects in an album and in the Songs, and Shift on a box takes a range",
+        within("boxes", boxes_and_shift),
+        required=False,
+    )
+    step(
+        "A rectangle dragged with the mouse selects the rows it touches",
+        within("rectangle", drag_to_select),
+        required=False,
+    )
     step("Songs put on an SD card are found by a rescan", card_found_by_rescan)
     step("A folder on the SD card says where it is", on_card(card_folder))
     step(
@@ -2709,7 +4986,27 @@ def main():
         on_card(card_cover_saved),
         required=cover_search_worked,
     )
+    step(
+        "A cover saved to a song takes it off the list of songs without one (network)",
+        within("cover leaves", cover_leaves_the_list),
+        required=False,
+    )
+    step(
+        "Editing an album's songs together writes their tags (SD card)",
+        within("album artist", album_artist_written),
+        required=False,
+    )
+    step(
+        "A box and Shift on a box select in the Fake FLAC list too",
+        within("fake boxes", boxes_in_the_fake_list),
+        required=False,
+    )
     step("It speaks Turkish", turkish)
+    step(
+        "The About page says who developed the app, in Turkish",
+        turkish_about_reported,
+        required=False,
+    )
     step("How it looks, by day and by night, wide and narrow", looks, required=False)
     step(
         "Music keeps playing in the background (Android 17)",
@@ -2718,8 +5015,63 @@ def main():
     )
     step("On a phone, saving again and again keeps the editor whole", saves_on_a_phone, required=False)
     step("On a phone the bars float as glass", glass_on_a_phone, required=False)
+    step(
+        "The player's bar opens the full-screen player, and Back closes it",
+        within("player", full_player),
+        required=False,
+    )
+    step(
+        "Songs made for the garbled text, the covers and the merge come late",
+        within("late songs", late_songs_arrive),
+        required=False,
+    )
+    step(
+        "The songs without a cover are counted and listed",
+        within("no cover", no_cover_lists),
+        required=False,
+    )
+    step(
+        "The songs with garbled text are counted and listed, and the control is not",
+        within("garbled list", garbled_lists),
+        required=False,
+    )
+    step(
+        "The editor offers to put a garbled title right, and the file is written right",
+        within("editor repair", editor_repair),
+        required=False,
+    )
+    step(
+        "The batch editor puts the garbled text of a whole list right",
+        within("batch repair", batch_repair),
+        required=False,
+    )
+    step(
+        "An album shows its first cover, and the mouse's second button opens its menu",
+        within("album menu", album_menu),
+        required=False,
+    )
+    step(
+        "Two albums merge into one, in their files and in the library",
+        within("merge", merge_albums),
+        required=False,
+    )
+    step(
+        "In a long album End goes to the last song and a rectangle scrolls",
+        within("long album", long_album),
+        required=False,
+    )
+    step(
+        "A file opened by hand stays beside the library; a song hidden by a search goes",
+        within("by hand", file_opened_by_hand),
+        required=False,
+    )
     step("Every place opens again, with albums that have covers", places_with_covers)
     step("How fast it is: starting, scrolling, memory", performance, required=False)
+    step(
+        "Hundreds of songs selected: a placeholder, then the batch editor, then Home",
+        within("big selection", big_selection),
+        required=False,
+    )
     step("Nothing crashed", no_crash)
 
 

@@ -40,24 +40,43 @@ says which held.
 | The build before this one lists the songs; this one is installed over it, as an update | The songs listed with no question first, every place of the library opens, nothing in the crash log. A migration of the database that does not hold closes the app at its first query |
 | The app opens, asks to see the music, and lists four songs copied to the device | What the screen says |
 | F1 lists the shortcuts; Ctrl+F searches; Ctrl+A, Ctrl+E, Ctrl+K, Ctrl+S and Ctrl+W do what the list says | What the screen says after each |
+| Esc in the search field: the first takes out what was typed and keeps the caret, the second gives the focus up | The field's text and focus, the list narrowed and whole again, and the place the sidebar shows, which stays. Not required |
+| Settings, then About: who developed the app, in English and in Turkish | The page says "Developed by Project Ark" ("Project Ark tarafından geliştirildi"). Not required |
 | The lossless check: a genuine FLAC, one made from an MP3 of 128 kbps, one upsampled to 96 kHz, and an MP3 it has nothing to say about | The verdict on the card |
 | The check of the whole library: the same four songs in the table, and the Fake FLAC list | Each row's quality, a dash for the MP3, and only the fake one in the list |
 | The cover finder, for one song and for the four together, against the real sources | The sheet's best match and its reasons. Not required: the sources are not ours |
 | Saving the cover, in the editor and for all four | Each file read back with FFprobe: it has a picture, and its tags and its audio are what they were |
 | The library's rows after each save | The pixels of each saved song's cover in its row, before and after: a different picture, not the one cached before the save |
 | The same cover chosen again, once the song has it | The editor's foot says nothing is changed, at once or after a save |
+| The album's metadata: Ctrl+L in the batch editor of the four songs, the sheet that looks it up, Esc | The sheet lists what the sources found, as a screenshot shows, and no file is written. Not required: the sources are not ours |
 | Every place of the library (albums, artists, folders, songs) on a wide window, on one with no room for the sidebar, and on a phone; then again with sixteen albums that have covers and a compilation of two artists without album artists, flung through, the pointer resting on albums | The app is still running after each, and what the crash log says if not |
 | The window made smaller, another density, a phone held upright, night, and back | The activity is the same object, and what was open is still open |
 | A narrow window | One pane at a time |
 | A mouse plugged in: the second button, Ctrl and Shift with a click, a song in a window of its own | The menu, the selection, the second activity. Not required: the mouse is made up with `uinput`, and steered by where the input system says its pointer is |
+| An album's screen left with one press: its arrow, Esc, the Back key; the Back key at the start of the app with a mouse as the pointer, and after a tap for contrast | What is in front after each press. Not required |
+| The editor beside the library following the selection: Ctrl+click on a song, on a second, a plain click; the check boxes of an album's screen, of the Songs and of the Fake FLAC list, and Shift on a box | The editor's title, "Edit 2 songs", the songs checked. Not required |
+| A rectangle dragged over the rows with the mouse: plain, with Ctrl, ended by Esc in the middle | The rows selected and the editor that opens or does not. Not required |
 | An SD card: two songs put where only a scan finds them, then Ctrl+R; their folder, their verdicts, and a cover saved to one of them | The songs listed, under the card's own volume in MediaStore; the folder and the editor say the card's name; the file read back from the card as above |
-| Turkish | What the screen says |
+| A cover saved to a song takes it off the list of songs without one, within seconds | The list and the sidebar's count, read until the song is gone. Not required: the sources are not ours |
+| An album's songs on the SD card edited together: the album artist set for both | Both files read back with FFprobe: the album artist, and every other tag, the picture and the audio as they were. Not required |
+| Turkish | What the screen says; the About page in Turkish |
 | How it looks: the library by day and by night, the editor beside it, a phone's screen | Screenshots, for a person to look at. Not required |
 | A song played from the library, then the app in the background | The time beside the docked bar's line, read twice while it plays; the media session's state ten seconds after Home. Not required |
 | A song saved twice in a row on a phone, an artist typed back in and saved without Enter, then the song put back | What says it was saved stands clear of Save, above the keyboard, one at a time; the title stays in its field; the artist is still in the file and nothing is left to save; the file read back with FFprobe is as it was. Not required |
 | The player's bar, the selection's bar and a menu on a phone | Screenshots of the glass, for a person to look at. Not required |
+| The player's bar opens the full-screen player, wide and on a phone's layout; Back closes it | The player's own buttons, and the library where it was. Not required |
+| Songs made for the next steps and found by a rescan: a few without a cover, three with garbled text (UTF-8 read as Windows-1252, Latin-1 with the byte 0xF0), a control that is right, two albums to merge, a long album | Their number in the sidebar. Not required |
+| The songs without a cover and the songs with garbled text: counted in the sidebar, listed apart and by the chips, the control not among them, no album reading as another script | The sidebar's counts, the lists, the chips' counts. Not required |
+| The garbled title put right in the editor, and the garbled album artists of a list put right in the batch editor, with the switch off at first | The files read back with FFprobe say "Moğollar" and the rest is as it was; the list is empty after. Not required |
+| An album shows the cover of its first song that has one; the second button on an album: Open, Play, Shuffle, Edit all, Select, and with several selected Edit together and Merge albums; Esc closes it | The pixels of the tiles, the menu's items. Not required: the mouse is made up with `uinput` |
+| Two albums merged: the batch editor's card, one title, apply | The files read back (one album, one album artist, the rest as it was), and the library lists one album where there were two. Not required |
+| A long album: End goes to its last song, Home to its first; a drag from the cover or the name selects nothing; a rectangle dragged below the list's edge scrolls it and keeps selecting | The rows in view and the songs selected. Not required |
+| A file opened by hand (Ctrl+O) stays beside the library when a search hides the song clicked before it; a song clicked goes | The editor's title or "Pick a song". Not required: the system's picker is not ours |
 | How fast it is: starting cold, typing in the editor, scrolling a library of 300 songs on a wide window and on a phone, and the memory held then ([performance.md](performance.md)) | Numbers in the report, to compare between builds. Not required |
+| Three hundred songs selected: "N songs selected" with Edit together beside the list and no editor, then Ctrl+E, then Home | The placeholder, "Edit N songs", and no transaction too large in the log. Not required |
 | Nothing crashed | The device's crash log |
+
+The steps from "Esc in the search field" to "Three hundred songs selected" were written from the code of the screens and are tried by the script apart from the rest: none is required, and a run that is late leaves out those that matter least and says so in its report (`SMOKE_TIME_LIMIT`, in seconds, 2400 unless set).
 
 It is one pass on one emulator (Android 17, x86-64), with the files it makes itself and an SD card
 the emulator makes up (or the system makes out of a file, when the emulator has none). It says the
