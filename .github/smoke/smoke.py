@@ -390,6 +390,9 @@ def home():
             else:
                 shell(f"am start -n {PACKAGE}/{MAIN}")
                 time.sleep(3)
+        elif find("^Close$", nodes) and find("^Up next$", nodes):
+            # The full-screen player, over the library.
+            tap(find("^Close$", nodes)[0])
         elif (
             shortcuts_open(nodes)
             or find("^Find a cover$", nodes)
@@ -596,8 +599,22 @@ def allow_system_dialog(timeout=30):
 
 
 def row(title, nodes=None):
-    """The song's row in the list, not the editor's field that says the same."""
-    titles = [node for node in find(re.escape(title), nodes) if not node.is_field]
+    """The song's row in the list, not the editor's field that says the same, nor the player's bar
+    while that song plays: the bar's title starts further left than the rows', and a tap on it
+    opened the player over every step after it. The bar is at the foot of the window, in the band
+    of its Play or Pause button."""
+    if nodes is None:
+        nodes = screen()
+    foot = max((node.bottom for node in nodes), default=0) * 0.7
+    bars = [node for node in nodes if node.top > foot and node.says(r"^(Play|Pause)$")]
+
+    def in_bar(node):
+        middle = (node.top + node.bottom) // 2
+        return any(bar.top - 48 <= middle <= bar.bottom + 48 for bar in bars)
+
+    titles = [
+        node for node in find(re.escape(title), nodes) if not node.is_field and not in_bar(node)
+    ]
     if not titles:
         raise Failed(f"no row says {title!r}")
     return min(titles, key=lambda node: (node.left, node.top)).pressed_as()
