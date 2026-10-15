@@ -1920,17 +1920,23 @@ STANDS = {
 # since (the back arrow's three presses, the player's four ways to close, the garbled text's
 # lists, the editor's repair) or was left out that time (the batch repair, the album menu, the
 # merge, the long album, the file opened by hand, the hundreds selected) costs what its parts add
-# up to, at 3 s for each screen read and 1 s for each key.
+# up to, at 3 s for each screen read and 1 s for each key. The focused run of b217a4d8, on a slow
+# machine, took 35 s for the metadata, 108 s for the long album (with an End that did nothing and a
+# drag that failed) and 208 s for the file opened by hand (some twenty screens at 8 s each); the
+# costs of those three were raised for the screens added since (the editor read before and after
+# the sheet; the picker's roots opened; End tried again after a click).
 #
 # What matters most (1) is what no run has shown to hold yet and the round is about: the lists of
 # the late songs and the repairs of their text, the merge, the player and the keys that leave an
 # album, the editor that follows the selection, and the hundreds selected. Next (2), what no run has
 # tried and is cheap or wanted less; then (3) what held and costs little; last (4), what held and
-# costs most, which a run with time left tries again, and SMOKE_STEPS asks for by name.
+# costs most, which a run with time left tries again, and SMOKE_STEPS asks for by name. The step of
+# the metadata sheet is among the second (2) while the question whether its Esc applies a proposal
+# is open: it says what the editor beside it said before and after.
 NEW_STEPS = {
     "esc in the search": ("search", 13, 3),
     "about": ("search", 18, 3),
-    "metadata": ("batch", 38, 4),
+    "metadata": ("batch", 44, 2),
     "back arrow": ("mouse", 75, 1),
     "back at the start": ("mouse", 21, 3),
     "editor follows": ("mouse", 45, 1),
@@ -1943,13 +1949,13 @@ NEW_STEPS = {
     "player": ("glass", 110, 1),
     "late songs": ("glass", 75, 1),
     "no cover": ("glass", 100, 4),
-    "garbled list": ("glass", 55, 1),
+    "garbled list": ("glass", 60, 1),
     "editor repair": ("glass", 70, 1),
     "batch repair": ("glass", 110, 1),
     "album menu": ("glass", 55, 2),
     "merge": ("glass", 80, 1),
-    "long album": ("glass", 60, 2),
-    "by hand": ("glass", 78, 2),
+    "long album": ("glass", 70, 2),
+    "by hand": ("glass", 120, 2),
     "big selection": ("performance", 45, 1),
 }
 
@@ -2390,6 +2396,13 @@ GREY = 0x607D8B
 
 # The garbled text, as the owner's songs had it: Turkish in Windows-1254 read as Latin-1 ("Moðollar",
 # the byte 0xF0 where a ğ was), and UTF-8 read as Windows-1252 ("MoÄŸollar").
+#
+# What the platform does with them, as a run on Android 17 showed: its scanner takes the character
+# set of a tag's text from the text itself when that fits in Latin-1, and so reads both the first
+# kind (the text itself, and the byte 0xF0 in a Latin-1 tag alike) as "Moğollar" (U+011F), right
+# already; it is only text with a letter outside Latin-1 (the Ÿ, U+0178, of the second kind) that it
+# leaves as it is. The first kind is therefore not listed as garbled, rightly, and is made to be
+# told of and not counted on; the second is what the lists and the repairs here are counted on.
 GOOD = "Moğollar"
 UTF8_AS_1252 = "MoÄŸollar"
 TURKISH_AS_LATIN1 = "Moðollar"
@@ -2411,8 +2424,10 @@ def late_specs():
         ),
         # What the code is meant to catch: Turkish in Windows-1254 read as Latin-1, which is the
         # letter ð where the ğ was ("Moðollar"; the test of the code says it is put right). Written
-        # as the text itself, which a tag stores as UTF-16 and a reader cannot take for another
-        # character set: it reaches the app as it is.
+        # as the text itself, which a tag stores as UTF-16. A run showed the media store reading
+        # it as "Moğollar" all the same (the platform's scanner takes the character set from text
+        # that fits in Latin-1), so the app never sees "Moðollar" from this scanner: the song is
+        # not in the list of garbled text, rightly, and is only told of, not counted on.
         song(
             "garbled b", "garbled-b.mp3", title="Zz Turkish B", artist="Zz Turkish",
             album="Zz Turkish", album_artist=TURKISH_AS_LATIN1, date="1970", track="1",
@@ -2421,14 +2436,21 @@ def late_specs():
             "garbled c", "garbled-c.mp3", title="Zz Turkish C", artist="Zz Turkish",
             album="Zz Turkish", album_artist=UTF8_AS_1252, date="1970", track="2",
         ),
-        # As the owner's files were written: the byte 0xF0 itself, in a tag marked Latin-1. What the
-        # media store makes of it is the platform's to say (it picks a character set from the text
-        # it is given, and may take the byte for a ğ): this song only tells, and is not counted on.
-        # The tag is written with a plain letter and the byte put in its place afterwards.
+        # As the owner's files were written: the byte 0xF0 itself, in a tag marked Latin-1. The
+        # media store reads that as "Moğollar" too (see above): this song only tells, as the one
+        # before, and is not counted on. The tag is written with a plain letter and the byte put
+        # in its place afterwards.
         song(
             "garbled d", "garbled-d.mp3", patch=(LATIN1_X, TURKISH_AS_LATIN1), title="Zz Turkish D",
             artist="Zz Latin One", album="Zz Latin One", album_artist=LATIN1_X, date="1971",
             track="1",
+        ),
+        # The garbled text the platform leaves as it is, in an album of its own: with the song above
+        # (C), the two that the batch repair still has to put right once the editor has put the
+        # garbled title right and taken that song off the list.
+        song(
+            "garbled e", "garbled-e.mp3", title="Zz Turkish E", artist="Zz Turkish",
+            album="Zz Turkish Two", album_artist=UTF8_AS_1252, date="1972", track="1",
         ),
         song(
             "control", "control.mp3", title="Dauðalogn", artist="Sigur Rós", album="Zz Control",
@@ -2467,7 +2489,9 @@ def late_specs():
 
 # The late songs a step reads back with FFprobe, to see that a write changed only what it should: the
 # others are known by their titles alone, and each probe is two more programs to start.
-PROBED = ("garbled title", "garbled b", "garbled c", "garbled d", "merge one", "merge two")
+PROBED = (
+    "garbled title", "garbled b", "garbled c", "garbled d", "garbled e", "merge one", "merge two",
+)
 
 
 def make_late_songs(folder, work):
@@ -2640,15 +2664,62 @@ def turkish_about_reported():
 # --- Find metadata for the album (online) -------------------------------------------------------
 
 
+def batch_editor_lines(nodes):
+    """Everything the batch editor beside the library says and holds, from the top down, as lines
+    of words: its texts, and each field as "label: 'text'". The foot, which says what will be
+    written, is among them. For telling what a sheet that was opened over it and closed changed."""
+    lines = []
+    for node in sorted(nodes, key=lambda each: (each.top, each.left)):
+        if node.package != PACKAGE or node.left < PANEL_RIGHT:
+            continue
+        if node.is_field:
+            label = next((child.text for child in node.children if child.text), "a field")
+            lines.append(f"{label}: {node.text!r}")
+        elif node.text and not (node.parent is not None and node.parent.is_field):
+            lines.append(node.text)
+    return lines
+
+
+def batch_editor_foot(nodes):
+    """What the batch editor says at its foot, to the left of the button that applies (what will be
+    written, or that there is nothing to write), in words."""
+    buttons = [node for node in find(r"^Apply to all$", nodes) if node.left >= PANEL_RIGHT]
+    if not buttons:
+        return "(no foot)"
+    button = buttons[0]
+    words = [
+        node.text
+        for node in sorted(nodes, key=lambda each: each.left)
+        if node.text
+        and node.package == PACKAGE
+        and node.left >= PANEL_RIGHT
+        and node.right <= button.left + 4
+        and abs(node.center[1] - button.center[1]) <= 20
+    ]
+    return " ".join(words) or "(no foot)"
+
+
 def find_metadata_for_album():
     """Ctrl+L in the batch editor of the four songs opens the sheet that looks the album up; it
-    lists what the sources found, and Esc closes it with nothing filled in."""
+    lists what the sources found, and Esc closes it with nothing filled in. The editor beside is
+    read before the sheet and after it, line by line: what the cover chosen in a step before leaves
+    pending (a foot that says "Will be written to 4 songs") is not the sheet's, and only a line that
+    differs is. The report says what the editor said before and after, and what differs."""
     library_has_the_keys()
     key(KEY_CTRL, KEY_A)
     key(KEY_CTRL, KEY_E)
-    wait_for(
+    opened = wait_for(
         lambda found: bool(find(r"^Edit 4 songs$", found)), 30, "the batch editor of the four songs"
     )
+    # Its fields hold what the four songs share once they are read: not before they are.
+    for _ in range(3):
+        album = labeled_field("Album", opened)
+        if album is not None and album.text:
+            break
+        time.sleep(1.5)
+        opened = screen()
+    lines_before = batch_editor_lines(opened)
+    screenshot("the-batch-editor-before-ctrl-l")
     key(KEY_CTRL, KEY_L)
     sheet = r"^Find the album.s metadata$"
     troubles = (
@@ -2681,13 +2752,34 @@ def find_metadata_for_album():
     screenshot("album-metadata-found")
     key(KEY_ESCAPE)
     nodes = wait_for(lambda found_: not find(sheet, found_), 15, "the sheet closed")
-    if find(r"^Filled in from", nodes) or find("^Will be written to", nodes):
-        raise Failed("closing the sheet with Esc filled something in")
+    # The editor settles when the sheet is gone: read once more if it was not there to be read yet.
+    if not find(r"^Edit 4 songs$", nodes):
+        nodes = wait_for(lambda found_: bool(find(r"^Edit 4 songs$", found_)), 10, "the editor again")
+    lines_after = batch_editor_lines(nodes)
+    screenshot("the-batch-editor-after-esc")
+    gone = [words for words in lines_before if words not in lines_after]
+    came = [words for words in lines_after if words not in lines_before]
+    foot_before, foot_after = batch_editor_foot(opened), batch_editor_foot(nodes)
+    fields = [words for words in lines_after if re.match(r"^[A-Za-z ]+: '", words)]
+    if gone or came or find(r"^Filled in from", nodes):
+        failure = (
+            "closing the sheet with Esc changed the editor beside it. "
+            f"Foot: {foot_before!r} before, {foot_after!r} after. "
+            f"Before and not after: {gone}. After and not before: {came}. "
+            f"All of it after: {lines_after}"
+        )
+        home()
+        nothing_beside()
+        raise Failed(failure)
     home()
     # With the batch editor closed the selection is over, and the inspector shows the song clicked
     # last: the steps after this one start with the library alone.
     nothing_beside()
-    return f"the sheet listed what the sources found ({found[:6]}); Esc closed it with nothing filled in"
+    return (
+        f"the sheet listed what the sources found ({found[:6]}); Esc closed it with nothing filled "
+        f"in: the editor beside said the same before and after, with the foot {foot_after!r} and "
+        f"{fields}"
+    )
 
 
 # --- Back, and what the editor beside the library shows ----------------------------------------
@@ -3182,9 +3274,26 @@ def player_in_front(nodes):
     return bool(find("^Edit tags$", nodes)) and bool(find("^Up next$", nodes))
 
 
+# What the system asked over the app and was answered with Allow, by the step that plays (for its
+# report): the question's words.
+system_asked = []
+
+
+def answer_the_system(nodes):
+    """The system's question over the app, if there is one on screen, answered with Allow (the first
+    song played asks to show its notification, and the system's change of a file asks too): whether
+    it was. A screen of the app's own is left alone."""
+    if not any(node.package == PACKAGE for node in nodes) and find(r"^(Allow|ALLOW)$", nodes):
+        system_asked.append(next((words for words in said_on(nodes) if "?" in words), "a question"))
+        tap(find(r"^(Allow|ALLOW)$", nodes)[0])
+        return True
+    return False
+
+
 def open_the_player():
     """The full-screen player in front, opened from the player's bar: songs are played first when
-    there is no bar to open it from."""
+    there is no bar to open it from. The question about notifications, which the first song played
+    brings up over the app, is answered when it comes (the step that plays grants it beforehand)."""
     nodes = screen()
     if player_in_front(nodes):
         return nodes
@@ -3194,9 +3303,17 @@ def open_the_player():
         if not play:
             raise Skipped("no player bar, and nothing to play")
         tap(play[0])
-        nodes = wait_for(
-            lambda found: bool(find("^Open the player$", found)), 20, "the player's bar"
-        )
+        deadline = time.time() + 20
+        while True:
+            nodes = screen()
+            if find("^Open the player$", nodes):
+                break
+            if answer_the_system(nodes):
+                deadline = max(deadline, time.time() + 10)
+                continue
+            if time.time() > deadline:
+                raise Failed(f"the player's bar did not come in 20 s. On screen: {said_on(nodes)[:30]}")
+            time.sleep(0.5)
         opener = find("^Open the player$", nodes)
     tap(opener[0])
     return wait_for(player_in_front, 20, "the full-screen player")
@@ -3244,6 +3361,11 @@ def full_player():
     opens, before the window changes; Esc as well; Back on a phone's layout; and Back once the window
     has been a phone's and is wide again (the one that did not close it, once)."""
     parts = Parts()
+    # The first song played asks to show its notification, as a dialog over the app, and nothing of
+    # the app's can be read from under it (a run that began with this step had it in front and the
+    # bar never came). Granted before anything plays, as by someone who had answered it; the step
+    # that keeps playing in the background does the same.
+    shell(f"pm grant {PACKAGE} android.permission.POST_NOTIFICATIONS")
     try:
         open_the_player()
         screenshot("the-full-player-wide")
@@ -3296,7 +3418,12 @@ def full_player():
             close_the_player()
         finally:
             shell("input keyevent 127")  # Pause: music through the steps after would be noise.
-    return parts.report()
+    asked = f"The system still asked {system_asked}, and was answered Allow" if system_asked else ""
+    try:
+        said = parts.report()
+    except Failed as why:
+        raise Failed(f"{why}. {asked}" if asked else str(why))
+    return f"{said}. {asked}" if asked else said
 
 
 # --- The late songs come: what holds no cover, what is garbled ----------------------------------
@@ -3352,7 +3479,9 @@ def late_songs_arrive():
             key(KEY_F5)
             asked_again = True
         time.sleep(3)
-    held = media_store_album_artists(("garbled-b.mp3", "garbled-d.mp3"))
+    held = media_store_album_artists(
+        ("garbled-b.mp3", "garbled-c.mp3", "garbled-d.mp3", "garbled-e.mp3")
+    )
     late_state = {
         "songs": made,
         "baseline": baseline,
@@ -3366,8 +3495,11 @@ def late_songs_arrive():
         f"songs {time.time() - began:.0f} s after the rescan{note}. The sidebar counted "
         f"{baseline if baseline is not None else 'no settled number of'} songs without a cover "
         f"before and {albums_before} albums. The media store holds the album artist of the song "
-        f"with the text itself as {spelled(held.get('garbled-b.mp3'))}, and of the one with the "
-        f"byte 0xF0 in a tag marked Latin-1 as {spelled(held.get('garbled-d.mp3'))}"
+        f"with the text itself (UTF-16, \"Mo\\u00f0ollar\" in the tag) as "
+        f"{spelled(held.get('garbled-b.mp3'))}, and of the one with the byte 0xF0 in a tag marked "
+        f"Latin-1 as {spelled(held.get('garbled-d.mp3'))}; of the two with UTF-8 read as "
+        f"Windows-1252 (\"Mo\\u00c4\\u0178ollar\" in the tag) as {spelled(held.get('garbled-c.mp3'))} "
+        f"and {spelled(held.get('garbled-e.mp3'))}"
     )
 
 
@@ -3529,13 +3661,15 @@ def no_cover_lists():
 
 def garbled_lists():
     """The songs whose text looks garbled are counted by the sidebar and listed apart: the song
-    whose title is UTF-8 read as Windows-1252, the one whose album artist is UTF-8 read so, and the
-    one whose album artist is Turkish read as Latin-1 ("Moðollar", which the code puts right); the
-    control, an Icelandic title that is right as it is, is not in the list. A fourth song, with the
-    byte 0xF0 itself in a tag marked Latin-1, may be there or not, as the media store has read the
-    byte: it is told of and not counted on. None of the albums shows letters of another script (the
-    library once read the text of one as Chinese). The chip for this list is there only where there
-    is no sidebar: not tried here."""
+    whose title is UTF-8 read as Windows-1252 and the two whose album artist is UTF-8 read so; the
+    control, an Icelandic title that is right as it is, is not in the list. The two songs whose
+    album artist is Turkish read as Latin-1 ("Moðollar": the text itself in one, the byte 0xF0 in
+    a Latin-1 tag in the other) are not expected there: the media store takes the character set of
+    such text from the text and gives the app "Moğollar" (U+011F), which is right already and
+    rightly not listed. They are told of, with what the media store gave, and not counted on: one
+    that is listed is no failure. None of the albums shows letters of another script (the library
+    once read the text of one as Chinese). The chip for this list is there only where there is no
+    sidebar: not tried here."""
     state = late_ready()
     parts = Parts()
     key(KEY_CTRL, KEY_1)
@@ -3550,7 +3684,10 @@ def garbled_lists():
                 state["garbled"] = count
                 return f"the sidebar counts {said}"
             if time.time() > deadline:
-                raise Failed(f"the sidebar counts {said!r} songs with garbled text after 60 s, not 3")
+                raise Failed(
+                    f"the sidebar counts {said!r} songs with garbled text after 60 s, not 3 (the "
+                    "garbled title, and the garbled album artist of two songs)"
+                )
             time.sleep(2)
 
     parts.check("the sidebar counts them", counted)
@@ -3560,7 +3697,7 @@ def garbled_lists():
         titles = list_titles(nodes)
         screenshot("the-garbled-text-list")
         mine = [title for title in titles if GARBLED_TITLE.match(title)]
-        missing = [title for title in ("Zz Turkish B", "Zz Turkish C") if title not in titles]
+        missing = [title for title in ("Zz Turkish C", "Zz Turkish E") if title not in titles]
         if not mine:
             missing.append("the song with the garbled title")
         if "Dauðalogn" in titles:
@@ -3572,14 +3709,17 @@ def garbled_lists():
         count = number_in(sidebar_count("Garbled text", nodes))
         if count is not None and len(titles) != count and count <= 14:
             raise Failed(f"the list holds {len(titles)} songs, the sidebar counts {count}: {titles}")
-        latin_one = "Zz Turkish D" in titles
-        state["latin_one_listed"] = latin_one
-        held = (state.get("album_artists") or {}).get("garbled-d.mp3")
-        return (
-            f"it lists {titles}. The song with the byte 0xF0 in a Latin-1 tag is "
-            f"{'listed' if latin_one else 'not listed'}: the media store gave the app "
-            f"{spelled(held)} as its album artist"
-        )
+        # The songs of Turkish read as Latin-1: told of, whichever way, with what the media store
+        # gave the app (the code points, so that a ð and a ğ can be told apart in the report).
+        told = []
+        for title, file_name in (("Zz Turkish B", "garbled-b.mp3"), ("Zz Turkish D", "garbled-d.mp3")):
+            held = (state.get("album_artists") or {}).get(file_name)
+            state[f"listed {title}"] = title in titles
+            told.append(
+                f"{title!r} is {'listed' if title in titles else 'not listed'}: the media store "
+                f"gave the app {spelled(held)} as its album artist"
+            )
+        return f"it lists {titles}. " + "; ".join(told)
 
     parts.check("the place lists them, and not the control", listed)
 
@@ -3628,10 +3768,11 @@ NOTICE = r"^(This looks garbled|These look garbled)$"
 
 def saved_or_closed(timeout=90):
     """Ctrl+S pressed in the editor of a song that the save takes out of the list it was opened
-    from: waits until the editor says that it saved (or that nothing is changed), or is gone, which
-    it is once its song has left the list (the editor stays in a build that keeps it for its own
-    save: both are the save). The system's question whether the app may change the file is
-    answered. What came, in words."""
+    from: waits until the editor says that it saved (or that nothing is changed any more), or is
+    gone. A build that keeps the editor for its own save shows "Saved" with Undo (and then "No
+    changes", which stays); an older one closed it once its song had left the list. Both are the
+    save. The system's question whether the app may change the file is answered. What came, in
+    words."""
     deadline = time.time() + timeout
     nodes = []
     gone = 0
@@ -3642,7 +3783,8 @@ def saved_or_closed(timeout=90):
             tap(find(r"^(Allow|ALLOW)$", nodes)[0])
             continue
         if find(r"^(Saved|No changes)$", nodes):
-            return "the editor said it saved"
+            undo = " with Undo" if find(r"^Undo$", nodes) else ""
+            return f"the editor stayed and said it saved{undo}"
         # Twice running: a screen read while the editor is redrawn is not a closed editor.
         gone = gone + 1 if mine and title_field(nodes) is None else 0
         if gone >= 2:
@@ -3654,7 +3796,9 @@ def saved_or_closed(timeout=90):
 def editor_repair():
     """The editor of the song whose title is garbled says so and offers to put it right; that is a
     change to save, and what is written is "Moğollar" with every other tag as it was. The save is
-    told by the file and the list, and by the editor's message or its being gone."""
+    told by the file and the list, and by the editor's message: the editor stays after its own save
+    takes its song off the list, with "Saved" and Undo, and an older build closed it, which is the
+    save too. Either is accepted, and the report says which it was."""
     state = late_ready()
     song = state["songs"]["garbled title"]
     parts = Parts()
@@ -3732,7 +3876,10 @@ def editor_repair():
 def batch_repair():
     """The garbled list selected whole is edited together: the batch editor offers to put the text
     of its songs right, with the switch off; switched on and applied, the files say "Moğollar" in
-    the album artist, with every other tag as it was, and the list is empty."""
+    the album artist, with every other tag as it was, and the list is empty. The list holds the two
+    songs with UTF-8 read as Windows-1252 in the album artist (and the garbled title, when the
+    step of the editor did not put it right before); those of Turkish read as Latin-1 are in it
+    only if the media store gave the app that text, and are told of when they are."""
     state = late_ready()
     songs = state["songs"]
     parts = Parts()
@@ -3740,7 +3887,10 @@ def batch_repair():
     nodes = open_place_of("Garbled text")
     listed = list_titles(nodes)
     if len(listed) < 2:
-        raise Failed(f"the list of garbled text holds {listed}")
+        raise Failed(
+            f"the list of garbled text holds {listed}, not the two songs whose album artist is "
+            "UTF-8 read as Windows-1252 (Zz Turkish C and Zz Turkish E)"
+        )
     library_has_the_keys()
     key(KEY_CTRL, KEY_A)
     nodes = wait_for(
@@ -3786,7 +3936,10 @@ def batch_repair():
 
     def files():
         notes = []
-        wanted = [("garbled b", "album_artist"), ("garbled c", "album_artist")]
+        wanted = [("garbled c", "album_artist"), ("garbled e", "album_artist")]
+        if "Zz Turkish B" in listed:
+            # The text the code is meant to catch, when the media store did hand it over.
+            wanted.append(("garbled b", "album_artist"))
         if any(GARBLED_TITLE.match(title) for title in listed):
             wanted.append(("garbled title", "title"))
         for name, field in wanted:
@@ -3806,6 +3959,11 @@ def batch_repair():
             latin_one = songs["garbled d"]
             wrote = album_artist_of(probe(pull(latin_one["file"], LATE))["tags"])
             said += f". The song with the byte 0xF0 in a Latin-1 tag was in the list: its album artist is now {spelled(wrote)}"
+        elif "Zz Turkish B" not in listed:
+            said += (
+                ". The songs of Turkish read as Latin-1 were not in the list (the media store gave "
+                "the app the right text for them), and so were not selected"
+            )
         return said
 
     parts.check("the files say the right text and nothing else changed", files)
@@ -3817,10 +3975,19 @@ def batch_repair():
             said = sidebar_count("Garbled text", nodes_)
             if number_in(said) == 0 and find("^No garbled text$", nodes_):
                 return f"the list says 'No garbled text' and the sidebar counts {said}"
-            # The song with the byte itself, when the media store gave the app a text that no repair
-            # knows (a replacement character, say), stays: that one is not the batch's to put right.
-            if number_in(said) == 1 and list_titles(nodes_) == ["Zz Turkish D"]:
-                return "only the song with the byte 0xF0 in a Latin-1 tag stayed, with a text no repair knows"
+            # A song of Turkish read as Latin-1 that was in the list, when the media store gave the
+            # app a text that no repair knows (a replacement character, say), stays: that one is not
+            # the batch's to put right.
+            left = list_titles(nodes_)
+            if (
+                number_in(said) == len(left) > 0
+                and set(left) <= {"Zz Turkish B", "Zz Turkish D"}
+                and set(left) <= set(listed)
+            ):
+                return (
+                    f"only {left} stayed, a song of Turkish read as Latin-1 with a text no repair "
+                    "knows"
+                )
             if time.time() > deadline:
                 raise Failed(f"the garbled list is not empty 60 s after the save: sidebar {said}, {said_on(nodes_)[:20]}")
             time.sleep(2)
@@ -4075,10 +4242,24 @@ def merge_albums():
 # --- A collection longer than the window ---------------------------------------------------------
 
 
+def focused_things(nodes):
+    """What has the focus, as the accessibility tree marks it (focused="true"): each such thing by
+    its kind, what it says and where it is; the words for none when nothing has."""
+    held = [
+        f"{node.kind.rsplit('.', 1)[-1]} {(node.text or node.description)!r} at "
+        f"{node.left},{node.top}-{node.right},{node.bottom}"
+        for node in nodes
+        if node.focused
+    ]
+    return "; ".join(held[:4]) if held else "nothing (no node is marked focused)"
+
+
 def long_album():
     """In an album longer than the window: End goes to its last song and Home to its first; a drag
     that begins on its cover or its name selects nothing; a drag from a song to below the list's
-    edge keeps selecting as the list scrolls under it, and back up it selects fewer."""
+    edge keeps selecting as the list scrolls under it, and back up it selects fewer. What has the
+    focus before End is written down, and when End moves nothing, End is tried again after a click
+    on the table's header and on the album's name, and both are told."""
     if not mouse_works:
         raise NotBegun("no mouse")
     late_ready()
@@ -4091,15 +4272,88 @@ def long_album():
     if last in list_titles(nodes):
         raise Skipped(f"all {LONG_ALBUM} songs of the album are in the window")
 
+    def last_is_in_view(found):
+        return last in list_titles(found)
+
+    def after_a_click(focus_before):
+        """End did nothing. What has the focus now, and End again after a click on the table's
+        header (its column titles) and, if that is not enough, on the album's name: those clicks
+        are where a hand rests before pressing a key, and a click is what takes the focus off
+        whatever had it. Whether End then came, and what was seen, in words."""
+        stuck = screen()
+        screenshot("the-end-of-a-long-album-did-nothing")
+        said = [f"the focus before End was on {focus_before}; after it, on {focused_things(stuck)}"]
+        worked = False
+        with LiveMouse() as mouse:
+            for what, pick in (
+                ("the table's header", lambda found: next(iter(find(r"^Format$", found)), None)),
+                (
+                    "the album's name",
+                    lambda found: min(
+                        (n for n in find(r"^Zz Long$", found) if n.top < 400 and not n.is_field),
+                        key=lambda n: n.top,
+                        default=None,
+                    ),
+                ),
+            ):
+                target = pick(screen())
+                if target is None:
+                    said.append(f"{what} is not in view")
+                    continue
+                try:
+                    click_on(mouse, target)
+                except Skipped as why:
+                    said.append(f"{what}: {why}")
+                    continue
+                clicked = focused_things(screen())
+                key(KEY_END)
+                try:
+                    wait_for(last_is_in_view, 8, f"{last!r} after End")
+                except Failed:
+                    said.append(
+                        f"End after a mouse click on {what} did nothing either (the focus after the "
+                        f"click: {clicked})"
+                    )
+                    continue
+                said.append(
+                    f"End after a mouse click on {what} showed {last!r} (the focus after the click: "
+                    f"{clicked})"
+                )
+                worked = True
+                break
+        if worked:
+            # The list back at its start, for the parts that follow.
+            key(KEY_HOME)
+            try:
+                wait_for(lambda found: first in list_titles(found), 10, f"{first!r} after Home")
+            except Failed:
+                said.append(f"Home did not bring {first!r} back")
+        return worked, "; ".join(said)
+
     def end_key():
+        focus_before = focused_things(screen())
         key(KEY_END)
-        after = wait_for(lambda found: last in list_titles(found), 10, f"{last!r} after End")
+        try:
+            after = wait_for(last_is_in_view, 10, f"{last!r} after End")
+        except Failed:
+            worked, said = after_a_click(focus_before)
+            raise Failed(
+                f"End moved nothing: {last!r} did not come in 10 s; {said}; "
+                + (
+                    "so End needs a mouse click first (the album was opened by a touch here)"
+                    if worked
+                    else "not even a mouse click on the header or the name made End scroll the list"
+                )
+            )
         if first in list_titles(after):
             raise Failed("End left the first song in view as well as the last")
         screenshot("the-end-of-a-long-album")
         key(KEY_HOME)
         wait_for(lambda found: first in list_titles(found), 10, f"{first!r} after Home")
-        return f"End showed {last!r} and Home {first!r} again"
+        return (
+            f"End showed {last!r} and Home {first!r} again (the focus before End was on "
+            f"{focus_before})"
+        )
 
     parts.check("End goes to the last song, Home to the first", end_key)
     with LiveMouse() as mouse:
@@ -4158,36 +4412,140 @@ def long_album():
 # --- A file opened by hand --------------------------------------------------------------------
 
 
-def pick_a_file(avoid):
-    """Ctrl+O, and a file chosen from what the system's picker shows first (or under Audio): the
-    first whose name does not contain any of [avoid]. Its name."""
-    key(KEY_CTRL, KEY_O)
-    nodes = wait_for(
-        lambda found: any("documentsui" in node.package for node in found), 25, "the system's file picker"
-    )
-    names = re.compile(r"\.(mp3|flac|m4a|ogg|opus|wav|aac)$", re.IGNORECASE)
-    for attempt in range(3):
-        files = [
-            node
-            for node in nodes
-            if names.search(node.text) and not any(word in node.text for word in avoid)
-        ]
-        if files:
-            chosen = files[0]
-            tap(chosen.pressed_as())
-            return chosen.text
-        roots = [
-            node.pressed_as()
-            for node in nodes
-            if re.fullmatch(r"Audio|Recent", node.text) and node.pressed_as().takes_click
-        ]
-        if not roots or attempt == 2:
-            break
-        tap(roots[0] if attempt == 0 else roots[-1])
-        time.sleep(2)
+PICKER_AUDIO = re.compile(r"\.(mp3|flac|m4a|ogg|opus|wav|aac)$", re.IGNORECASE)
+# What the picker calls the roots that are not the device's own storage.
+PICKER_ROOTS = ("Recent", "Audio", "Images", "Videos", "Documents", "Downloads", "Show roots")
+
+
+def in_the_picker(nodes):
+    """The system's file picker is what is in front."""
+    return any("documentsui" in node.package for node in nodes)
+
+
+def picker_files(nodes, avoid):
+    """The audio files the picker shows, but those whose name has a word of [avoid] in it."""
+    return [
+        node
+        for node in nodes
+        if "documentsui" in node.package
+        and PICKER_AUDIO.search(node.text)
+        and not any(word in node.text for word in avoid)
+    ]
+
+
+def picker_look(avoid, wait=8):
+    """The picker's screen, read until it shows an audio file or says it has no items, or [wait]
+    seconds have gone: a folder fills in after it opens."""
+    deadline = time.time() + wait
+    while True:
         nodes = screen()
-    key(KEY_BACK)
-    raise Skipped(f"the picker shows no audio file to choose: {said_on(nodes)[:25]}")
+        if picker_files(nodes, avoid) or find("^No items$", nodes) or time.time() > deadline:
+            return nodes
+        time.sleep(1)
+
+
+def picker_open(text, wait=8):
+    """The picker's row or button that says [text] pressed, once it is there: whether it was."""
+    deadline = time.time() + wait
+    while True:
+        nodes = screen()
+        targets = [
+            node for node in nodes if "documentsui" in node.package and node.says(rf"^{re.escape(text)}$")
+        ]
+        if targets:
+            pressable = [node for node in targets if node.pressed_as().takes_click]
+            tap((pressable or targets)[0].pressed_as())
+            time.sleep(1)
+            return True
+        if time.time() > deadline:
+            return False
+        time.sleep(1)
+
+
+def picker_storage_row(nodes):
+    """The row of the picker's roots that is the device's own storage (the one that says how much is
+    free, or else the first that is none of the known roots), or None."""
+    words = [node for node in nodes if "documentsui" in node.package and node.text]
+    free = [node for node in words if re.search(r"\bfree\b", node.text)]
+    if free:
+        return free[0].pressed_as()
+    others = [
+        node
+        for node in words
+        if node.pressed_as().takes_click
+        and node.text not in PICKER_ROOTS
+        and not PICKER_AUDIO.search(node.text)
+    ]
+    return others[0].pressed_as() if others else None
+
+
+def leave_the_picker():
+    """Back, until the picker is gone: one press goes up a folder, or closes the roots. Looked at
+    before each press, so that Back is never pressed in the app."""
+    for _ in range(6):
+        if not in_the_picker(screen()):
+            return
+        key(KEY_BACK)
+
+
+def pick_a_file(avoid):
+    """Ctrl+O, and a file chosen in the system's picker: from what it shows first (the recent
+    files); when that holds no audio, as on a device nobody has used, from its roots: Audio, and
+    failing that the device's own storage, then Music, then Late. The first file whose name has
+    none of the words [avoid]. Its name; when no file could be chosen the picker is left and
+    Skipped says where it was taken."""
+    key(KEY_CTRL, KEY_O)
+    wait_for(in_the_picker, 25, "the system's file picker")
+    trail = []
+
+    def chosen_from(found, where):
+        files = picker_files(found, avoid)
+        if files:
+            tap(files[0].pressed_as())
+            return files[0].text
+        trail.append(
+            f"{where}: {'no items' if find('^No items$', found) else 'no audio file'} "
+            f"({said_on(found)[:10]})"
+        )
+        return None
+
+    def roots_open():
+        """The roots shown: opened with their button where the picker keeps them away (a window as
+        wide as this one may show them already). The screen then."""
+        nodes = screen()
+        shows = [node for node in nodes if "documentsui" in node.package and node.says(r"^Show roots$")]
+        if not shows:
+            return nodes
+        tap(shows[0].pressed_as())
+        time.sleep(1)
+        return screen()
+
+    picked = chosen_from(picker_look(avoid, 4), "Recent")
+    if picked:
+        return picked
+    roots_open()
+    screenshot("the-file-pickers-roots")
+    if picker_open("Audio"):
+        picked = chosen_from(picker_look(avoid), "the Audio root")
+        if picked:
+            return picked
+    else:
+        trail.append("no Audio among the roots")
+    row = picker_storage_row(roots_open())
+    if row is not None:
+        tap(row)
+        time.sleep(1)
+        if picker_open("Music") and picker_open("Late"):
+            picked = chosen_from(picker_look(avoid), "the storage's Music/Late")
+            if picked:
+                return picked
+        else:
+            trail.append("the storage had no Music folder with a Late in it to go into")
+    else:
+        trail.append("no storage among the roots")
+    screenshot("the-file-picker-found-no-audio")
+    leave_the_picker()
+    raise Skipped(f"the picker shows no audio file to choose. Where it was looked: {trail}")
 
 
 def file_opened_by_hand():
@@ -4213,7 +4571,8 @@ def file_opened_by_hand():
         wait_for(lambda seen: clicked in list_titles(seen), 20, "the list whole again")
 
     def stays():
-        picked = pick_a_file(("Aerodynamic",))
+        # Not the song clicked before it, nor one that the search below leaves in the list.
+        picked = pick_a_file(("Aerodynamic", "Digital"))
         opened = wait_for(
             lambda found: any(node.package == PACKAGE for node in found)
             and title_field(found) not in (None, clicked),
@@ -4248,10 +4607,43 @@ def file_opened_by_hand():
 # --- Hundreds of songs selected ----------------------------------------------------------------
 
 
-def transaction_errors():
-    """How many lines of the log say a transaction was too large for the system."""
-    log_text = adb("logcat", "-d", "-b", "all", timeout=90)
-    return len(re.findall(r"TransactionTooLarge|FAILED BINDER TRANSACTION", log_text))
+BINDER_FAILURE = re.compile(r"TransactionTooLarge|FAILED BINDER TRANSACTION")
+
+
+def transaction_lines():
+    """The lines of the whole log that say a transaction was too large for the system, as (the id of
+    the process that logged it, the line); no id for a line that has none. The system's own
+    processes log such lines too (when the launcher takes the snapshot of a task that goes to the
+    background, say), so whose they are matters."""
+    log_text = adb("logcat", "-d", "-b", "all", "-v", "threadtime", timeout=90)
+    found = []
+    for line in log_text.splitlines():
+        if BINDER_FAILURE.search(line):
+            match = re.match(r"^\S+\s+\S+\s+(\d+)\s+\d+\s+[VDIWEFS]\s", line)
+            found.append((match.group(1) if match else None, line.strip()))
+    return found
+
+
+def app_pids():
+    """The ids of the app's processes now, as text."""
+    return set(shell(f"pidof {PACKAGE}").split())
+
+
+def new_transaction_lines(before, now, pids):
+    """What the log says since [before] about a transaction too large: the lines of the app (its
+    process ids [pids], or its package named in the line) and those of every other process, each as
+    the line. Both go into a report, the first alone decides."""
+    known = {line for _, line in before}
+    new = [(pid, line) for pid, line in now if line not in known]
+    ours = [line for pid, line in new if pid in pids or PACKAGE in line]
+    others = [line for pid, line in new if not (pid in pids or PACKAGE in line)]
+    return ours, others
+
+
+def quoted_lines(lines, most=3):
+    """A few log lines for a report, each cut where it gets long."""
+    shown = [line if len(line) <= 260 else line[:257] + "..." for line in lines[:most]]
+    return shown + ([f"and {len(lines) - most} more"] if len(lines) > most else [])
 
 
 def big_selection():
@@ -4295,7 +4687,8 @@ def big_selection():
         return f"{said[0]!r} with Edit together, and no batch editor"
 
     parts.check("Ctrl+A shows how many are selected, and no editor", placeholder)
-    errors = transaction_errors()
+    errors = transaction_lines()
+    pids = app_pids()
     key(KEY_CTRL, KEY_E)
 
     def batch():
@@ -4307,17 +4700,32 @@ def big_selection():
     if opened:
         shell("input keyevent 3")  # Home: the app is sent to the background, with its state saved.
         time.sleep(5)
-        now = transaction_errors()
+        now = transaction_lines()
+        pids |= app_pids()  # Should the system have ended the process, the next has another id.
         launch_app()
 
         def background():
-            if now > errors:
-                raise Failed(f"the log has {now - errors} lines about a transaction too large after Home")
+            # Only the app's own lines count: the system's processes log such lines for their own
+            # reasons. Both are put in the report, so that whose a line is can be read.
+            ours, others = new_transaction_lines(errors, now, pids)
+            elsewhere = (
+                f"; {len(others)} such lines are of other processes, not counted: {quoted_lines(others)}"
+                if others
+                else ""
+            )
+            if ours:
+                raise Failed(
+                    f"the log has {len(ours)} lines of the app (process {sorted(pids)}) about a "
+                    f"transaction too large after Home: {quoted_lines(ours)}{elsewhere}"
+                )
             seen = wait_for(
                 lambda found: any(node.package == PACKAGE for node in found), 30, "the app back"
             )
             again = "the editor was there" if find(r"^Edit \d+ songs$", seen) else "the library was there"
-            return f"Home with the batch editor open left no transaction too large in the log; back, {again}"
+            return (
+                f"Home with the batch editor open left no line of the app (process {sorted(pids)}) "
+                f"about a transaction too large in the log{elsewhere}; back, {again}"
+            )
 
         parts.check("Home leaves no transaction too large", background)
         key(KEY_CTRL, KEY_W)
