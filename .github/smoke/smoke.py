@@ -412,6 +412,12 @@ def home():
             or find(r"^Find the album.s metadata$", nodes)
         ):
             key(KEY_ESCAPE)
+        elif find("^Open in a new window$", nodes) or (
+            find("^Open$", nodes) and find("^Play$", nodes)
+        ):
+            # A menu of the second mouse button, left open. It is a window of its own, and the dump
+            # of the window in front holds the menu alone: it is known by its items.
+            key(KEY_ESCAPE)
         elif find("^Discard$", nodes):
             tap(find("^Discard$", nodes)[0])
         elif find("^Finish$", nodes):
@@ -427,11 +433,6 @@ def home():
         elif not find(LIBRARY, nodes):
             # The editor alone on a narrow window, or a second window: closed, the library is back.
             key(KEY_CTRL, KEY_W)
-        elif find("^Open in a new window$", nodes) or (
-            find("^Edit all$", nodes) and find("^Open$", nodes)
-        ):
-            # A menu of the second mouse button, left open.
-            key(KEY_ESCAPE)
         elif find("Stop selecting", nodes):
             tap(find("Stop selecting", nodes)[0])
         elif find("^Clear search$", nodes):
@@ -3486,11 +3487,15 @@ def album_menu():
         def alone():
             tile = list_row("Discovery", nodes)
             click_on(mouse, tile, button=Gesture.BTN_RIGHT)
-            shown = wait_for(lambda found: bool(find(r"^Open$", found)), 10, "the album's menu")
+            # A menu is a window of its own: the dump of the window in front holds the menu alone.
+            try:
+                shown = wait_for(lambda found: bool(find(r"^Open$", found)), 10, "the album's menu")
+            except Failed:
+                if an_album(screen()):
+                    raise Failed("the second button opened the album instead of its menu")
+                raise
             labels = menu_labels(shown, r"^Open$")
             screenshot("an-albums-menu")
-            if an_album(shown):
-                raise Failed("the second button opened the album instead of its menu")
             wanted = ["Open", "Play", "Shuffle", "Edit all", "Select"]
             if sorted(labels) != sorted(wanted):
                 raise Failed(f"the menu holds {labels}, not {wanted}")
