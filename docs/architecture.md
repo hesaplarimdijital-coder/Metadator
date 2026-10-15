@@ -313,7 +313,10 @@ desktop vocabulary over Material's components:
 - `ActionMenu`, `PopupMenu`, `PopupMenuGroup`, `StudioMenuItem`: menus as a desktop's, a raised
   surface with a hairline edge and rows short enough to read as one, each with its shortcut at the
   end. `ActionMenu` takes a list of `MenuAction`s and closes itself before running one. Over a
-  screen they are glass (see Blur). A menu shows, as it closes, what it showed open
+  screen they are glass (see Blur), but for the menu of the mouse's second button
+  (`ContextMenuArea`), which is solid with the glass's edge: it opens over whatever the pointer is
+  on, an album's cover as often as a row, and over a cover the glass looked like another menu than
+  over a row. A menu shows, as it closes, what it showed open
   (`heldWhileClosing`): choosing an item changes the state the menu is built from, and a menu that
   followed the change changed as it faded.
 - `TonalTextField`: the app's text field, its label above it as a desktop form has them, over a
