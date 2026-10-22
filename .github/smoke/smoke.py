@@ -3269,9 +3269,11 @@ def boxes_in_the_fake_list():
 
 
 def player_in_front(nodes):
-    """The full-screen player is in front: it has Edit tags and the queue ("Up next") on screen, on
-    the wide window and on a phone's layout alike."""
-    return bool(find("^Edit tags$", nodes)) and bool(find("^Up next$", nodes))
+    """The full-screen player is in front: Edit tags, with the queue ("Up next") beside it on the
+    wide window, or its Close button on a phone's layout, where the queue is a page away."""
+    return bool(find("^Edit tags$", nodes)) and bool(
+        find("^Up next$", nodes) or find("^Close$", nodes)
+    )
 
 
 # What the system asked over the app and was answered with Allow, by the step that plays (for its
