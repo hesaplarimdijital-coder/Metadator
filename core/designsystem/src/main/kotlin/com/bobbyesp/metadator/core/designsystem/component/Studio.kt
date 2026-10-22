@@ -44,7 +44,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
@@ -115,6 +118,30 @@ object StudioDefaults {
      * screen (a message) keeps above it.
      */
     val FooterHeight = 64.dp
+
+    /**
+     * The room the player's bar takes at the foot of a phone's screen while something plays, for
+     * what must stay clear of it: the bar, 76 dp, the 12 dp under it, and a gap. The design
+     * system's to say, as a feature cannot see the player.
+     */
+    val FloatingBarClearance = 96.dp
+
+    // Where the layouts change with the room they have, read together.
+
+    /** The narrowest window laid out as panels on a ground; narrower, the screen is one. */
+    val PanelWindowWidth = 600.dp
+
+    /** The narrowest library with room for its sidebar beside the songs. */
+    val SidebarLibraryWidth = 900.dp
+
+    /** The narrowest editor, filling a window, with the cover and the file beside the fields. */
+    val TwoColumnEditorWidth = 760.dp
+
+    /** The narrowest window, if wider than tall, whose player has the lyrics beside the song. */
+    val SideBySidePlayerWidth = 600.dp
+
+    /** The lowest window whose player, side by side, has room for the controls under the cover. */
+    val PlayerControlsHeight = 600.dp
 
     /** The type of keys and of what a file is: a format, a size. */
     val MonoStyle =
@@ -554,11 +581,16 @@ fun StudioSwitch(
                 )
                 .graphicsLayer { alpha = if (enabled) 1f else DisabledAlpha }
                 .size(width = 40.dp, height = 24.dp)
-                .background(track, CircleShape)
+                // The track's color and the thumb's place are read as they are drawn and laid
+                // out, not composed: on its way across, the switch is not composed again each
+                // frame.
+                .drawBehind {
+                    drawRoundRect(color = track, cornerRadius = CornerRadius(size.height / 2))
+                }
                 .padding(2.dp)
     ) {
         Box(
-            Modifier.offset(x = thumbOffset)
+            Modifier.offset { IntOffset(thumbOffset.roundToPx(), 0) }
                 .size(20.dp)
                 .shadow(1.5.dp, CircleShape)
                 .background(Color.White, CircleShape)

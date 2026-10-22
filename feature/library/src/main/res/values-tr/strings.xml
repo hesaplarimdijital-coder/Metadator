@@ -6,12 +6,12 @@
     <string name="more_options">Diğer seçenekler</string>
     <string name="open_file">Dosya aç</string>
     <string name="rescan_library">Müzik klasörlerini yeniden tara</string>
+    <string name="library_rescanned">Müzik klasörleri yeniden tarandı</string>
     <string name="tab_songs">Şarkılar</string>
     <string name="tab_albums">Albümler</string>
     <string name="tab_artists">Sanatçılar</string>
     <string name="tab_folders">Klasörler</string>
     <string name="needs_attention_filter">İlgi bekleyenler (%1$d)</string>
-    <string name="sort">Sırala</string>
     <string name="sort_title">Başlık</string>
     <string name="sort_artist">Sanatçı</string>
     <string name="sort_album">Albüm</string>
@@ -48,9 +48,24 @@
     <string name="collection_play">Çal</string>
     <string name="collection_shuffle">Karıştır</string>
     <string name="collection_edit_all">Tümünü düzenle</string>
+    <string name="open_collection">Aç</string>
+    <string name="merge_albums">Albümleri birleştir</string>
+    <plurals name="selected_albums">
+        <item quantity="one">%1$d albüm seçili</item>
+        <item quantity="other">%1$d albüm seçili</item>
+    </plurals>
+    <plurals name="selected_artists">
+        <item quantity="one">%1$d sanatçı seçili</item>
+        <item quantity="other">%1$d sanatçı seçili</item>
+    </plurals>
+    <plurals name="selected_folders">
+        <item quantity="one">%1$d klasör seçili</item>
+        <item quantity="other">%1$d klasör seçili</item>
+    </plurals>
     <string name="back">Geri</string>
     <string name="no_song_open_title">Bir şarkı seçin</string>
     <string name="no_song_open_description">Etiketleri burada, kitaplığınızın yanında açılır.</string>
+    <string name="selection_unfollowed_description">Bu kadar çok şarkıyı okumak zaman alır; bu nedenle yalnızca siz istediğinizde burada açılırlar.</string>
 
     <string name="keyboard_shortcuts">Klavye kısayolları</string>
     <string name="shortcuts_library">Kitaplık</string>
@@ -76,6 +91,22 @@
     <string name="no_fake_title">Sahte FLAC bulunmadı</string>
     <string name="no_fake_description">Kitaplığınızdaki her kayıpsız dosya göründüğü gibi.</string>
     <string name="no_fake_yet_description">Şimdilik yok: %2$d kayıpsız dosyadan %1$d tanesi denetlendi. Gerisi arka planda denetleniyor.</string>
+    <string name="no_cover">Kapaksız</string>
+    <string name="no_cover_filter">Kapaksız (%1$d)</string>
+    <string name="missing_covers_filter">Kapağı eksik (%1$d)</string>
+    <string name="no_cover_songs_description">Dosyasında kapak olmayan şarkılar</string>
+    <string name="no_cover_albums_description">En az bir şarkısı kapaksız olan albümler</string>
+    <string name="no_cover_artists_description">En az bir şarkısı kapaksız olan sanatçılar</string>
+    <string name="cover_progress">Kapaklar denetleniyor: %1$s / %2$s</string>
+    <string name="cover_check_waiting">%1$s · bekliyor</string>
+    <string name="cover_progress_waiting">Kapaklar, kayıpsız dosyalardan sonra denetlenecek</string>
+    <string name="no_missing_covers_title">Kapaksız şarkı yok</string>
+    <string name="no_missing_covers_description">Kitaplığınızdaki her şarkının kendi kapağı var.</string>
+    <string name="no_missing_covers_yet_description">Şimdilik yok: %2$d şarkıdan %1$d tanesi denetlendi. Gerisi arka planda denetleniyor.</string>
+    <string name="garbled_text">Bozuk karakterler</string>
+    <string name="garbled_text_filter">Bozuk karakterler (%1$d)</string>
+    <string name="no_garbled_title">Bozuk karakter yok</string>
+    <string name="no_garbled_description">Kitaplığınızdaki her başlık, sanatçı ve albüm doğru okunuyor.</string>
     <string name="find_cover">Kapak bul</string>
     <plurals name="selected_songs">
         <item quantity="one">%1$d şarkı seçili</item>

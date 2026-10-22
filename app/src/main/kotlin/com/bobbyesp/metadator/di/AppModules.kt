@@ -13,9 +13,12 @@ import com.bobbyesp.metadator.core.data.DataStoreSettingsRepository
 import com.bobbyesp.metadator.core.data.FileQualityStore
 import com.bobbyesp.metadator.core.data.createSettingsDataStore
 import com.bobbyesp.metadator.core.database.MetadatorDatabase
+import com.bobbyesp.metadator.core.database.RoomCoverCheckStore
 import com.bobbyesp.metadator.core.database.RoomTagBackupStore
 import com.bobbyesp.metadator.core.database.RoomTrackTagCache
 import com.bobbyesp.metadator.core.database.TagBackupFiles
+import com.bobbyesp.metadator.core.domain.artwork.CoverCheckStore
+import com.bobbyesp.metadator.core.domain.artwork.LibraryCoverScanner
 import com.bobbyesp.metadator.core.domain.batch.BatchRunner
 import com.bobbyesp.metadator.core.domain.cover.FindCoversUseCase
 import com.bobbyesp.metadator.core.domain.cover.ImageSampler
@@ -27,6 +30,7 @@ import com.bobbyesp.metadator.core.domain.lyrics.LoadLyricsUseCase
 import com.bobbyesp.metadator.core.domain.quality.CheckLosslessUseCase
 import com.bobbyesp.metadator.core.domain.quality.LibraryQualityScanner
 import com.bobbyesp.metadator.core.domain.quality.QualityStore
+import com.bobbyesp.metadator.core.domain.save.BackupHold
 import com.bobbyesp.metadator.core.domain.save.RestoreBackupUseCase
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
 import com.bobbyesp.metadator.core.domain.settings.SettingsRepository
@@ -35,6 +39,8 @@ import com.bobbyesp.metadator.core.network.KtorArtworkDownloader
 import com.bobbyesp.metadator.core.ui.artwork.AndroidArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.artwork.ArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
+import com.bobbyesp.metadator.core.ui.image.AndroidImageSource
+import com.bobbyesp.metadator.core.ui.image.ImageSource
 import com.bobbyesp.metadator.feature.batch.batchModule
 import com.bobbyesp.metadator.feature.editor.editorModule
 import com.bobbyesp.metadator.feature.library.libraryModule
@@ -69,6 +75,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
@@ -96,6 +104,8 @@ private val appModule = module {
     }
     single<StringProvider> { AndroidStringProvider(androidContext()) }
     single<ArtworkAccentSource> { AndroidArtworkAccentSource(androidContext(), get()) }
+    // The editor and the batch editor read a picked picture by the same rules.
+    single<ImageSource> { AndroidImageSource(androidContext(), get(), get()) }
     single<SettingsRepository> {
         DataStoreSettingsRepository(createSettingsDataStore(androidContext()))
     }
@@ -121,6 +131,7 @@ private val engineModule = module {
     single { ActivityResultHost() }
     single<AudioFileOpener> { ContentResolverFileOpener(androidContext(), get()) }
     single<TrackTagCache> { RoomTrackTagCache(get<MetadatorDatabase>().trackTags()) }
+    single<CoverCheckStore> { RoomCoverCheckStore(get<MetadatorDatabase>().coverChecks()) }
     single<AudioLibrary> {
         TagCompletedAudioLibrary(
             source = MediaStoreAudioLibrary(androidContext(), get()),
@@ -146,7 +157,9 @@ private val engineModule = module {
 
 private val domainModule = module {
     factory { LoadTrackUseCase(get(), get(), get()) }
-    factory { SaveTagChangesUseCase(get(), get(), get(), get()) }
+    // One for the app: a save keeps the backups of the batch that runs beside it, or just ran.
+    single { BackupHold() }
+    factory { SaveTagChangesUseCase(get(), get(), get(), get(), get()) }
     factory { RestoreBackupUseCase(get(), get(), get()) }
     factory { FindLyricsUseCase(get()) }
     factory { LoadLyricsUseCase(get(), get()) }
@@ -156,6 +169,18 @@ private val domainModule = module {
     }
     // One for the app: the check of the library goes on while its screens come and go.
     single { LibraryQualityScanner(get(), get(), get(), get(AppScope)) }
+    // The same for covers, which wait while the lossless check or a batch is at the files.
+    single {
+        val checking = get<LibraryQualityScanner>().state.map { it.isRunning }
+        val saving = get<BatchRunner>().progress.map { it?.isRunning == true }
+        LibraryCoverScanner(
+            reader = get(),
+            store = get(),
+            dispatchers = get(),
+            scope = get(AppScope),
+            busy = combine(checking, saving) { quality, batch -> quality || batch },
+        )
+    }
     factory { FindCoversUseCase(get(), get(), get(), get()) }
     single {
         LookupService(
@@ -163,7 +188,7 @@ private val domainModule = module {
             get(),
         )
     }
-    single { BatchRunner(get(AppScope), get()) }
+    single { BatchRunner(get(AppScope), get(), get(), get()) }
 }
 
 val appModules =

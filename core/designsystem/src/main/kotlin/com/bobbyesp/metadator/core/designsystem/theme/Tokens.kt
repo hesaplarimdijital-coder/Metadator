@@ -10,6 +10,7 @@ import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme.shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 
 /** The 8 dp spacing scale. Screens use these instead of numbers. */
 object Spacing {
@@ -24,7 +25,7 @@ object Spacing {
     val screen = 16.dp
 
     /** Room left at the bottom of a list for whatever floats over it (toolbar, mini player). */
-    val floatingClearance = 112.dp
+    val floatingClearance = StudioDefaults.FloatingBarClearance + large
 
     /** Readable width for forms and settings on wide windows. */
     val contentMaxWidth = 720.dp

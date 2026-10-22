@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
@@ -167,10 +168,13 @@ fun PopupMenu(
  *
  * Where nothing of the screen is recorded ([LocalBackdropHaze] null: a preview, a window of its
  * own) it is the raised tone, solid, with a hairline edge.
+ *
+ * Not [glass], it is the raised tone, solid, with the glass's edge: what the glass looks like over
+ * a plain panel, whatever is under it.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun PopupMenuGroup(content: @Composable ColumnScope.() -> Unit) {
+fun PopupMenuGroup(glass: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val colors = Studio.colors
     val shape = StudioMenuShape
     val shapes = MenuGroupShapes(shape = shape, inactiveShape = shape)
@@ -188,7 +192,7 @@ fun PopupMenuGroup(content: @Composable ColumnScope.() -> Unit) {
     // The glass goes around the group, because the group's own modifier lands inside its
     // container. The group keeps one shape, hovered or not, so that the glass, clipped to it,
     // always matches.
-    GlassSurface(backdrop = backdrop, shape = shape) {
+    GlassSurface(backdrop = backdrop.takeIf { glass }, shape = shape) {
         DropdownMenuGroup(
             shapes = shapes,
             containerColor = Color.Transparent,
@@ -201,17 +205,37 @@ fun PopupMenuGroup(content: @Composable ColumnScope.() -> Unit) {
 
 private val MenuGroupPadding = PaddingValues(6.dp)
 
-/** A menu of plain actions. Choosing one closes the menu first, so it never outlives its screen. */
+/**
+ * What a menu shows as it closes: what it showed open. Choosing an item changes the state the menu
+ * is built from (removing the cover takes "Remove cover" out of it, sorting moves the check), and a
+ * menu that followed the change changed as it faded, in the user's eye. Built from what this gives,
+ * a menu keeps its items until it is gone.
+ */
+@Composable
+fun <T> heldWhileClosing(expanded: Boolean, value: T): T {
+    val held = remember { Held(value) }
+    if (expanded) held.value = value
+    return held.value
+}
+
+private class Held<T>(var value: T)
+
+/**
+ * A menu of plain actions. Choosing one closes the menu first, so it never outlives its screen.
+ * [glass] as [PopupMenuGroup]'s.
+ */
 @Composable
 fun ActionMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     actions: List<MenuAction>,
     modifier: Modifier = Modifier,
+    glass: Boolean = true,
 ) {
+    val shown = heldWhileClosing(expanded, actions)
     PopupMenu(expanded, onDismissRequest, modifier) {
-        PopupMenuGroup {
-            actions.forEach { action ->
+        PopupMenuGroup(glass = glass) {
+            shown.forEach { action ->
                 StudioMenuItem(
                     text = action.text,
                     onClick = {

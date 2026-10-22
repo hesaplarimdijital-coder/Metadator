@@ -18,6 +18,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.ui.NavDisplay
+import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.navigation.motion.LocalNavSharedTransitionScope
 import com.bobbyesp.metadator.core.navigation.motion.NavigationMotion
 import com.bobbyesp.metadator.core.navigation.motion.rememberBehindTheGestureNavEntryDecorator
@@ -40,6 +41,9 @@ fun MetadatorNavDisplay(
 ) {
     val motion = MaterialTheme.motionScheme
     val shift = with(LocalDensity.current) { ScreenShift.roundToPx() }
+    // Between panels on a ground, screens change with a short shift through a fade; on a phone,
+    // where a screen is the window, the new one comes over the old.
+    val panels = LocalPanels.current
     SharedTransitionLayout(modifier = modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalNavSharedTransitionScope provides this) {
             NavDisplay(
@@ -55,8 +59,12 @@ fun MetadatorNavDisplay(
                     ),
                 sceneStrategies = sceneStrategies,
                 entryProvider = entryProvider,
-                transitionSpec = { with(NavigationMotion) { forward(motion, shift) } },
-                popTransitionSpec = { with(NavigationMotion) { backward(motion, shift) } },
+                transitionSpec = {
+                    with(NavigationMotion) { if (panels) forward(motion, shift) else push(motion) }
+                },
+                popTransitionSpec = {
+                    with(NavigationMotion) { if (panels) backward(motion, shift) else pop(motion) }
+                },
                 predictivePopTransitionSpec = { NavigationMotion.predictiveBack(it) },
             )
         }

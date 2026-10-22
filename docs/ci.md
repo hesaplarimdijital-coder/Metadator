@@ -87,6 +87,9 @@ builds `:app:assembleFossRelease -Pmetadator.fork=one`:
 - **The APK is published as `metamatik.apk`, an asset of the `metamatik-apk` release**, with a
   `build-report.txt` of the errors, the warnings and the end of each step's output. A release
   asset can be downloaded with the repository's token; an artifact and the log of a run cannot.
+  The APK it replaces stays as `metamatik-previous.apk` (`apk-commit.txt` says which commit the
+  latest was built from, so that a run started again does not take its own APK for the one
+  before).
 - **Where `ci.yml` does not run** (`metadator-one`), a job after the APK does what it does
   besides the unit tests: `spotlessCheck`, `lint` and the debug builds of both flavors, and
   publishes what they said, lint's findings errors first, as `checks-report.txt`. So master in
@@ -101,6 +104,10 @@ A second job installs the published APK on an emulator and uses it through `adb`
 desk would: nothing of the app is replaced or instrumented, so what is tried is what is installed
 on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it tries.
 
+- **An update first.** When there is an APK before this one, the run begins with it, as a phone
+  has it: it lists the songs, then this one is installed over it and has to open what that one
+  left, the library's database above all. Then it is uninstalled, and the rest of the run begins
+  from a new install.
 - `make_audio.sh` makes the songs with FFmpeg: four tracks of one album, each a different answer
   for the lossless check (a genuine FLAC, one made from an MP3, an MP3, one upsampled to 96 kHz),
   and two of another album for the SD card.
@@ -128,6 +135,15 @@ on a phone. See [testing.md](testing.md#on-an-emulator-by-a-script) for what it 
   again. For a push that only changes the scripts. A push that changes neither the app nor the
   scripts (the docs) says `[skip ci]`, which GitHub reads as not to run at all; a push that runs
   stops the run before it.
+- **`[smoke-steps <regular expression>]` in a commit message** runs only the steps whose names
+  match it (`SMOKE_STEPS`), with the steps that set the run up and those they go on from; the
+  others are reported as not asked for. With `[smoke-only]`, a few steps are tried again on the
+  APK already published in a quarter of an hour.
+- **`[perf-ab <run id>]` in a commit message** adds a job that times this build against the APK
+  of that earlier run (its `metamatik` artifact, kept thirty days), on one emulator of its own:
+  the earlier one, this one, the earlier one, this one, each installed anew with only the
+  performance step (`SMOKE_TIMED_ALONE=1`). The times go to the release as `perf-report.txt`.
+  See [performance.md](performance.md#reading-the-numbers).
 
 ## Changing a workflow
 

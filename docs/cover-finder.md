@@ -40,6 +40,9 @@ that say which of the picture's coarsest frequencies are above their median. Res
 again or brightening a picture changes a few of them; another picture changes about half. Covers
 whose fingerprints are within 10 bits are copies of one picture.
 
+While it works, the sheet says how far it has got (`CoverSearchProgress`: asking the sources, then
+how many of the covers named have been looked at): a wait of some seconds is at least a moving one.
+
 That is used twice:
 
 - **Copies from several sources become one suggestion**, its largest copy, and count for it. Two
@@ -91,6 +94,11 @@ The sheet and its ViewModel are shared (`CoverFinderSheet`, `CoverFinderViewMode
 opens the sheet with its request and is handed the cover chosen, as a URL. It downloads it and
 keeps it as an unsaved change: nothing is written until Save in the editor, or "Apply to all" in
 the batch editor, whose button in the sheet says how many songs the cover is for.
+
+The rest of an album, its title, album artists, date, genres and where each song is on it, the
+batch editor finds with "Find metadata", beside its fields, which searches for several of the songs
+and not the first only ([architecture.md](architecture.md#editing-several-songs)). Choosing a
+release there leaves the cover as it is: the cover is this finder's.
 
 ## What leaves the device
 

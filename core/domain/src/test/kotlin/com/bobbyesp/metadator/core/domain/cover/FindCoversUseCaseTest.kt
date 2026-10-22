@@ -190,6 +190,18 @@ class FindCoversUseCaseTest {
     }
 
     @Test
+    fun `a cover the file names and the search finds again is offered once, unseen`() = runTest {
+        // Measured, not looked at: nothing says the two are one picture but their address.
+        downloader.put("d/album/full", 1200)
+        val deezer =
+            Provider("deezer", LookupResult.Success(listOf(candidate("deezer", "d/album")))) {
+                listOf(ProvidedArtwork("d/album/full", "d/album/small"))
+            }
+
+        assertEquals(listOf("d/album/full"), find(deezer).suggestions().map { it.url })
+    }
+
+    @Test
     fun `the release the file names comes first, even when the search finds nothing`() = runTest {
         publish("m/release/abc", album, 1200)
         val musicbrainz =

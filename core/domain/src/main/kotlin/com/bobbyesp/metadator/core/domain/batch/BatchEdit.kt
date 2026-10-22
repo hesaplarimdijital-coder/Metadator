@@ -4,23 +4,33 @@
 package com.bobbyesp.metadator.core.domain.batch
 
 import com.bobbyesp.metadator.core.domain.editor.Position
+import com.bobbyesp.metadator.core.domain.editor.PositionStyle
 import com.bobbyesp.metadator.core.domain.editor.TrackPositions
+import com.bobbyesp.metadator.core.domain.save.BackupHold
+import com.bobbyesp.metadator.core.domain.save.BackupPolicy
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
 import com.bobbyesp.metadator.core.domain.save.SaveTagChangesUseCase
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.model.ContentRef
 import com.bobbyesp.metadator.tags.api.ArtworkChange
 import com.bobbyesp.metadator.tags.api.BackupId
+import com.bobbyesp.metadator.tags.api.TagBackupStore
 import com.bobbyesp.metadator.tags.api.TagChanges
 import com.bobbyesp.metadator.tags.api.TagField
+import com.bobbyesp.metadator.tags.api.TagMap
 import com.bobbyesp.metadator.tags.api.TagSnapshot
+import com.bobbyesp.metadator.tags.api.applying
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** A file in a batch: where it is, and what it is called (for patterns and the report). */
 data class BatchItem(val ref: ContentRef, val displayName: String) {
@@ -37,16 +47,49 @@ data class BatchEdit(
     val numbering: TrackNumbering? = null,
     /** Reads fields from each file's name. Applied before [fields], which win. */
     val fileNamePattern: FileNamePattern? = null,
+    /**
+     * Track and disc positions for some of the files, each its own: where a lookup found a song on
+     * its album, or the disc a merged album's name said. Applied after [fields]; [numbering] still
+     * numbers every track.
+     */
+    val positions: Map<ContentRef, FilePositions> = emptyMap(),
+    /**
+     * Puts right each file's text garbled in a way the text itself can undo ([textRepairs]): what
+     * each file holds, so each its own. Applied first; a field set in [fields] or read from the
+     * file's name wins.
+     */
+    val repairText: Boolean = false,
 ) {
     val isEmpty: Boolean
         get() =
             fields.isEmpty() &&
                 artwork == ArtworkChange.Unchanged &&
                 numbering == null &&
-                fileNamePattern == null
+                fileNamePattern == null &&
+                positions.values.all { it.isEmpty } &&
+                !repairText
 }
 
 data class TrackNumbering(val startAt: Int = 1, val writeTotal: Boolean = true)
+
+/**
+ * A position to set, as numbers. What is null stays as the file has it: an album whose track total
+ * is known, but not where a song is on it, sets only the total.
+ */
+data class PositionEdit(val number: Int? = null, val total: Int? = null) {
+    val isEmpty: Boolean
+        get() = number == null && total == null
+}
+
+/** The track and disc positions to set in one file. */
+data class FilePositions(val track: PositionEdit? = null, val disc: PositionEdit? = null) {
+    val isEmpty: Boolean
+        get() = track?.isEmpty != false && disc?.isEmpty != false
+
+    /** These, with what [other] sets in their place: a lookup after a merge keeps its discs. */
+    operator fun plus(other: FilePositions): FilePositions =
+        FilePositions(track = other.track ?: track, disc = other.disc ?: disc)
+}
 
 /** The changes [edit] makes to the file at [index] of [count], given its current tags. */
 fun BatchEdit.changesFor(
@@ -56,8 +99,19 @@ fun BatchEdit.changesFor(
     snapshot: TagSnapshot,
 ): TagChanges {
     val fields = linkedMapOf<String, List<String>>()
+    if (repairText) fields += snapshot.tags.textRepairs()
     fileNamePattern?.parse(item.displayName)?.let { fields += it }
     fields += this.fields
+    positions[item.ref]?.let { position ->
+        val style = TrackPositions.detectStyle(snapshot.tags, item.extension)
+        // From the tags as edited so far: a total set here keeps a number read from the file name.
+        position.track?.let {
+            fields += snapshot.tags.applying(fields).set(TagField.TrackNumber, it, style)
+        }
+        position.disc?.let {
+            fields += snapshot.tags.applying(fields).set(TagField.DiscNumber, it, style)
+        }
+    }
     numbering?.let { numbering ->
         val style = TrackPositions.detectStyle(snapshot.tags, item.extension)
         val current = TrackPositions.read(snapshot.tags, TagField.TrackNumber)
@@ -77,6 +131,25 @@ fun BatchEdit.changesFor(
     return TagChanges(fields = fields, artwork = artwork)
 }
 
+/** The values that store [edit] in [field], what it leaves null kept as these tags have it. */
+private fun TagMap.set(
+    field: TagField,
+    edit: PositionEdit,
+    style: PositionStyle,
+): Map<String, List<String>> {
+    if (edit.isEmpty) return emptyMap()
+    val current = TrackPositions.read(this, field)
+    return TrackPositions.write(
+        this,
+        field,
+        Position(
+            number = edit.number?.toString() ?: current.number,
+            total = edit.total?.toString() ?: current.total,
+        ),
+        style,
+    )
+}
+
 data class BatchItemResult(val item: BatchItem, val outcome: SaveOutcome)
 
 data class BatchProgress(
@@ -84,6 +157,11 @@ data class BatchProgress(
     val results: List<BatchItemResult> = emptyList(),
     val isRunning: Boolean = true,
     val wasCancelled: Boolean = false,
+    /**
+     * What stopped the batch before its end, other than Cancel: what no song's outcome says, as a
+     * backup that could not be kept on a full disk or in a broken database.
+     */
+    val failure: Throwable? = null,
 ) {
     val done: Int
         get() = results.size
@@ -101,15 +179,34 @@ data class BatchProgress(
 
     val backups: List<BackupId>
         get() = results.mapNotNull { (it.outcome as? SaveOutcome.Saved)?.backupId }
+
+    /**
+     * The keys that were written but that some file's format could not keep, with how many files
+     * dropped each: saved all the same, and silent unless said.
+     */
+    val notStored: Map<String, Int>
+        get() =
+            results
+                .flatMap { (it.outcome as? SaveOutcome.Saved)?.notStored.orEmpty() }
+                .groupingBy { it }
+                .eachCount()
 }
 
 /**
  * Runs batch edits in the application's scope, so leaving the screen does not stop one halfway. One
  * batch at a time; its progress is observable until the next one starts.
+ *
+ * The oldest backups are dropped once, when the batch ends, however it ends, and never one of its
+ * own. Dropped after each song, as a single save drops them, a batch of more than [keep] songs lost
+ * its first songs' backups while it ran, and "Undo all" could not restore them. Until its result is
+ * cleared, [hold] keeps the saves made beside it from dropping them too.
  */
 class BatchRunner(
     private val scope: CoroutineScope,
     private val save: SaveTagChangesUseCase,
+    private val backups: TagBackupStore,
+    private val hold: BackupHold,
+    private val keep: Int = BackupPolicy.KEEP,
 ) {
     private val _progress = MutableStateFlow<BatchProgress?>(null)
     val progress: StateFlow<BatchProgress?> = _progress.asStateFlow()
@@ -126,17 +223,38 @@ class BatchRunner(
         finalize: (TagChanges) -> TagChanges = { it },
     ) {
         if (isRunning) return
+        hold.hold()
         _progress.value = BatchProgress(total = items.size)
         job = scope.launch {
-            items.forEachIndexed { index, item ->
-                if (!isActive) return@forEachIndexed
-                val outcome =
-                    save(item.ref) { snapshot ->
-                        finalize(edit.changesFor(item, index, items.size, snapshot))
+            var failure: Throwable? = null
+            try {
+                items.forEachIndexed { index, item ->
+                    if (!isActive) return@forEachIndexed
+                    val outcome =
+                        save(item.ref, pruneAfter = false) { snapshot ->
+                            finalize(edit.changesFor(item, index, items.size, snapshot))
+                        }
+                    _progress.update {
+                        it?.copy(results = it.results + BatchItemResult(item, outcome))
                     }
-                _progress.update { it?.copy(results = it.results + BatchItemResult(item, outcome)) }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                // The app's scope has no handler: thrown on, a failure ended the app halfway
+                // through, and nothing said how far the batch had got. It stops there instead.
+                failure = error
+            } finally {
+                withContext(NonCancellable) {
+                    // Every backup begun since the batch started, a failed song's too (kept when
+                    // the original could not be put back), and those of the saves made beside it.
+                    val pruned = runCatching { backups.prune(hold.keeping(keep)) }
+                    // Here, however the batch ends, or its dialog would wait for it forever.
+                    _progress.update {
+                        it?.copy(isRunning = false, failure = failure ?: pruned.exceptionOrNull())
+                    }
+                }
             }
-            _progress.update { it?.copy(isRunning = false) }
         }
     }
 
@@ -146,6 +264,9 @@ class BatchRunner(
     }
 
     fun clear() {
-        if (!isRunning) _progress.value = null
+        if (isRunning) return
+        _progress.value = null
+        // "Undo all" goes with the result: the next save prunes back to what is kept.
+        hold.release()
     }
 }

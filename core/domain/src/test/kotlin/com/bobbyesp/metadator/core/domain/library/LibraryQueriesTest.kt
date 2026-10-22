@@ -99,6 +99,42 @@ class LibraryQueriesTest {
     }
 
     @Test
+    fun `an album of one title by two artists is two albums, with keys of their own`() {
+        // MediaStore gives the songs of one title in a folder one album id, whoever they are by.
+        val albums =
+            listOf(
+                    track(1, "One", artist = "First", album = "Shared").copy(albumArtist = null),
+                    track(2, "Two", artist = "Second", album = "Shared").copy(albumArtist = null),
+                    track(3, "Three", artist = "first", album = "shared").copy(albumArtist = null),
+                )
+                .albums()
+        assertEquals(listOf(2, 1), albums.map { it.tracks.size })
+        assertEquals(albums.size, albums.map { it.key }.distinct().size)
+    }
+
+    @Test
+    fun `a collection given another key by an edit is found again by its songs`() {
+        val shown =
+            listOf(track(1, "One", artist = "Old"), track(2, "Two", artist = "Old")).albums()
+        val edited =
+            listOf(
+                    track(1, "One", artist = "New"),
+                    track(2, "Two", artist = "New"),
+                    track(3, "Three", artist = "Old", album = "Other"),
+                )
+                .albums()
+        val album = shown.single()
+        val songs = album.tracks.map { it.id }
+
+        assertEquals(null, edited.firstOrNull { it.key == album.key })
+        assertEquals(listOf(1L, 2L), edited.locate(album.key, songs)?.tracks?.map { it.id.value })
+        // By its key while it has one, whatever else holds the songs.
+        assertEquals("Other", edited.locate(edited[1].key, songs)?.title)
+        assertEquals(null, edited.locate(album.key, listOf(TrackId(9))))
+        assertEquals(null, edited.locate(album.key, emptyList()))
+    }
+
+    @Test
     fun `folders of the same name say where each one is`() {
         val folders =
             listOf(

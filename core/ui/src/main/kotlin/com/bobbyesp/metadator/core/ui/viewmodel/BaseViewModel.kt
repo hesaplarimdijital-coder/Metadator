@@ -3,8 +3,11 @@
  */
 package com.bobbyesp.metadator.core.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bobbyesp.metadator.core.common.StringProvider
+import com.bobbyesp.metadator.core.ui.R
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -61,9 +64,13 @@ abstract class BaseViewModel<Intent : Any, State : Any, Effect : Any>(initialSta
         viewModelScope.launch { _messages.send(message) }
     }
 
-    /** Launches [block]; a failure goes to [onError] instead of crashing the app. */
+    /**
+     * Launches [block]; a failure goes to [onError], or else to [onUnhandledError], instead of
+     * crashing the app. Errors are caught too: native code throws whatever it likes, and none of it
+     * may crash the app.
+     */
     protected fun launch(
-        onError: (Throwable) -> Unit = {},
+        onError: (Throwable) -> Unit = this::onUnhandledError,
         block: suspend CoroutineScope.() -> Unit,
     ): Job = viewModelScope.launch {
         try {
@@ -74,4 +81,17 @@ abstract class BaseViewModel<Intent : Any, State : Any, Effect : Any>(initialSta
             onError(error)
         }
     }
+
+    /**
+     * A failure no caller of [launch] handled. Swallowed, it left no trace at all: nothing in the
+     * log, and nothing on screen for whoever pressed the button. A screen the user acts on says so
+     * too, with [unexpectedErrorMessage].
+     */
+    protected open fun onUnhandledError(error: Throwable) {
+        Log.w(javaClass.simpleName, "unhandled", error)
+    }
+
+    /** "Something went wrong": what the user is told of a failure nothing else explains. */
+    protected fun unexpectedErrorMessage(strings: StringProvider): UiMessage =
+        UiMessage(strings.get(R.string.error_unexpected))
 }

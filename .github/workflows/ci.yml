@@ -23,6 +23,13 @@ env:
   # base branch and cannot fill the repository's quota, or the cache others read, with its own.
   GRADLE_CACHE_READ_ONLY: ${{ github.event_name != 'push' }}
 
+# Named, the shell runs with pipefail (`bash -eo pipefail`): a step that pipes Gradle through `tee`
+# fails when Gradle does. The shell GitHub uses when none is named has no pipefail, and every such
+# step passed whatever Gradle said.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   format:
     name: Format
@@ -36,7 +43,12 @@ jobs:
           cache-read-only: ${{ env.GRADLE_CACHE_READ_ONLY }}
 
       - name: Check formatting
-        run: ./gradlew spotlessCheck
+        run: ./gradlew spotlessCheck 2>&1 | tee spotless.log
+
+      # The run's log cannot always be read where the failure is looked into: annotations can.
+      - name: Say what is not formatted
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py spotless spotless.log
 
   test:
     name: Unit tests
@@ -51,7 +63,15 @@ jobs:
 
       # --continue: one module's failure does not hide another's.
       - name: Unit tests
-        run: ./gradlew test --continue
+        run: ./gradlew test --continue 2>&1 | tee test.log
+
+      - name: Say what did not compile
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py kotlin test.log
+
+      - name: Say which tests failed
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py tests
 
       - name: Upload the test reports
         if: ${{ failure() }}
@@ -75,7 +95,15 @@ jobs:
           cache-read-only: ${{ env.GRADLE_CACHE_READ_ONLY }}
 
       - name: Lint
-        run: ./gradlew lint --continue
+        run: ./gradlew lint --continue 2>&1 | tee lint.log
+
+      - name: Say what did not compile
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py kotlin lint.log
+
+      - name: Say what lint found
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py lint
 
       - name: Upload the lint reports
         if: ${{ !cancelled() }}
@@ -98,7 +126,11 @@ jobs:
 
       # Both flavors: playstore has code and dependencies that foss does not.
       - name: Build the debug APKs
-        run: ./gradlew :app:assembleFossDebug :app:assemblePlaystoreDebug
+        run: ./gradlew :app:assembleFossDebug :app:assemblePlaystoreDebug 2>&1 | tee build.log
+
+      - name: Say what did not compile
+        if: ${{ failure() }}
+        run: python3 .github/ci/annotate.py kotlin build.log
 
       - name: Upload the FOSS debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

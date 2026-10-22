@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="cover_of">Cover of %1$s</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
@@ -12,7 +12,7 @@
     <string name="missing_album_artist">album artist</string>
     <string name="missing_year">year</string>
     <string name="missing_track_number">track number</string>
-    <string name="selected">Selected</string>
+    <string name="song_selected">Selected</string>
     <string name="select">Select</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="unknown_album">Unknown album</string>
@@ -22,7 +22,7 @@
     <string name="field_album">Album</string>
     <string name="field_album_artist">Album artists</string>
     <string name="field_date">Year or date</string>
-    <string name="field_date_hint">2019 or 2019-05-17</string>
+    <string name="field_date_hint" tools:ignore="TypographyDashes">2019 or 2019-05-17</string>
     <string name="field_genre">Genres</string>
     <string name="field_track">Track</string>
     <string name="field_disc">Disc</string>
@@ -75,6 +75,11 @@
     <string name="cover_finder_title">Find a cover</string>
     <string name="cover_finder_search">Search</string>
     <string name="cover_finder_searching">Looking for covers and comparing them…</string>
+    <string name="cover_finder_asking">Asking the sources…</string>
+    <plurals name="cover_finder_looking">
+        <item quantity="one">Looking at %1$d of %2$d cover…</item>
+        <item quantity="other">Looking at %1$d of %2$d covers…</item>
+    </plurals>
     <string name="cover_finder_no_results">No covers found. Try fewer words.</string>
     <string name="cover_finder_no_sources">Every source is turned off. Turn one on in Settings.</string>
     <string name="cover_finder_offline">You\'re offline</string>
@@ -96,7 +101,10 @@
     <string name="cover_reason_artist">The artist matches</string>
     <string name="cover_reason_title">The song is on this release</string>
     <string name="cover_reason_year">The year matches</string>
-    <string name="cover_reason_sources">%1$d sources have this same picture</string>
+    <plurals name="cover_reason_sources">
+        <item quantity="one">%1$d source has this same picture</item>
+        <item quantity="other">%1$d sources have this same picture</item>
+    </plurals>
     <string name="cover_reason_same_as_current">The same picture as the current cover</string>
     <string name="cover_reason_larger">A larger copy of the current cover</string>
     <string name="cover_reason_high_resolution">Large enough to look sharp anywhere</string>
@@ -121,4 +129,5 @@
     <string name="column_quality">Quality</string>
     <string name="column_duration">Length</string>
     <string name="field_total">Total</string>
+    <string name="error_unexpected">Something went wrong</string>
 </resources>

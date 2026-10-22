@@ -10,7 +10,6 @@ import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.ui.artwork.ArtworkAccentSource
 import com.bobbyesp.metadator.core.ui.viewmodel.BaseViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -40,6 +39,7 @@ internal class NowPlayingViewModel(
 ) : BaseViewModel<NowPlayingIntent, NowPlayingState, Nothing>(NowPlayingState()) {
 
     private var loading: Job? = null
+    private var accentLoading: Job? = null
 
     override fun handleIntent(intent: NowPlayingIntent) {
         when (intent) {
@@ -49,16 +49,19 @@ internal class NowPlayingViewModel(
 
     private fun show(track: Track) {
         loading?.cancel()
+        accentLoading?.cancel()
         // The same song again is read again, since its tags may have been edited meanwhile, but
         // keeps what it shows until then. The color stays until the next one is known either
         // way: going through the app's own between two covers would flash.
         if (currentState.ref != track.ref) setState { copy(ref = track.ref, lyrics = null) }
+        // Side by side, not one inside the other: a child's failure escapes its parent's handler,
+        // cancels it and reaches the scope, which has none, and the app would crash.
+        accentLoading = launch {
+            val color = accents.fromArtwork(track.artwork)
+            setState { copy(accent = color) }
+        }
         loading =
             launch(onError = { setState { copy(lyrics = TrackLyrics.Unreadable) } }) {
-                this.launch {
-                    val color = track.artworkRef?.let { accents.fromUri(it.uri) }
-                    setState { copy(accent = color) }
-                }
                 val lyrics = loadLyrics(track.ref)
                 setState { copy(lyrics = lyrics) }
             }

@@ -48,9 +48,12 @@ class LookupService(
         val results = coroutineScope {
             active.map { provider -> async { provider to provider.search(query) } }.awaitAll()
         }
-        val candidates = results.flatMap { (_, result) ->
-            (result as? LookupResult.Success)?.candidates.orEmpty()
-        }
+        val candidates =
+            results
+                .flatMap { (_, result) -> (result as? LookupResult.Success)?.candidates.orEmpty() }
+                // Once each: a catalogue can name a song twice (a recording twice on one release),
+                // and a list cannot show one item twice.
+                .distinctBy { it.providerId to it.id }
         val failed = results.filter { (_, result) -> result !is LookupResult.Success }
 
         return when {

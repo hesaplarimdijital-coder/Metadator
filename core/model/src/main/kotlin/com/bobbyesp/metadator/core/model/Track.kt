@@ -32,7 +32,10 @@ data class Track(
     val folder: String?,
     val dateAddedEpochSeconds: Long,
     val dateModifiedEpochSeconds: Long,
-    /** MediaStore's cached album art. Only for display: it is often a downscaled copy. */
+    /**
+     * MediaStore's album art: one picture for the album, from whichever of its songs it read first.
+     * Only for display, and where a song's own picture cannot be had ([artwork]).
+     */
     val artworkRef: ContentRef?,
     /**
      * What the volume the file is on is called, when it is not the device's own storage: an SD
@@ -51,12 +54,30 @@ data class Track(
             if (genre.isNullOrBlank()) add(TrackField.Genre)
         }
 
-    val needsAttention: Boolean
-        get() = missingFields.any { it in TrackField.Essential }
+    /*
+     * Worked out once for each song, not at each letter typed in the library's search, which counts
+     * and filters every song by them. A song never changes; a copy of it works them out again.
+     */
 
-    val fileExtension: String
-        get() = displayName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+    val needsAttention: Boolean = missingFields.any { it in TrackField.Essential }
+
+    val fileExtension: String =
+        displayName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+
+    /** The song's own cover, as the lists show it. */
+    val artwork: TrackArtwork
+        get() = TrackArtwork(ref, artworkRef, dateModifiedEpochSeconds)
 }
+
+/**
+ * A song's cover for a list: the picture in its own file, which MediaStore reads out of it and
+ * keeps a thumbnail of, or where it cannot be had (Android 9 and before) the album's.
+ *
+ * [version] is when the file was last written. A cover saved to the file is a new picture under a
+ * new key, where the one it replaced was cached under the old: without it the lists kept showing
+ * the cover a song had before it was saved, for as long as the app ran.
+ */
+data class TrackArtwork(val ref: ContentRef, val albumArt: ContentRef?, val version: Long)
 
 /** Library-level fields, for sorting, filtering and health checks. */
 enum class TrackField {

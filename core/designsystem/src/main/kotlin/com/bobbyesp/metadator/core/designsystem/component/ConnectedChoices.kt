@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 
 /** One of the options of a [ConnectedChoices]. */
@@ -110,7 +112,16 @@ fun <T> ConnectedChoices(
                                         Modifier.semantics { contentDescription = choice.label }
                                     } else Modifier
                                 )
-                                .padding(horizontal = if (iconOnly) 7.dp else 12.dp),
+                                // Options sharing the width have the width to give, and labels
+                                // of some length in some languages to fit in it.
+                                .padding(
+                                    horizontal =
+                                        when {
+                                            iconOnly -> 7.dp
+                                            fill -> 6.dp
+                                            else -> 12.dp
+                                        }
+                                ),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -125,7 +136,18 @@ fun <T> ConnectedChoices(
                                             if (checked) FontWeight.Bold else FontWeight.Medium
                                     ),
                                 maxLines = 1,
+                                softWrap = false,
                                 overflow = TextOverflow.Ellipsis,
+                                // A label too long for its share is set smaller before it is
+                                // cut short: "Sanatçı…" named nothing.
+                                autoSize =
+                                    if (fill) {
+                                        TextAutoSize.StepBased(
+                                            minFontSize = 11.sp,
+                                            maxFontSize = 14.sp,
+                                            stepSize = 0.5.sp,
+                                        )
+                                    } else null,
                             )
                         }
                     }

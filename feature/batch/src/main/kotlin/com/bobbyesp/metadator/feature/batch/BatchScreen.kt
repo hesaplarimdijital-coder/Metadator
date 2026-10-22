@@ -3,10 +3,20 @@
  */
 package com.bobbyesp.metadator.feature.batch
 
+import android.net.Uri
 import android.view.KeyEvent
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +43,7 @@ import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
@@ -48,6 +59,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +72,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bobbyesp.metadator.core.designsystem.component.FieldLabel
+import com.bobbyesp.metadator.core.designsystem.component.FieldWell
 import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
 import com.bobbyesp.metadator.core.designsystem.component.LocalPanels
 import com.bobbyesp.metadator.core.designsystem.component.StudioButton
@@ -69,14 +84,19 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioSwitch
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
 import com.bobbyesp.metadator.core.designsystem.component.TonalTextField
+import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.batch.BatchProgress
 import com.bobbyesp.metadator.core.domain.batch.FileNamePattern
+import com.bobbyesp.metadator.core.domain.batch.FilePositions
 import com.bobbyesp.metadator.core.domain.batch.TrackNumbering
+import com.bobbyesp.metadator.core.domain.editor.splitValues
 import com.bobbyesp.metadator.core.domain.save.SaveOutcome
+import com.bobbyesp.metadator.core.model.ContentRef
+import com.bobbyesp.metadator.core.ui.R as CoreUiR
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
@@ -116,6 +136,15 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                 ) {
                     onIntent(BatchIntent.FindCover)
                 },
+                // The key the editor finds one song's metadata with.
+                Shortcut(
+                    KeyEvent.KEYCODE_L,
+                    stringResource(R.string.batch_lookup_find),
+                    ctrl = true,
+                    enabled = !state.loading && state.files.isNotEmpty(),
+                ) {
+                    onIntent(BatchIntent.FindMetadata)
+                },
                 Shortcut(
                     KeyEvent.KEYCODE_W,
                     stringResource(R.string.close),
@@ -125,6 +154,7 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             ),
     )
     val panels = LocalPanels.current
+    val motion = MaterialTheme.motionScheme
     Column(
         Modifier.fillMaxSize()
             .then(if (panels) Modifier.studioPanel() else Modifier.statusBarsPadding())
@@ -132,11 +162,34 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
             // is typed in.
             .imePadding()
     ) {
-        if (state.loading) {
-            BatchHead(state, onClose, Modifier.padding(16.dp))
-            LoadingScreen(Modifier.weight(1f))
-            return@Column
+        // The head is there from the first frame, with how many songs are coming; the rest fades
+        // in under it once they are read, over the moment of nothing before.
+        BatchHead(state, onClose, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
+        AnimatedContent(
+            targetState = state.loading,
+            transitionSpec = {
+                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            label = "BatchLoaded",
+        ) { loading ->
+            if (loading) LoadingScreen(Modifier.fillMaxSize())
+            else BatchForm(state, onIntent, pickCover, panels)
         }
+    }
+
+    state.progress?.let { progress -> ProgressDialog(progress, onIntent) }
+}
+
+/** The batch itself: what every song will get, and the way to write it. */
+@Composable
+private fun BatchForm(
+    state: BatchState,
+    onIntent: (BatchIntent) -> Unit,
+    pickCover: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
+    panels: Boolean,
+) {
+    Column(Modifier.fillMaxSize()) {
         val scroll = rememberScrollState()
         Column(
             modifier =
@@ -147,7 +200,17 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            BatchHead(state, onClose)
+            if (state.garbledSongs > 0) RepairTextCard(state, onIntent)
+            state.merge?.let { merge ->
+                MergeAlbumsCard(
+                    merge = merge,
+                    merged = state.mergesAlbums,
+                    separator = state.separator,
+                    onMerge = { album, artists, discs ->
+                        onIntent(BatchIntent.MergeAlbums(album, artists, discs))
+                    },
+                )
+            }
             CoverChoice(
                 cover = state.cover,
                 loading = state.loadingCover,
@@ -174,9 +237,19 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
                         color = Studio.colors.textSecondary,
                     )
                 }
+                // Over the fields it fills, as the cover finder is in the cover's card. Not beside
+                // the title: in the inspector's width that leaves the title a few words a line.
+                StudioButton(
+                    text = stringResource(R.string.batch_lookup_find),
+                    onClick = { onIntent(BatchIntent.FindMetadata) },
+                    icon = Icons.Outlined.Sell,
+                    iconTint = Studio.colors.accent,
+                    shortcut = shortcutHint(KeyEvent.KEYCODE_L, ctrl = true),
+                )
                 BatchViewModel.EditableFields.forEach { field ->
                     BatchField(field, state, onIntent)
                 }
+                PositionsField(state.positions, onReset = { onIntent(BatchIntent.ResetPositions) })
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -189,8 +262,6 @@ internal fun BatchScreen(state: BatchState, onIntent: (BatchIntent) -> Unit, onC
         }
         BatchFooter(state, onIntent, phone = !panels)
     }
-
-    state.progress?.let { progress -> ProgressDialog(progress, onIntent) }
 }
 
 /** The songs being edited: a few of their covers stacked, how many, and which. */
@@ -226,7 +297,7 @@ private fun BatchHead(state: BatchState, onClose: () -> Unit, modifier: Modifier
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                pluralStringResource(R.plurals.batch_title, state.files.size, state.files.size),
+                pluralStringResource(R.plurals.batch_title, state.count, state.count),
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                 color = Studio.colors.text,
                 maxLines = 2,
@@ -251,22 +322,28 @@ private fun BatchHead(state: BatchState, onClose: () -> Unit, modifier: Modifier
     }
 }
 
+/**
+ * A field set on every song. One of several values takes them typed one after another, with the
+ * separator between them; they are a list from the moment they are typed.
+ */
 @Composable
 private fun BatchField(field: TagField, state: BatchState, onIntent: (BatchIntent) -> Unit) {
     val label = fieldLabel(field.key)
     val edited = state.edits[field.key]
     val common = state.common[field.key]
-    val shown =
-        edited?.joinToString(state.separator)
-            ?: (common as? CommonValue.Same)?.values?.joinToString(state.separator).orEmpty()
+    val values = edited ?: (common as? CommonValue.Same)?.values.orEmpty()
+    val typed = remember(field) { TypedValues() }
+    // The values are shown as they were typed, for as long as they are those: joined again,
+    // "Daft Punk; " was "Daft Punk", and the separator just typed was gone again, with the second
+    // value it was typed for.
+    val shown = typed.shownFor(values) ?: values.joinToString(state.separator)
+    SideEffect { typed.heard(values) }
     TonalTextField(
         value = shown,
         onValueChange = { text ->
-            val values =
-                if (field.multiValue)
-                    text.split(state.separator.trim()).map { it.trim() }.filter { it.isNotEmpty() }
-                else listOf(text)
-            onIntent(BatchIntent.SetField(field.key, values))
+            val parsed = if (field.multiValue) splitValues(text, state.separator) else listOf(text)
+            typed.typed(text, parsed)
+            onIntent(BatchIntent.SetField(field.key, parsed))
         },
         label = label,
         labelNote = if (edited != null) stringResource(R.string.batch_changed) else null,
@@ -290,6 +367,56 @@ private fun BatchField(field: TagField, state: BatchState, onIntent: (BatchInten
         singleLine = field != TagField.Comment,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/**
+ * The track and disc numbers some songs will get, each its own, said as a field is: what a lookup
+ * or a merge set, and the way to keep each song's own instead.
+ */
+@Composable
+private fun PositionsField(positions: Map<ContentRef, FilePositions>, onReset: () -> Unit) {
+    val tracks = positions.values.count { it.track?.number != null }
+    val totals = positions.values.count { it.track?.number == null && it.track?.total != null }
+    val discs = positions.values.count { it.disc?.isEmpty == false }
+    if (tracks + totals + discs == 0) return
+    val label = stringResource(R.string.batch_numbers)
+    val said =
+        listOfNotNull(
+                tracks
+                    .takeIf { it > 0 }
+                    ?.let {
+                        pluralStringResource(R.plurals.batch_numbers_tracks, it, it)
+                    },
+                totals
+                    .takeIf { it > 0 }
+                    ?.let {
+                        pluralStringResource(R.plurals.batch_numbers_totals, it, it)
+                    },
+                discs
+                    .takeIf { it > 0 }
+                    ?.let {
+                        pluralStringResource(R.plurals.batch_numbers_discs, it, it)
+                    },
+            )
+            .joinToString(" · ")
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        FieldLabel(label, stringResource(R.string.batch_changed), highlighted = true)
+        FieldWell(
+            focused = false,
+            emphasized = true,
+            trailing = {
+                StudioIconButton(
+                    icon = Icons.AutoMirrored.Rounded.Undo,
+                    contentDescription = stringResource(R.string.batch_numbers_reset),
+                    onClick = onReset,
+                    size = 30.dp,
+                    iconSize = 16.dp,
+                )
+            },
+        ) {
+            Text(said, style = MaterialTheme.typography.bodyLarge, color = Studio.colors.text)
+        }
+    }
 }
 
 /** The cover every song will get, or that they keep their own, and how to change that. */
@@ -395,6 +522,63 @@ private fun CoverChoice(
                         style = StudioButtonStyle.Ghost,
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Puts right the songs' garbled text, each song its own, as the editor does for one. First of all
+ * where any song has some: a list of garbled songs, selected whole, is edited for this. What it
+ * does is shown on a few of the fields, before it is switched on, with how many more it changes and
+ * in which fields.
+ */
+@Composable
+private fun RepairTextCard(state: BatchState, onIntent: (BatchIntent) -> Unit) {
+    ToolCard(
+        title = stringResource(R.string.batch_repair_text),
+        description =
+            pluralStringResource(
+                R.plurals.batch_repair_text_description,
+                state.garbledSongs,
+                state.garbledSongs,
+            ),
+        checked = state.repairText,
+        onCheckedChange = { onIntent(BatchIntent.RepairText(it)) },
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            state.repairs.forEach { repair ->
+                Text(
+                    stringResource(
+                        R.string.batch_repair_text_preview,
+                        fieldLabel(repair.key),
+                        repair.before,
+                        repair.after,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (state.moreRepairs > 0) {
+                // Labels first: a composable cannot be called from joinToString's lambda.
+                val fields = state.moreRepairKeys.map { fieldLabel(it) }
+                Text(
+                    pluralStringResource(
+                        R.plurals.batch_repair_text_more,
+                        state.moreRepairs,
+                        state.moreRepairs,
+                        fields.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Studio.colors.textSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -581,81 +765,138 @@ private fun BatchFooter(state: BatchState, onIntent: (BatchIntent) -> Unit, phon
     }
 }
 
+/**
+ * The batch being written, then what came of it, in one dialog: its parts change through a fade and
+ * the dialog grows to them, rather than turning into another dialog between two frames.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ProgressDialog(
-    progress: BatchProgress,
-    onIntent: (BatchIntent) -> Unit,
-) {
+private fun ProgressDialog(progress: BatchProgress, onIntent: (BatchIntent) -> Unit) {
+    val running = progress.isRunning
+    val motion = MaterialTheme.motionScheme
     AlertDialog(
         onDismissRequest = {},
-        icon =
-            if (!progress.isRunning) {
-                { Icon(Icons.Rounded.CheckCircle, null) }
-            } else null,
+        icon = {
+            AnimatedVisibility(
+                visible = !running,
+                enter =
+                    fadeIn(motion.defaultEffectsSpec()) +
+                        expandVertically(motion.defaultSpatialSpec()),
+                exit =
+                    fadeOut(motion.fastEffectsSpec()) +
+                        shrinkVertically(motion.defaultSpatialSpec()),
+            ) {
+                Icon(Icons.Rounded.CheckCircle, null)
+            }
+        },
         title = {
-            Text(
-                if (progress.isRunning)
-                    stringResource(R.string.batch_running, progress.done + 1, progress.total)
-                else stringResource(R.string.batch_done_title)
-            )
+            Replaced(running) { shown ->
+                Text(
+                    if (shown)
+                        stringResource(R.string.batch_running, progress.done + 1, progress.total)
+                    else stringResource(R.string.batch_done_title)
+                )
+            }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
-                if (progress.isRunning) {
-                    LinearWavyProgressIndicator(
-                        progress = { progress.fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    Text(
-                        pluralStringResource(
-                            R.plurals.batch_saved,
-                            progress.saved.size,
-                            progress.saved.size,
+            Replaced(running) { shown ->
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+                    if (shown) {
+                        LinearWavyProgressIndicator(
+                            progress = { progress.fraction },
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    )
-                    if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
-                    if (progress.failed.isNotEmpty()) {
+                    } else {
                         Text(
                             pluralStringResource(
-                                R.plurals.batch_failed,
-                                progress.failed.size,
-                                progress.failed.size,
-                            ),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        progress.failed.take(5).forEach { result ->
-                            Text(
-                                "${result.item.displayName}: ${stringResource(reason(result.outcome))}",
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                R.plurals.batch_saved,
+                                progress.saved.size,
+                                progress.saved.size,
                             )
+                        )
+                        if (progress.wasCancelled) Text(stringResource(R.string.batch_cancelled))
+                        // A backup that could not be kept stopped it: the songs saved before it
+                        // are counted above, and "Undo all" still puts them back.
+                        if (progress.failure != null) {
+                            Text(
+                                stringResource(CoreUiR.string.error_unexpected),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        NotStored(progress.notStored)
+                        if (progress.failed.isNotEmpty()) {
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.batch_failed,
+                                    progress.failed.size,
+                                    progress.failed.size,
+                                ),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            progress.failed.take(5).forEach { result ->
+                                Text(
+                                    "${result.item.displayName}: ${stringResource(reason(result.outcome))}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            if (progress.isRunning) {
-                TextButton(onClick = { onIntent(BatchIntent.Cancel) }) {
-                    Text(stringResource(R.string.batch_cancel))
-                }
-            } else {
-                TextButton(onClick = { onIntent(BatchIntent.Dismiss) }) {
-                    Text(stringResource(R.string.batch_finish))
+            Replaced(running) { shown ->
+                if (shown) {
+                    TextButton(onClick = { onIntent(BatchIntent.Cancel) }) {
+                        Text(stringResource(R.string.batch_cancel))
+                    }
+                } else {
+                    TextButton(onClick = { onIntent(BatchIntent.Dismiss) }) {
+                        Text(stringResource(R.string.batch_finish))
+                    }
                 }
             }
         },
-        dismissButton =
-            if (!progress.isRunning && progress.backups.isNotEmpty()) {
-                {
-                    TextButton(onClick = { onIntent(BatchIntent.UndoAll) }) {
-                        Text(stringResource(R.string.batch_undo_all))
-                    }
+        dismissButton = {
+            AnimatedVisibility(
+                visible = !running && progress.backups.isNotEmpty(),
+                enter = fadeIn(motion.defaultEffectsSpec()),
+                exit = fadeOut(motion.fastEffectsSpec()),
+            ) {
+                TextButton(onClick = { onIntent(BatchIntent.UndoAll) }) {
+                    Text(stringResource(R.string.batch_undo_all))
                 }
-            } else null,
+            }
+        },
+    )
+}
+
+/**
+ * The fields some songs' formats could not keep. Those songs were saved, and count as saved; that
+ * what was set for them is not in them is said here, or nowhere.
+ */
+@Composable
+private fun NotStored(notStored: Map<String, Int>) {
+    if (notStored.isEmpty()) return
+    val songs = notStored.values.max()
+    // Labels first: a composable cannot be called from joinToString's lambda.
+    val fields = notStored.keys.map { fieldLabel(it) }
+    Text(
+        pluralStringResource(R.plurals.batch_not_stored, songs, songs, fields.joinToString(", ")),
+        color = MaterialTheme.colorScheme.error,
+    )
+}
+
+/** A part of the dialog that is one thing while the batch runs and another after. */
+@Composable
+private fun Replaced(running: Boolean, content: @Composable (running: Boolean) -> Unit) {
+    AnimatedContent(
+        targetState = running,
+        transitionSpec = { fadeThrough() using SizeTransform(clip = false) },
+        label = "BatchDialogPart",
+        content = { content(it) },
     )
 }
 

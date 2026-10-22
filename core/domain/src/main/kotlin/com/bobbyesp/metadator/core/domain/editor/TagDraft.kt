@@ -49,8 +49,16 @@ data class TagDraft(
 
     fun revert(key: String): TagDraft = copy(tags = tags.with(key, original.tags[key]))
 
+    /**
+     * The picture the file already has is no change: the cover finder puts it first when a source
+     * has it too, and counting it left a change that saving had nothing to write for.
+     */
     fun replaceCover(picture: EmbeddedPicture): TagDraft =
-        copy(artwork = ArtworkChange.Replace(picture))
+        copy(
+            artwork =
+                if (picture.isSameImage(original.frontCover)) ArtworkChange.Unchanged
+                else ArtworkChange.Replace(picture)
+        )
 
     fun removeCover(): TagDraft =
         copy(
@@ -61,4 +69,34 @@ data class TagDraft(
     fun revertCover(): TagDraft = copy(artwork = ArtworkChange.Unchanged)
 
     fun revertAll(): TagDraft = TagDraft(original)
+
+    /**
+     * What was edited in this draft after [earlier], a copy of it from before: the fields whose
+     * values differ since, and the cover as it is now if it changed since. The cover itself, not
+     * this draft's change of it: one put back during a save must be put back after it, when the
+     * file holds the saved one.
+     */
+    fun changesSince(earlier: TagDraft): TagChanges =
+        TagChanges(
+            fields = diff(earlier.tags, tags),
+            artwork =
+                when {
+                    artwork == earlier.artwork -> ArtworkChange.Unchanged
+                    else -> cover?.let(ArtworkChange::Replace) ?: ArtworkChange.Remove
+                },
+        )
+
+    /** This draft with [changes] made on it, as the user would make them. */
+    fun applying(changes: TagChanges): TagDraft {
+        val edited = setAll(changes.fields)
+        return when (val change = changes.artwork) {
+            ArtworkChange.Unchanged -> edited
+            ArtworkChange.Remove -> edited.removeCover()
+            is ArtworkChange.Replace -> edited.replaceCover(change.picture)
+        }
+    }
 }
+
+/** The same picture, whatever its type or description says: what a viewer would see. */
+private fun EmbeddedPicture.isSameImage(other: EmbeddedPicture?): Boolean =
+    other != null && mimeType == other.mimeType && data.contentEquals(other.data)

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="now_playing">Şimdi çalıyor</string>
     <string name="open_player">Oynatıcıyı aç</string>
     <string name="play">Çal</string>
     <string name="pause">Duraklat</string>
@@ -13,7 +12,8 @@
     <string name="edit_tags">Etiketleri düzenle</string>
     <string name="up_next">Sıradakiler</string>
     <string name="close">Kapat</string>
-    <string name="stop">Durdur</string>
+    <!-- The full player's keys, in the list of keyboard shortcuts -->
+    <string name="player_shortcuts">Oynatıcı</string>
     <string name="nothing_playing">Hiçbir şey çalmıyor</string>
     <string name="unknown_artist">Bilinmeyen sanatçı</string>
     <string name="lyrics">Şarkı sözleri</string>

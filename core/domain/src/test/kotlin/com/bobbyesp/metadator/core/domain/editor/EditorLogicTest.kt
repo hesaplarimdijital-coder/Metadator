@@ -102,6 +102,69 @@ class EditorLogicTest {
     }
 
     @Test
+    fun `choosing the cover the file already has is no change`() {
+        val same = EmbeddedPicture(byteArrayOf(1), "image/jpeg", description = "from a source")
+        val draft = TagDraft(snapshot).replaceCover(same)
+        assertEquals(ArtworkChange.Unchanged, draft.artwork)
+        assertFalse(draft.isDirty)
+
+        // Taken out and put back, it is the file's cover again.
+        assertFalse(TagDraft(snapshot).removeCover().replaceCover(same).isDirty)
+
+        val other = EmbeddedPicture(byteArrayOf(2), "image/jpeg")
+        assertEquals(ArtworkChange.Replace(other), TagDraft(snapshot).replaceCover(other).artwork)
+        val otherType = EmbeddedPicture(byteArrayOf(1), "image/png")
+        assertTrue(TagDraft(snapshot).replaceCover(otherType).isDirty)
+    }
+
+    @Test
+    fun `what changed since an earlier copy of a draft is only what came after it`() {
+        val saved = TagDraft(snapshot).set("TITLE", listOf("b"))
+        val now = saved.set("GENRE", listOf("Rock")).removeCover()
+
+        assertEquals(
+            TagChanges(fields = mapOf("GENRE" to listOf("Rock")), artwork = ArtworkChange.Remove),
+            now.changesSince(saved),
+        )
+        assertTrue(saved.changesSince(saved).isEmpty)
+    }
+
+    @Test
+    fun `what was typed during a save is still typed on the draft read after it`() {
+        val saved = TagDraft(snapshot).set("TITLE", listOf("b"))
+        val now = saved.set("TITLE", listOf("bc")).set("GENRE", listOf("Rock"))
+        val written = snapshot.copy(tags = snapshot.tags.with("TITLE", listOf("b")))
+
+        val reloaded = TagDraft(written).applying(now.changesSince(saved))
+
+        assertEquals(listOf("bc"), reloaded.tags["TITLE"])
+        assertEquals(listOf("Rock"), reloaded.tags["GENRE"])
+        assertEquals(setOf("TITLE", "GENRE"), reloaded.changedKeys)
+        assertFalse(TagDraft(written).applying(saved.changesSince(saved)).isDirty)
+    }
+
+    @Test
+    fun `a cover changed during a save is still changed after it, one put back is put back`() {
+        val old = snapshot.frontCover!!
+        val new = EmbeddedPicture(byteArrayOf(2), "image/jpeg")
+        val saved = TagDraft(snapshot).replaceCover(new)
+        val written = snapshot.copy(pictures = listOf(new))
+
+        val removed = TagDraft(written).applying(saved.removeCover().changesSince(saved))
+        assertNull(removed.cover)
+
+        val putBack = TagDraft(written).applying(saved.revertCover().changesSince(saved))
+        assertTrue(putBack.cover!!.data.contentEquals(old.data))
+        assertTrue(putBack.isCoverChanged)
+
+        val newer = EmbeddedPicture(byteArrayOf(3), "image/png")
+        val replaced = TagDraft(written).applying(saved.replaceCover(newer).changesSince(saved))
+        assertEquals(newer, replaced.cover)
+
+        assertFalse(TagDraft(written).applying(saved.changesSince(saved)).isCoverChanged)
+    }
+
+    @Test
     fun `joined mode joins only changed multi-value fields`() {
         val changes =
             TagChanges(

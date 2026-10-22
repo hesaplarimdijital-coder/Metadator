@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -32,11 +31,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.VerticalAlignCenter
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,12 +59,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import com.bobbyesp.metadator.core.designsystem.component.LoadingScreen
 import com.bobbyesp.metadator.core.designsystem.component.PlaceholderCard
+import com.bobbyesp.metadator.core.designsystem.component.StudioButton
+import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
+import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.lyrics.TrackLyrics
 import com.bobbyesp.metadator.lyrics.api.SongLyrics
 import com.bobbyesp.metadator.lyrics.api.TimedLine
@@ -84,15 +83,16 @@ import kotlinx.coroutines.flow.collectLatest
  * timed, word by word where each word is, and as plain text to read where they are not.
  *
  * @param lyrics null while they are being read
+ * @param position where the song is, which timed lyrics follow
  * @param compact whether there is little height, which calls for smaller text
  * @param bottomClearance the room whatever floats over the bottom of the pane takes
  * @param onEdit asked to open the editor, which is where lyrics are added or looked up
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LyricsPane(
     lyrics: TrackLyrics?,
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
     onEdit: () -> Unit,
     compact: Boolean,
@@ -107,7 +107,7 @@ internal fun LyricsPane(
     ) { shown ->
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             when (shown) {
-                null -> LoadingIndicator()
+                null -> LoadingScreen()
                 TrackLyrics.None ->
                     Notice(bottomClearance) {
                         PlaceholderCard(
@@ -132,11 +132,29 @@ internal fun LyricsPane(
                     when (val song = shown.lyrics) {
                         is SongLyrics.Plain -> PlainLyrics(song.text, compact, bottomClearance)
                         is SongLyrics.Synced ->
-                            SyncedLyrics(song.lines, playback, onSeek, compact, bottomClearance)
+                            SyncedLyrics(
+                                song.lines,
+                                playback,
+                                position,
+                                onSeek,
+                                compact,
+                                bottomClearance,
+                            )
                     }
             }
         }
     }
+}
+
+private object LyricsDefaults {
+    /**
+     * A line of the lyrics: a headline, a weight down from the scale's, which is calmer over a
+     * whole pane of them; smaller where there is little height.
+     */
+    @Composable
+    fun lineStyle(compact: Boolean): TextStyle =
+        if (compact) MaterialTheme.typography.headlineSmall
+        else MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold)
 }
 
 /** Scrolls, because a card with a button is taller than a phone on its side. */
@@ -152,14 +170,13 @@ private fun Notice(bottomClearance: Dp, content: @Composable () -> Unit) {
     }
 }
 
+/** Lyrics with no times in them: a text to read, at the size of the lines that follow the song. */
 @Composable
 private fun PlainLyrics(text: String, compact: Boolean, bottomClearance: Dp) {
     Text(
         text,
-        style =
-            if (compact) MaterialTheme.typography.titleMedium
-            else MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onSurface,
+        style = LyricsDefaults.lineStyle(compact).copy(fontWeight = FontWeight.Medium),
+        color = Studio.colors.text,
         modifier =
             Modifier.fillMaxSize()
                 .fadingEdges()
@@ -174,16 +191,16 @@ private fun PlainLyrics(text: String, compact: Boolean, bottomClearance: Dp) {
  * one there. Scrolling it by hand stops that, so the lyrics can be read ahead, until the user asks
  * to go back or leaves them alone for a while. Tapping a line plays from it.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SyncedLyrics(
     lines: List<TimedLine>,
     playback: PlaybackState,
+    position: PlaybackPosition,
     onSeek: (Long) -> Unit,
     compact: Boolean,
     bottomClearance: Dp,
 ) {
-    val clock = rememberPlaybackClock(playback)
+    val clock = rememberPlaybackClock(playback, position)
     // Derived, so that a clock that changes every frame recomposes only when the line does.
     val activeIndex by remember(lines, clock) { derivedStateOf { lines.indexAt(clock.positionMs) } }
     val listState = rememberLazyListState()
@@ -214,9 +231,7 @@ private fun SyncedLyrics(
         else listState.animateScrollToItem(target)
     }
 
-    val style =
-        if (compact) MaterialTheme.typography.headlineSmallEmphasized
-        else MaterialTheme.typography.headlineMediumEmphasized
+    val style = LyricsDefaults.lineStyle(compact)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
@@ -253,27 +268,22 @@ private fun SyncedLyrics(
                 Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = Spacing.large + bottomClearance),
         ) {
-            FilledTonalButton(onClick = { following = true }, shapes = ButtonDefaults.shapes()) {
-                Icon(
-                    Icons.Rounded.VerticalAlignCenter,
-                    null,
-                    Modifier.size(ButtonDefaults.IconSize),
-                )
-                Text(
-                    stringResource(R.string.back_to_current_line),
-                    Modifier.padding(start = ButtonDefaults.IconSpacing),
-                )
-            }
+            StudioButton(
+                text = stringResource(R.string.back_to_current_line),
+                onClick = { following = true },
+                icon = Icons.Rounded.VerticalAlignCenter,
+                style = StudioButtonStyle.Secondary,
+            )
         }
     }
 }
 
 /**
- * One line. The one being sung comes forward, opaque, at full size and in the primary color, and
- * the rest step back. Where its words are timed, the color also moves across it with the song and
- * each word glows as it is sung: see [drawSweep].
+ * One line. The one being sung comes forward, at full size and in the accent, and the rest rest in
+ * the color of text that is not the point. Where its words are timed, the accent also moves across
+ * it with the song, over the line lit in the text color, and each word glows as it is sung: see
+ * [drawSweep].
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LyricLine(
     line: TimedLine,
@@ -288,8 +298,11 @@ private fun LyricLine(
             animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
             label = "LyricFocus",
         )
-    val text = MaterialTheme.colorScheme.onSurface
-    val primary = MaterialTheme.colorScheme.primary
+    val colors = Studio.colors
+    // The line at rest, the line being sung where it has not been sung yet, and where it has.
+    val resting = colors.textSecondary
+    val waiting = colors.text
+    val accent = colors.accent
     var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     // Each word measured on its own, to be drawn again over itself with its glow. Only when the
     // line first needs them: most lines are never the one being sung while they are on screen.
@@ -307,12 +320,11 @@ private fun LyricLine(
     Text(
         line.text,
         style = style,
-        color = text,
+        color = resting,
         onTextLayout = { layout = it },
         modifier =
             Modifier.fillMaxWidth()
                 .graphicsLayer {
-                    alpha = lerp(REST_ALPHA, 1f, focus)
                     val scale = lerp(REST_SCALE, 1f, focus)
                     scaleX = scale
                     scaleY = scale
@@ -326,9 +338,9 @@ private fun LyricLine(
                 .padding(horizontal = Spacing.medium, vertical = Spacing.small)
                 .drawWithContent {
                     val measured = layout
-                    // The color arrives with the focus, so it is drawn here rather than given
-                    // to the text, which would recompose on every frame of the change.
-                    val lit = lerp(text, primary, focus)
+                    // The colors arrive with the focus, so they are drawn here rather than
+                    // given to the text, which would recompose on every frame of the change.
+                    val lit = lerp(resting, accent, focus)
                     when {
                         measured == null || focus <= 0f -> drawContent()
                         line.words.isEmpty() -> drawText(measured, color = lit)
@@ -342,7 +354,7 @@ private fun LyricLine(
                                 positionMs = clock.positionMs,
                                 focus = focus,
                                 lit = lit,
-                                waiting = text,
+                                waiting = lerp(resting, waiting, focus),
                             )
                     }
                 },
@@ -351,7 +363,7 @@ private fun LyricLine(
 
 /**
  * Draws a line as far as it has been sung: in the [lit] color up to the word being sung, and
- * through that word in step with it, with a soft edge. The rest waits, dimmer, in [waiting].
+ * through that word in step with it, with a soft edge. The rest waits in [waiting].
  *
  * Each word also rises a little as it is sung and stays up, and glows while it is sung and for a
  * moment after: a line is colored along its length, but shines only where the voice is, and more on
@@ -406,7 +418,7 @@ private fun DrawScope.drawSweep(
     val sweepX = if (index < 0) 0f else lerp(lefts[index], rights[index], sung)
     val sweepRow = if (index < 0) -1 else rows[index]
 
-    val unsung = waiting.copy(alpha = waiting.alpha * lerp(1f, WAITING_ALPHA, focus))
+    val unsung = waiting
     val feather = SweepFeather.toPx()
     val rise = WordRise.toPx() * focus
 
@@ -562,19 +574,15 @@ private const val RESTING_FRACTION = 0.3f
 /** How long after the user lets go of the list it follows the song again. */
 private const val RESUME_FOLLOWING_MS = 4_000L
 
-/** A line out of focus: dimmer and a little smaller. */
-private const val REST_ALPHA = 0.35f
-private const val REST_SCALE = 0.94f
-
-/** The part of the line in focus that has not been sung yet. */
-private const val WAITING_ALPHA = 0.4f
+/** A line out of focus: a little smaller. Barely, so that the lines do not seem to breathe. */
+private const val REST_SCALE = 0.96f
 
 /**
  * A word's glow. Subtle: it is there to show where the voice is, not to be looked at. It takes at
  * least [GLOW_RISE_MS] to come up and [GLOW_FADE_MS] to go, and even the shortest word shows
  * [MIN_GLOW] of what it would reach.
  */
-private const val GLOW_ALPHA = 0.7f
+private const val GLOW_ALPHA = 0.5f
 private const val GLOW_RISE_MS = 160f
 private const val GLOW_FADE_MS = 900f
 private const val MIN_GLOW = 0.35f

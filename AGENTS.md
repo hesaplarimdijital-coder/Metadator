@@ -17,12 +17,12 @@ This file is the map and the rules. How each part works, and why, is in [`docs/`
 | `:app` | Composition root: `App`, `MainActivity`, `ExternalEditorActivity`, the navigation shell, DI wiring, flavors. | The only module that names implementations. |
 | `:core:model` | `Track`, `ContentRef`, `UserSettings`… | Plain Kotlin. |
 | `:core:common` | Dispatchers, `StringProvider`, text helpers. | Plain Kotlin. |
-| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check and the check of the whole library (`quality`), the cover finder (`cover`). | Plain Kotlin. Tested on the JVM with fakes. |
+| `:core:domain` | Use cases: load, save, undo, lookup, lyrics, batch, library queries, the lossless check and the check of the whole library (`quality`), the cover finder (`cover`), garbled text (`text`), the check of the library's covers (`artwork`). | Plain Kotlin. Tested on the JVM with fakes. |
 | `:core:data` | DataStore settings, Android strings, decoding pictures for the cover finder, the lossless check's verdicts. | |
-| `:core:database` | Room: tag backups for undo. | |
+| `:core:database` | Room: tag backups for undo, the tags read from files for the library, its cover checks. | |
 | `:core:network` | Ktor client, cover downloads. | Plain Kotlin. |
 | `:core:designsystem` | Theme, tokens, blur, shared components over Material 3 Expressive, what a mouse adds (`Pointer.kt`). | No feature knowledge. |
-| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
+| `:core:ui` | `BaseViewModel`, messages, artwork and its accent color, a picked picture (`image`), track rows, field labels, keyboard shortcuts (`input`), the cover finder's sheet (`cover`). | What two features show alike goes here, not in one of them. |
 | `:core:navigation` | Keys, `Navigator`, scenes, motion. | Every `NavKey` lives here. |
 | `:tags:api` / `:tags:taglib` | Reading and writing tags. | TagLib is an `implementation` dependency: no TagLib type leaves `:tags:taglib`. |
 | `:library:api` / `:library:mediastore` | The device's songs, file access, write permission, rescans. | |
@@ -59,8 +59,8 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   module, implemented next to it.
 - What the user can cause is a result, not an exception: `SaveOutcome`, `TagReadResult`,
   `LookupResult`, `AccessResult`.
-- Test a port with a fake (see `core/domain/src/test/.../Fakes.kt`), not with a mock of the
-  framework.
+- Test a port with a fake (see `core/domain/src/testFixtures/.../Fakes.kt`), not with a mock of
+  the framework.
 
 ### ViewModels
 
@@ -118,8 +118,13 @@ Versions are in `gradle/libs.versions.toml`; the app's version in the root `buil
   into another. The blur is on what floats, never around it. A `hazeSource` is a sibling of what it
   blurs, never an ancestor, and nothing is frosted while a shared element transition runs.
 - No deprecated API: the build has no deprecation warnings, keep it so. Animate with the theme's
-  `motionScheme`, not hand-written tweens. The player sheet and predictive back are the
-  exceptions, and say why.
+  `motionScheme`, not hand-written tweens. The player sheet, predictive back, and one thing taking
+  the place of another through a fade (`ThroughFocus`, `fadeThrough`) are the exceptions, and say
+  why.
+- A phone's screens come over each other (`NavigationMotion.push`/`pop`); panels on a ground
+  change with a short shift through a fade. A list re-sorted, filtered or of another tab fades
+  through (`fadeThrough`), never crossfades; a menu keeps its items while it closes
+  (`heldWhileClosing`); a choice in a sheet closes it with its slide first (`rememberSheetClosing`).
 - Regular expressions run on Android's engine (ICU), stricter than the JVM's the tests use: escape
   every literal `}` and `]`.
 

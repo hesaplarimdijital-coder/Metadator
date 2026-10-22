@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.core.ui.cover
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -45,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,10 +58,12 @@ import com.bobbyesp.metadator.core.designsystem.component.SectionHeader
 import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
 import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
+import com.bobbyesp.metadator.core.designsystem.component.rememberSheetClosing
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.domain.cover.CoverReason
+import com.bobbyesp.metadator.core.domain.cover.CoverSearchProgress
 import com.bobbyesp.metadator.core.domain.cover.CoverSuggestion
 import com.bobbyesp.metadator.core.ui.R
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
@@ -94,9 +98,16 @@ fun CoverFinderSheet(
         CoverFinderDialog(state, onQueryChange, onSearch, onUse, onDismiss, useLabel)
         return
     }
+    val closing = rememberSheetClosing(sheetState)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         ClosesOnEscape(sheetState, onDismiss) {
-            CoverFinderContent(state, onQueryChange, onSearch, onUse, useLabel)
+            CoverFinderContent(
+                state,
+                onQueryChange,
+                onSearch,
+                onUse = { suggestion -> closing { onUse(suggestion) } },
+                useLabel,
+            )
         }
     }
 }
@@ -112,7 +123,12 @@ private fun CoverFinderContent(
 ) {
     val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp).scrollbar(listState),
+        modifier =
+            Modifier.fillMaxWidth()
+                // The sheet grows to what it finds rather than jumping to it.
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())
+                .heightIn(min = 400.dp)
+                .scrollbar(listState),
         state = listState,
         contentPadding =
             PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.huge),
@@ -145,14 +161,14 @@ private fun CoverFinderContent(
                     text = stringResource(R.string.cover_finder_search),
                     icon = Icons.Rounded.Search,
                     onClick = onSearch,
-                    enabled = state.status != CoverFinderStatus.Searching,
+                    enabled = state.status !is CoverFinderStatus.Searching,
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.small),
                 )
             }
         }
         when (val status = state.status) {
             CoverFinderStatus.Idle -> Unit
-            CoverFinderStatus.Searching ->
+            is CoverFinderStatus.Searching ->
                 item(key = "searching") {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(Spacing.huge).animateItem(),
@@ -163,6 +179,12 @@ private fun CoverFinderContent(
                         Text(
                             stringResource(R.string.cover_finder_searching),
                             style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            progressText(status.progress),
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
@@ -381,7 +403,11 @@ internal fun reasonText(reason: CoverReason, suggestion: CoverSuggestion): Strin
         CoverReason.TitleMatches -> stringResource(R.string.cover_reason_title)
         CoverReason.YearMatches -> stringResource(R.string.cover_reason_year)
         CoverReason.SeveralSources ->
-            stringResource(R.string.cover_reason_sources, suggestion.sources.size)
+            pluralStringResource(
+                R.plurals.cover_reason_sources,
+                suggestion.sources.size,
+                suggestion.sources.size,
+            )
         CoverReason.SameAsCurrent -> stringResource(R.string.cover_reason_same_as_current)
         CoverReason.LargerThanCurrent -> stringResource(R.string.cover_reason_larger)
         CoverReason.HighResolution -> stringResource(R.string.cover_reason_high_resolution)
@@ -482,3 +508,17 @@ private val MatchConfidence.icon: ImageVector
             MatchConfidence.Medium -> Icons.AutoMirrored.Rounded.HelpOutline
             MatchConfidence.Low -> Icons.Rounded.WarningAmber
         }
+
+/** How far the search has got, in a line under the wait: a long one is at least a moving one. */
+@Composable
+internal fun progressText(progress: CoverSearchProgress): String =
+    when (progress) {
+        CoverSearchProgress.Asking -> stringResource(R.string.cover_finder_asking)
+        is CoverSearchProgress.Looking ->
+            pluralStringResource(
+                R.plurals.cover_finder_looking,
+                progress.of,
+                progress.seen,
+                progress.of,
+            )
+    }

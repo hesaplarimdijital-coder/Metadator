@@ -48,6 +48,26 @@ class LookupTest {
     }
 
     @Test
+    fun `a candidate a catalogue names twice is listed once`() = runTest {
+        val twice = candidate("musicbrainz", "Bohemian Rhapsody")
+        val service =
+            LookupService(
+                listOf(
+                    Provider(
+                        "musicbrainz",
+                        LookupResult.Success(listOf(twice, twice.copy(album = "Greatest Hits"))),
+                    )
+                ),
+                FakeSettings(),
+            )
+
+        val outcome =
+            service.search(LookupQuery("Bohemian Rhapsody", "Queen")) as LookupOutcome.Results
+
+        assertEquals(1, outcome.candidates.size)
+    }
+
+    @Test
     fun `offline everywhere is offline`() = runTest {
         val service =
             LookupService(

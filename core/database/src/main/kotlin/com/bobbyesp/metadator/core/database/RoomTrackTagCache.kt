@@ -25,7 +25,9 @@ class RoomTrackTagCache(private val dao: TrackTagsDao) : TrackTagCache {
                         trackNumber = row.trackNumber,
                         discNumber = row.discNumber,
                         genre = row.genre,
+                        title = row.title,
                     ),
+                readerVersion = row.readerVersion,
             )
         }
 
@@ -43,6 +45,8 @@ class RoomTrackTagCache(private val dao: TrackTagsDao) : TrackTagCache {
                     trackNumber = entry.tags.trackNumber,
                     discNumber = entry.tags.discNumber,
                     genre = entry.tags.genre,
+                    title = entry.tags.title,
+                    readerVersion = entry.readerVersion,
                 )
             }
         )

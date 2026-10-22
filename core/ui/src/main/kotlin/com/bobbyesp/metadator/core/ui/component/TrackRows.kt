@@ -96,7 +96,7 @@ fun TrackRow(
     showDivider: Boolean = false,
 ) {
     val colors = Studio.colors
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val tint by
         animateColorAsState(
             targetValue =
@@ -212,7 +212,7 @@ private fun TrackCover(track: Track, selected: Boolean, size: Dp, corner: Dp) {
         )
     Box(contentAlignment = Alignment.Center) {
         ArtworkImage(
-            model = track.artworkRef?.uri,
+            model = track.artwork,
             contentDescription = null,
             modifier = Modifier.size(size),
             shape = RoundedCornerShape(radius),
@@ -292,14 +292,15 @@ private fun TableCells(
  * The header of a table of songs: what each column is, sorted by what it is pressed on, and a
  * checkbox that selects every song listed.
  *
- * @param sort what the songs are sorted by, and [ascending] which way
+ * @param sort what the songs are sorted by, and [ascending] which way; null for songs in an order
+ *   of their own, as an album's by disc and track, whose columns then sort nothing ([onSort] null)
  */
 @Composable
 fun TrackTableHeader(
     columns: TrackColumns,
-    sort: TrackSort,
+    sort: TrackSort?,
     ascending: Boolean,
-    onSort: (TrackSort) -> Unit,
+    onSort: ((TrackSort) -> Unit)?,
     selection: ToggleableState,
     onToggleAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -423,7 +424,7 @@ fun TrackTableRow(
             label = "TrackTableRowTint",
         )
     val shape = RoundedCornerShape(9.dp)
-    val selectedLabel = stringResource(R.string.selected)
+    val selectedLabel = stringResource(R.string.song_selected)
     val secondary = MaterialTheme.typography.bodyMedium
     TableCells(
         columns = columns,
@@ -454,7 +455,7 @@ fun TrackTableRow(
         },
         title = {
             ArtworkImage(
-                model = track.artworkRef?.uri,
+                model = track.artwork,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 shape = RoundedCornerShape(6.dp),
@@ -512,8 +513,12 @@ private fun SecondaryCell(text: String, end: Boolean = false) {
 
 /**
  * An album as a grid shows it: its cover, and its name and artist under it. No card around it: the
- * pointer lights it, as a desktop's file manager lights an icon.
+ * pointer lights it, as a desktop's file manager lights an icon. Selected, it is tinted with the
+ * accent, as a song's row is, and a check sits in its cover's corner.
+ *
+ * @param onLongClick what a long press does: selecting it, as a long press on a song does
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CollectionCard(
     title: String,
@@ -521,31 +526,51 @@ fun CollectionCard(
     artwork: Any?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    selected: Boolean = false,
 ) {
     val colors = Studio.colors
     val interactions = remember { MutableInteractionSource() }
     val hovered by interactions.collectIsHoveredAsState()
+    val tint by
+        animateColorAsState(
+            targetValue =
+                when {
+                    selected -> colors.accentSoft
+                    hovered -> colors.hover
+                    else -> Color.Transparent
+                },
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+            label = "CollectionCardTint",
+        )
+    val selectedLabel = stringResource(R.string.song_selected)
     val shape = RoundedCornerShape(14.dp)
     Column(
         modifier =
             modifier
                 .clip(shape)
-                .background(if (hovered) colors.hover else Color.Transparent, shape)
-                .clickable(
+                .background(tint, shape)
+                .combinedClickable(
                     interactionSource = interactions,
                     indication = ripple(),
                     role = Role.Button,
+                    onLongClickLabel = stringResource(R.string.select),
+                    onLongClick = onLongClick,
                     onClick = onClick,
                 )
+                .semantics { if (selected) stateDescription = selectedLabel }
                 .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ArtworkImage(
-            model = artwork,
-            contentDescription = null,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
-            shape = RoundedCornerShape(10.dp),
-        )
+        Box {
+            ArtworkImage(
+                model = artwork,
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                shape = RoundedCornerShape(10.dp),
+            )
+            SelectedBadge(selected, Modifier.align(Alignment.TopStart).padding(8.dp))
+        }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 title,
@@ -563,6 +588,30 @@ fun CollectionCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+/** The check in the corner of a selected album's cover. */
+@Composable
+private fun SelectedBadge(selected: Boolean, modifier: Modifier = Modifier) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedVisibility(
+        visible = selected,
+        enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
+        exit = scaleOut(motion.fastEffectsSpec()) + fadeOut(motion.fastEffectsSpec()),
+        modifier = modifier,
+    ) {
+        Box(
+            Modifier.size(26.dp).clip(CircleShape).background(Studio.colors.accentFill),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Check,
+                contentDescription = null,
+                tint = Studio.colors.onAccentFill,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

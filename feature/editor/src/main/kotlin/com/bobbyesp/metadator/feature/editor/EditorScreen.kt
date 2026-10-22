@@ -8,6 +8,10 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -100,7 +104,9 @@ import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.domain.editor.LoadedTrack
 import com.bobbyesp.metadator.core.domain.editor.Position
 import com.bobbyesp.metadator.core.domain.editor.TagDraft
+import com.bobbyesp.metadator.core.domain.text.textRepairs
 import com.bobbyesp.metadator.core.ui.R as CoreUiR
+import com.bobbyesp.metadator.core.ui.component.cacheKey
 import com.bobbyesp.metadator.core.ui.component.fieldLabel
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.Shortcut
@@ -111,6 +117,7 @@ import com.bobbyesp.metadator.feature.editor.components.CoverModel
 import com.bobbyesp.metadator.feature.editor.components.EditorActions
 import com.bobbyesp.metadator.feature.editor.components.EditorHeader
 import com.bobbyesp.metadator.feature.editor.components.FileInfoCard
+import com.bobbyesp.metadator.feature.editor.components.GarbledTextNotice
 import com.bobbyesp.metadator.feature.editor.components.LosslessCheckCard
 import com.bobbyesp.metadator.feature.editor.components.PositionField
 import com.bobbyesp.metadator.feature.editor.components.TagChipsField
@@ -217,27 +224,54 @@ internal fun EditorScreen(
             .imePadding()
     ) {
         if (!panels) PhoneTopBar(parts, title = stringResource(R.string.edit_tags))
-        val draft = state.draft
-        val loaded = state.loaded
-        when {
-            state.status == EditorStatus.Loading -> LoadingScreen(Modifier.weight(1f))
-            state.status != EditorStatus.Ready || draft == null || loaded == null ->
-                EditorProblem(
-                    state.status,
-                    onRetry = { onIntent(EditorIntent.Reload) },
-                    onClose = onClose,
-                    modifier = Modifier.weight(1f),
-                )
-            else -> {
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                    val columns = panels && !showClose && maxWidth >= TwoColumnWidth
-                    when {
-                        columns -> TwoColumnEditor(parts, draft, loaded, scroll)
-                        panels -> InspectorEditor(parts, draft, loaded, scroll, showClose)
-                        else -> PhoneEditor(parts, draft, loaded, scroll)
+        val phase =
+            when {
+                state.status == EditorStatus.Loading -> EditorPhase.Loading
+                state.status != EditorStatus.Ready || state.draft == null || state.loaded == null ->
+                    EditorPhase.Problem
+                else -> EditorPhase.Ready
+            }
+        // The song fades in as it is read, over the moment of nothing before it: it is usually
+        // there before the screen has finished arriving, and dropped into place mid-way.
+        val motion = MaterialTheme.motionScheme
+        AnimatedContent(
+            targetState = phase,
+            transitionSpec = {
+                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            label = "EditorPhase",
+        ) { shown ->
+            when (shown) {
+                EditorPhase.Loading -> LoadingScreen(Modifier.fillMaxSize())
+                EditorPhase.Problem ->
+                    EditorProblem(
+                        state.status,
+                        onRetry = { onIntent(EditorIntent.Reload) },
+                        onClose = onClose,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                EditorPhase.Ready -> {
+                    val draft = state.draft
+                    val loaded = state.loaded
+                    if (draft != null && loaded != null) {
+                        Column(Modifier.fillMaxSize()) {
+                            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                                val columns =
+                                    panels &&
+                                        !showClose &&
+                                        maxWidth >= StudioDefaults.TwoColumnEditorWidth
+                                when {
+                                    columns -> TwoColumnEditor(parts, draft, loaded, scroll)
+                                    panels ->
+                                        InspectorEditor(parts, draft, loaded, scroll, showClose)
+                                    else -> PhoneEditor(parts, draft, loaded, scroll)
+                                }
+                            }
+                            EditorFooter(state, onIntent, phone = !panels)
+                        }
                     }
                 }
-                EditorFooter(state, onIntent, phone = !panels)
             }
         }
     }
@@ -268,6 +302,13 @@ internal fun EditorScreen(
     }
 }
 
+/** What the editor shows: the song, or what stands in for it. */
+private enum class EditorPhase {
+    Loading,
+    Problem,
+    Ready,
+}
+
 /** What the pieces of the editor are asked to do, handed down to them. */
 private class EditorParts(
     val state: EditorState,
@@ -277,9 +318,6 @@ private class EditorParts(
     val onChangeCover: () -> Unit,
     val onClose: () -> Unit,
 )
-
-/** Wide enough, filling a window, for the cover and the file beside the fields. */
-private val TwoColumnWidth = 760.dp
 
 /** The editor beside the library: one column, its head the cover beside the song's name. */
 @Composable
@@ -409,6 +447,9 @@ private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
         cover =
             CoverModel(
                 cover = draft.cover?.data,
+                preview = state.coverPreview,
+                // The row's thumbnail of the song, until the picture itself is decoded.
+                placeholderKey = state.loaded?.track?.artwork?.cacheKey,
                 info = state.coverInfo,
                 changed = draft.isCoverChanged,
                 hasOriginal = draft.original.frontCover != null,
@@ -447,7 +488,12 @@ private fun Head(parts: EditorParts, centered: Boolean, closeable: Boolean) {
 @Composable
 private fun fileFacts(state: EditorState): List<String> {
     val loaded = state.loaded ?: return emptyList()
-    val bits = (state.lossless as? LosslessCheckState.Done)?.report?.bitsPerSample
+    val bits =
+        when (val lossless = state.lossless) {
+            is LosslessCheckState.Checking -> lossless.bitsPerSample
+            is LosslessCheckState.Done -> lossless.report.bitsPerSample
+            else -> null
+        }
     val audio = loaded.audio
     // One chip each, so that the head wraps them where it is narrow rather than cutting one short.
     return listOfNotNull(
@@ -755,6 +801,17 @@ private fun Fields(parts: EditorParts, draft: TagDraft) {
     val separator = state.settings.multiValueSeparator
     val missing = EssentialFields.filter { field -> draft.tags[field.key].all { it.isBlank() } }
     if (missing.isNotEmpty()) AttentionNotice(missing.map { fieldLabel(it.key) })
+    // The file's own text garbled, as TagLib reads it: offered put right, to save as any change.
+    val repairs = remember(draft.tags) { draft.tags.textRepairs() }
+    if (repairs.isNotEmpty()) {
+        GarbledTextNotice(
+            suggestions =
+                repairs.map { (key, values) ->
+                    fieldLabel(key) to values.joinToString(", ") { it.lineSequence().first() }
+                },
+            onRepair = { onIntent(EditorIntent.RepairText) },
+        )
+    }
 
     Section(stringResource(R.string.section_main)) {
         FieldInput(TagField.Title, draft, separator, onIntent)

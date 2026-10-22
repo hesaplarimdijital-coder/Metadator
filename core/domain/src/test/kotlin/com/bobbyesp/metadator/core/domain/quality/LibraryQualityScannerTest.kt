@@ -30,17 +30,6 @@ class LibraryQualityScannerTest {
             mp3.ref to ByteArray(8_192) { (it * 7).toByte() },
         )
 
-    private class MemoryStore(initial: List<StoredVerdict> = emptyList()) : QualityStore {
-        val saved = initial.toMutableList()
-
-        override suspend fun load(): List<StoredVerdict> = saved.toList()
-
-        override suspend fun save(verdict: StoredVerdict) {
-            saved.removeAll { it.uri == verdict.uri }
-            saved += verdict
-        }
-    }
-
     /**
      * A scanner working in the test's background scope, as it works in the app's. advanceUntilIdle
      * leaves the background alone once nothing else is left, so the tests run it with runCurrent:
@@ -62,7 +51,7 @@ class LibraryQualityScannerTest {
 
     @Test
     fun `every lossless song is checked and remembered, and a lossy one is not`() = runTest {
-        val store = MemoryStore()
+        val store = MemoryQualityStore()
         val scanner = scanner(store)
 
         scanner.submit(listOf(flac, fake, mp3))
@@ -85,7 +74,7 @@ class LibraryQualityScannerTest {
         // Nothing can be opened: a song that were checked again would come out unreadable.
         val scanner =
             scanner(
-                MemoryStore(listOf(kept.copy(verdict = LosslessVerdict.Lossless))),
+                MemoryQualityStore(listOf(kept.copy(verdict = LosslessVerdict.Lossless))),
                 opened = emptyMap(),
             )
 
@@ -104,7 +93,7 @@ class LibraryQualityScannerTest {
                 modifiedEpochSeconds = fake.dateModifiedEpochSeconds - 60,
                 verdict = LosslessVerdict.Lossless,
             )
-        val scanner = scanner(MemoryStore(listOf(before)))
+        val scanner = scanner(MemoryQualityStore(listOf(before)))
 
         scanner.submit(listOf(fake))
         runCurrent()
@@ -114,7 +103,7 @@ class LibraryQualityScannerTest {
 
     @Test
     fun `a song added to the library later is checked too`() = runTest {
-        val scanner = scanner(MemoryStore())
+        val scanner = scanner(MemoryQualityStore())
 
         scanner.submit(listOf(flac))
         runCurrent()
@@ -127,7 +116,7 @@ class LibraryQualityScannerTest {
 
     @Test
     fun `a verdict made elsewhere is kept, and the song is not checked again`() = runTest {
-        val store = MemoryStore()
+        val store = MemoryQualityStore()
         // Nothing can be opened: a song checked here would come out unreadable.
         val scanner = scanner(store, opened = emptyMap())
 

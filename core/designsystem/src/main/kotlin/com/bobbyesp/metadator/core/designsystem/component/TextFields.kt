@@ -59,6 +59,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -332,6 +337,10 @@ fun FieldWell(
  * The search field of a toolbar: a well with a magnifier, the key that comes to it written at its
  * end, and a way to clear it once something is typed.
  *
+ * Esc is the field's while it has the focus: it clears what is typed, and with nothing typed gives
+ * the focus up. Left alone, Esc went on to be Back, which in the library goes to the place visited
+ * before: an Esc meant for the field changed the list under it.
+ *
  * @param shortcut the keys that bring the focus here, shown while nothing is typed
  */
 @Composable
@@ -364,9 +373,20 @@ fun StudioSearchField(
     BasicTextField(
         state = state,
         modifier =
-            modifier.then(
-                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
-            ),
+            modifier
+                .then(
+                    if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                    else Modifier
+                )
+                .onPreviewKeyEvent { event ->
+                    if (event.key != Key.Escape) return@onPreviewKeyEvent false
+                    // Both halves are taken, so that the window gets neither and makes no Back.
+                    if (event.type == KeyEventType.KeyUp) {
+                        if (state.text.isNotEmpty()) state.clearText()
+                        else focusManager.clearFocus()
+                    }
+                    true
+                },
         enabled = enabled,
         lineLimits = TextFieldLineLimits.SingleLine,
         textStyle = style,
@@ -465,7 +485,7 @@ private fun rememberMirroredTextFieldState(
 }
 
 /** What a field and its screen have said to each other, so that neither takes its echo for news. */
-private class TextMirror(initial: String) {
+internal class TextMirror(initial: String) {
     /** What the field said last, or the screen set last. */
     var said: String = initial
         private set

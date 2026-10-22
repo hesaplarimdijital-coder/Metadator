@@ -6,6 +6,7 @@
     <string name="saving">Guardando…</string>
     <string name="saved">Guardado</string>
     <string name="saved_some_unsupported">Guardado. Este formato no admite: %1$s</string>
+    <string name="save_nothing_to_write">Nada que guardar: el archivo ya tiene estas etiquetas</string>
     <string name="undo">Deshacer</string>
     <string name="undone">Cambios deshechos</string>
     <string name="undo_unavailable">Las etiquetas originales ya no están disponibles</string>
@@ -23,13 +24,13 @@
     <string name="play_unavailable">Solo se pueden reproducir las canciones de tu biblioteca</string>
 
     <string name="needs_attention_title">Necesita atención</string>
+    <string name="garbled_text_suggestion">%1$s: ¿%2$s?</string>
+    <string name="garbled_text_repair">Corregir</string>
     <string name="section_main">Canción</string>
-    <string name="section_track">Pista</string>
     <string name="section_credits">Créditos</string>
     <string name="section_more">Más</string>
     <string name="section_lyrics">Letra</string>
     <string name="section_all_tags">Todas las etiquetas</string>
-    <string name="section_file">Archivo</string>
     <string name="all_tags_description">El resto de etiquetas del archivo. Se mantienen tal cual salvo que las cambies aquí.</string>
 
     <string name="add_value">Añadir otro</string>
@@ -44,12 +45,12 @@
     <string name="cover_size">%1$d × %2$d px</string>
     <string name="cover_small_warning">Portada pequeña: puede verse borrosa en pantallas grandes</string>
     <string name="cover_unreadable">No se pudo leer esa imagen</string>
-    <string name="cover_none">Sin portada</string>
 
     <string name="lyrics_find">Buscar letra</string>
     <string name="lyrics_synced">Sincronizada</string>
     <string name="lyrics_found_synced">Letra sincronizada añadida</string>
     <string name="lyrics_found_plain">Letra añadida</string>
+    <string name="lyrics_already_there">El archivo ya tiene esta letra</string>
     <string name="lyrics_not_found">No se encontró la letra de esta canción</string>
     <string name="lyrics_instrumental">Esta canción es instrumental</string>
     <string name="lyrics_failed">No se pudo buscar la letra</string>
@@ -151,6 +152,12 @@
     <string name="action_lyrics">Letra</string>
     <plurals name="changes_count">
         <item quantity="one">%1$d cambio</item>
+        <item quantity="many">%1$d cambios</item>
         <item quantity="other">%1$d cambios</item>
+    </plurals>
+    <plurals name="garbled_text_title">
+        <item quantity="one">Este texto parece dañado</item>
+        <item quantity="many">Estos textos parecen dañados</item>
+        <item quantity="other">Estos textos parecen dañados</item>
     </plurals>
 </resources>

@@ -10,6 +10,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
@@ -37,10 +38,16 @@ object NavigationMotion {
     private val Leave = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 
     /**
-     * Forward: the new screen fades up from a little way towards the end, as the old one fades away
-     * a little way towards the start. A short shift through a fade, as a desktop tool changes what
-     * it shows: a whole screen sliding over another, which steps back under it, is a phone's way,
-     * and in the Studio look it put two screens in sight at once.
+     * What is left of the screen behind while another covers it: dimmed, not gone, so that the
+     * strip of it still uncovered as the other slides over it is the same screen stepping back.
+     */
+    private const val BEHIND_ALPHA = 0.6f
+
+    /**
+     * Forward on a wide window: the new screen fades up from a little way towards the end, as the
+     * old one fades away a little way towards the start. A short shift through a fade, as a desktop
+     * tool changes what it shows: a whole screen sliding over another is a phone's way, and between
+     * panels on a ground it put two screens in sight at once.
      *
      * @param shift how far each screen moves, in pixels: a set distance, not a share of a window
      *   that may be as wide as a monitor
@@ -59,7 +66,7 @@ object NavigationMotion {
         return arriving togetherWith leaving
     }
 
-    /** Backward: [forward] the other way round. */
+    /** Backward on a wide window: [forward] the other way round. */
     fun AnimatedContentTransitionScope<*>.backward(
         motion: MotionScheme,
         shift: Int,
@@ -71,6 +78,31 @@ object NavigationMotion {
         val leaving =
             slideOutOfContainer(SlideDirection.End, travel) { shift } +
                 fadeOut(motion.fastEffectsSpec())
+        return arriving togetherWith leaving
+    }
+
+    /**
+     * Forward on a phone: the new screen comes in over the old one from the end of the window, and
+     * the old one steps back under it, a little smaller and dimmed, the way the back gesture finds
+     * it. A screen that only faded in was a flash: it was over before it read as a move.
+     */
+    fun AnimatedContentTransitionScope<*>.push(motion: MotionScheme): ContentTransform {
+        val arriving = slideIntoContainer(SlideDirection.Start, motion.screenTravel()) { it }
+        val leaving =
+            scaleOut(motion.defaultSpatialSpec(), targetScale = BEHIND_SCALE) +
+                fadeOut(motion.defaultEffectsSpec(), targetAlpha = BEHIND_ALPHA)
+        return arriving togetherWith leaving
+    }
+
+    /**
+     * Backward on a phone: [push] the other way round, and the same leaving as the back gesture's,
+     * so that a tap on Back and a swipe end alike.
+     */
+    fun AnimatedContentTransitionScope<*>.pop(motion: MotionScheme): ContentTransform {
+        val arriving =
+            scaleIn(motion.defaultSpatialSpec(), initialScale = BEHIND_SCALE) +
+                fadeIn(motion.defaultEffectsSpec(), initialAlpha = BEHIND_ALPHA)
+        val leaving = slideOutOfContainer(SlideDirection.End, motion.screenTravel()) { it }
         return arriving togetherWith leaving
     }
 
@@ -87,6 +119,17 @@ object NavigationMotion {
             fadeIn(tween(GESTURE_MS / 3, easing = LinearEasing))) togetherWith
             (scaleOut(tween(GESTURE_MS, easing = Peek), targetScale = HELD_SCALE) +
                 slideOutHorizontally(tween(GESTURE_MS, easing = Leave)) { direction * it })
+    }
+
+    /**
+     * The theme's spatial spring, for a whole screen: at the pixel, and with no bounce. The spring
+     * is made to overshoot a little, which a button's corner wears well and a screen does not: the
+     * width of the window past its place and back is a screen that lands and rebounds.
+     */
+    private fun MotionScheme.screenTravel(): FiniteAnimationSpec<IntOffset> {
+        val spec = defaultSpatialSpec<IntOffset>()
+        val stiffness = (spec as? SpringSpec)?.stiffness ?: Spring.StiffnessMediumLow
+        return spring(Spring.DampingRatioNoBouncy, stiffness, IntOffset.VisibilityThreshold)
     }
 
     /**

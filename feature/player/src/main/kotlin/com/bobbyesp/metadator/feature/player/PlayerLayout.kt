@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 
 /**
  * How the full player is laid out. The player is not a destination and does not measure the window
@@ -33,13 +33,10 @@ enum class PlayerLayout {
         /** The layout for a window of this size. */
         fun forWindow(width: Dp, height: Dp): PlayerLayout =
             when {
-                width < SideBySideMinWidth || width <= height -> Stacked
-                height < ControlsMinHeight -> SideBySideCompact
+                width < StudioDefaults.SideBySidePlayerWidth || width <= height -> Stacked
+                height < StudioDefaults.PlayerControlsHeight -> SideBySideCompact
                 else -> SideBySide
             }
-
-        private val SideBySideMinWidth = 600.dp
-        private val ControlsMinHeight = 600.dp
     }
 }
 
@@ -50,9 +47,18 @@ enum class PlayerLayout {
 @Stable
 class PlayerSheetExpansion internal constructor() {
     internal var source: (() -> Float)? by mutableStateOf(null)
+    internal var openSource: (() -> Boolean)? by mutableStateOf(null)
 
     val fraction: Float
         get() = source?.invoke() ?: 0f
+
+    /**
+     * Whether the full player is open or on its way there: from the moment it is asked to open,
+     * where [fraction] still says the bar, and through a resting spring that [fraction] can leave a
+     * hair short of 1.
+     */
+    val isOpen: Boolean
+        get() = openSource?.invoke() ?: false
 }
 
 @Composable

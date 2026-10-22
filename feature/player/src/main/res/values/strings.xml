@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="now_playing">Now playing</string>
     <string name="open_player">Open the player</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
@@ -13,7 +12,8 @@
     <string name="edit_tags">Edit tags</string>
     <string name="up_next">Up next</string>
     <string name="close">Close</string>
-    <string name="stop">Stop</string>
+    <!-- The full player's keys, in the list of keyboard shortcuts -->
+    <string name="player_shortcuts">Player</string>
     <string name="nothing_playing">Nothing is playing</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="lyrics">Lyrics</string>

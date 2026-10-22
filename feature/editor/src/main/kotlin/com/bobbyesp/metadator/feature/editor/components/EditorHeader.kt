@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -66,13 +67,20 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioTone
 import com.bobbyesp.metadator.core.designsystem.component.Tooltip
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
 import com.bobbyesp.metadator.core.ui.component.ArtworkImage
+import com.bobbyesp.metadator.core.ui.image.ImageInfo
 import com.bobbyesp.metadator.core.ui.input.shortcutHint
-import com.bobbyesp.metadator.feature.editor.ImageInfo
 import com.bobbyesp.metadator.feature.editor.R
 
-/** The cover and what it is: the picture, and what can be done with it from its menu. */
+/**
+ * The cover and what it is: the picture, and what can be done with it from its menu.
+ *
+ * @param preview a small copy of a cover on its way, shown in its place while [loading]
+ * @param placeholderKey where the library's thumbnail of this cover is cached, to start from
+ */
 class CoverModel(
     val cover: ByteArray?,
+    val preview: String? = null,
+    val placeholderKey: String? = null,
     val info: ImageInfo?,
     val changed: Boolean,
     val hasOriginal: Boolean,
@@ -229,8 +237,9 @@ private fun Cover(
     Box(modifier.size(size)) {
         Tooltip(stringResource(R.string.cover)) {
             ArtworkImage(
-                model = cover.cover,
+                model = if (cover.loading) cover.preview ?: cover.cover else cover.cover,
                 contentDescription = stringResource(R.string.cover),
+                placeholderKey = cover.placeholderKey,
                 modifier =
                     Modifier.size(size)
                         .shadow(10.dp, shape, ambientColor = Studio.colors.ground)
@@ -452,5 +461,55 @@ fun AttentionNotice(missing: List<String>, modifier: Modifier = Modifier) {
                 color = colors.textSecondary,
             )
         }
+    }
+}
+
+/**
+ * Fields whose text looks garbled, as a tag decoded with the wrong character set does, each with
+ * what it most likely says ("Album artist: Moğollar?"), and the one action that takes those as
+ * changes to save.
+ *
+ * @param suggestions each field's name and its text put right
+ */
+@Composable
+fun GarbledTextNotice(
+    suggestions: List<Pair<String, String>>,
+    onRepair: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Studio.colors
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(colors.warningSoft, shape)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Rounded.Warning,
+            contentDescription = null,
+            tint = colors.warning,
+            modifier = Modifier.size(18.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                pluralStringResource(R.plurals.garbled_text_title, suggestions.size),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = colors.text,
+            )
+            suggestions.forEach { (field, text) ->
+                Text(
+                    stringResource(R.string.garbled_text_suggestion, field, text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        StudioButton(text = stringResource(R.string.garbled_text_repair), onClick = onRepair)
     }
 }

@@ -5,6 +5,7 @@ package com.bobbyesp.metadator.feature.batch
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +20,8 @@ import com.bobbyesp.metadator.core.ui.cover.CoverFinderSheet
 import com.bobbyesp.metadator.core.ui.cover.CoverFinderViewModel
 import com.bobbyesp.metadator.core.ui.viewmodel.CollectEffects
 import com.bobbyesp.metadator.core.ui.viewmodel.ShowMessages
+import com.bobbyesp.metadator.core.ui.viewmodel.rememberIntents
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -29,26 +32,43 @@ import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
     entry<BatchEditor>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-        val id = key.uris.hashCode().toString()
-        val viewModel: BatchViewModel = koinViewModel(key = id) { parametersOf(key.uris) }
-        val covers: CoverFinderViewModel = koinViewModel(key = "covers:$id")
+        // Each entry has a store of its own (rememberViewModelStoreNavEntryDecorator): no key is
+        // needed to tell one batch from another, nor one made from all of its songs.
+        val viewModel: BatchViewModel = koinViewModel { parametersOf(key.ids) }
+        val covers: CoverFinderViewModel = koinViewModel()
+        val lookup: AlbumLookupViewModel = koinViewModel()
         val state by viewModel.state.collectAsStateWithLifecycle()
         val coverState by covers.state.collectAsStateWithLifecycle()
+        val lookupState by lookup.state.collectAsStateWithLifecycle()
         // Not saved: what it showed would be gone with the process, and the songs not yet read.
         var showCovers by remember { mutableStateOf(false) }
+        var showLookup by remember { mutableStateOf(false) }
+        // The library beside it shows its selection here as it changes: never in place of edits
+        // not yet applied, nor of the dialog that says how applying them went.
+        val holding = !state.edit.isEmpty || state.progress != null
+        LaunchedEffect(holding) { navigator.hold(key, holding) }
         ShowMessages(viewModel.messages)
         viewModel.effects.CollectEffects { effect ->
             when (effect) {
-                BatchEffect.Close -> navigator.removeDestination(key)
+                // Asked from the dialog that says the batch is done: the dialog goes first, then
+                // the screen. Leaving together, the dialog's last frames stood over the library.
+                BatchEffect.Close -> {
+                    delay(DialogLeaveMillis)
+                    navigator.removeDestination(key)
+                }
                 is BatchEffect.FindCover -> {
                     covers.start(effect.request)
                     showCovers = true
+                }
+                is BatchEffect.FindMetadata -> {
+                    lookup.start(effect.query)
+                    showLookup = true
                 }
             }
         }
         BatchScreen(
             state = state,
-            onIntent = viewModel::onIntent,
+            onIntent = rememberIntents(viewModel),
             onClose = { navigator.removeDestination(key) },
         )
 
@@ -71,5 +91,22 @@ fun EntryProviderScope<NavKey>.batchSection(navigator: Navigator) {
                     ),
             )
         }
+
+        if (showLookup) {
+            AlbumLookupSheet(
+                state = lookupState,
+                songCount = state.files.size,
+                onQueryChange = lookup::setQuery,
+                onSearch = lookup::search,
+                onUse = { proposal ->
+                    viewModel.onIntent(BatchIntent.UseAlbum(proposal))
+                    showLookup = false
+                },
+                onDismiss = { showLookup = false },
+            )
+        }
     }
 }
+
+/** How long Material's dialog takes to go: its fade, with a frame to spare. */
+private const val DialogLeaveMillis = 180L

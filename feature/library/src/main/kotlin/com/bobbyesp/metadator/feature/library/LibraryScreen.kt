@@ -5,9 +5,10 @@ package com.bobbyesp.metadator.feature.library
 
 import android.text.format.Formatter
 import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,6 +38,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.HideImage
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -60,6 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,7 +73,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +83,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.bobbyesp.metadator.core.designsystem.component.ActionChip
 import com.bobbyesp.metadator.core.designsystem.component.ActionMenu
 import com.bobbyesp.metadator.core.designsystem.component.Choice
@@ -88,19 +99,26 @@ import com.bobbyesp.metadator.core.designsystem.component.PopupMenu
 import com.bobbyesp.metadator.core.designsystem.component.PopupMenuGroup
 import com.bobbyesp.metadator.core.designsystem.component.StudioButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioButtonStyle
+import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.component.StudioDivider
 import com.bobbyesp.metadator.core.designsystem.component.StudioIconButton
 import com.bobbyesp.metadator.core.designsystem.component.StudioMenuDivider
 import com.bobbyesp.metadator.core.designsystem.component.StudioMenuItem
 import com.bobbyesp.metadator.core.designsystem.component.StudioSearchField
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
+import com.bobbyesp.metadator.core.designsystem.component.Tooltip
+import com.bobbyesp.metadator.core.designsystem.component.fadeThrough
+import com.bobbyesp.metadator.core.designsystem.component.heldWhileClosing
 import com.bobbyesp.metadator.core.designsystem.component.studioPanel
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.Studio
+import com.bobbyesp.metadator.core.domain.library.LibraryFilter
 import com.bobbyesp.metadator.core.domain.library.Storage
+import com.bobbyesp.metadator.core.model.SortOrder
 import com.bobbyesp.metadator.core.model.Track
 import com.bobbyesp.metadator.core.model.TrackCollection
 import com.bobbyesp.metadator.core.model.TrackSort
+import com.bobbyesp.metadator.core.navigation.LocalShownDetail
 import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
 import com.bobbyesp.metadator.core.ui.input.LocalShortcutDispatcher
 import com.bobbyesp.metadator.core.ui.input.Shortcut
@@ -132,7 +150,24 @@ internal fun LibraryScreen(
     val permission = rememberAudioPermissionState()
     val granted = permission.status == PermissionStatus.Granted
     LaunchedEffect(permission.status) { if (granted) onIntent(LibraryIntent.Start) }
-    BackHandler(enabled = state.selecting) { onIntent(LibraryIntent.ClearSelection) }
+    // Back ends the selection first.
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = state.selecting,
+        onBackCompleted = { onIntent(LibraryIntent.ClearSelection) },
+    )
+    // Then the place visited before this one, as a browser's Back: once nothing is beside the
+    // library, which Back closes first, and before the library is left. Albums, artists or folders
+    // selected are a selection too, which Back ends first (CollectionPlaceShortcuts).
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled =
+            state.history.isNotEmpty() &&
+                !state.selecting &&
+                !state.selectingCollections &&
+                LocalShownDetail.current == null,
+        onBackCompleted = { onIntent(LibraryIntent.BackToPlace) },
+    )
 
     val searchFocus = remember { FocusRequester() }
     LibraryShortcuts(
@@ -149,18 +184,32 @@ internal fun LibraryScreen(
         if (shortcuts != null && hasHardwareKeyboard()) {
             { shortcuts.isHelpRequested = true }
         } else null
+    // One instance for as long as what it holds is the same: every row's callbacks close over it,
+    // and a new one each time the library changed made every row in sight draw itself again.
     val actions =
-        LibraryActions(
-            onIntent = onIntent,
-            onOpenTrack = onOpenTrack,
-            onFindCover = onFindCover,
-            onOpenCollection = onOpenCollection,
-            onEditTracks = onEditTracks,
-            onOpenInNewWindow = onOpenInNewWindow,
-            onOpenSettings = onOpenSettings,
-            onOpenFile = onOpenFile,
-            onShowShortcuts = showShortcuts,
-        )
+        remember(
+            onIntent,
+            onOpenTrack,
+            onFindCover,
+            onOpenCollection,
+            onEditTracks,
+            onOpenInNewWindow,
+            onOpenSettings,
+            onOpenFile,
+            showShortcuts,
+        ) {
+            LibraryActions(
+                onIntent = onIntent,
+                onOpenTrack = onOpenTrack,
+                onFindCover = onFindCover,
+                onOpenCollection = onOpenCollection,
+                onEditTracks = onEditTracks,
+                onOpenInNewWindow = onOpenInNewWindow,
+                onOpenSettings = onOpenSettings,
+                onOpenFile = onOpenFile,
+                onShowShortcuts = showShortcuts,
+            )
+        }
     val content: @Composable (wide: Boolean) -> Unit = { wide ->
         when {
             !granted ->
@@ -182,6 +231,7 @@ internal fun LibraryScreen(
 }
 
 /** What the library can be asked to do, handed down to the pieces that ask. */
+@Stable
 internal class LibraryActions(
     val onIntent: (LibraryIntent) -> Unit,
     val onOpenTrack: (Track) -> Unit,
@@ -195,9 +245,6 @@ internal class LibraryActions(
     /** Null where there are no keys to press. */
     val onShowShortcuts: (() -> Unit)?,
 )
-
-/** The narrowest library that has room for its sidebar beside the songs. */
-private val SidebarFrom = 900.dp
 
 /**
  * The library on a wide window: its sidebar when there is room for one, and its panel, whose
@@ -217,7 +264,7 @@ private fun PanelLibrary(
     val appName =
         remember(context) { context.applicationInfo.loadLabel(context.packageManager).toString() }
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val sidebar = maxWidth >= SidebarFrom
+        val sidebar = maxWidth >= StudioDefaults.SidebarLibraryWidth
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (sidebar) {
                 LibrarySidebar(
@@ -226,7 +273,7 @@ private fun PanelLibrary(
                     onIntent = actions.onIntent,
                     onOpenSettings = actions.onOpenSettings,
                     onShowShortcuts = actions.onShowShortcuts,
-                    modifier = Modifier.width(228.dp),
+                    modifier = Modifier.width(StudioDefaults.SidebarWidth),
                 )
             }
             Column(Modifier.weight(1f).fillMaxHeight().studioPanel()) {
@@ -255,7 +302,9 @@ private fun PanelLibrary(
                     )
                 }
                 if (granted && !state.loading) {
-                    PanelHeader(state, actions)
+                    CollectionSelectionHead(state, actions, wide = true) {
+                        PanelHeader(state, actions)
+                    }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) { content() }
             }
@@ -305,8 +354,8 @@ private fun PanelToolbar(
 
 /**
  * The filters: the lists of songs that ask for something to be done, where nothing else offers
- * them, then the formats. The lists come first: they are what is looked for here, a format is a way
- * to narrow down.
+ * them, then the songs without a cover, then the formats. The lists come first: they are what is
+ * looked for here, a format is a way to narrow down.
  */
 @Composable
 private fun FilterChips(
@@ -333,7 +382,17 @@ private fun FilterChips(
                 iconTint = Studio.colors.danger,
             )
         }
+        if (state.garbledCount > 0 || state.filter.garbledText) {
+            ToggleChip(
+                selected = state.filter.garbledText,
+                onClick = { onIntent(LibraryIntent.ToggleGarbledText) },
+                label = stringResource(R.string.garbled_text_filter, state.garbledCount),
+                icon = Icons.Outlined.Translate,
+                iconTint = Studio.colors.warning,
+            )
+        }
     }
+    NoCoverChip(state, onIntent)
     if (state.formats.size > 1) {
         state.formats.forEach { format ->
             ToggleChip(
@@ -342,6 +401,46 @@ private fun FilterChips(
                 label = format.uppercase(),
             )
         }
+    }
+}
+
+/**
+ * The songs without a cover, and in the albums and the artists those with one such song: an album
+ * missing covers is what a cover is found for. What it counts and says follows the tab, and what it
+ * means exactly is said when it is pointed at.
+ */
+@Composable
+private fun NoCoverChip(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
+    val (count, label, description) =
+        when (state.tab) {
+            LibraryTab.Songs ->
+                Triple(
+                    state.noCoverCount,
+                    R.string.no_cover_filter,
+                    R.string.no_cover_songs_description,
+                )
+            LibraryTab.Albums ->
+                Triple(
+                    state.albumsWithoutCover,
+                    R.string.missing_covers_filter,
+                    R.string.no_cover_albums_description,
+                )
+            LibraryTab.Artists ->
+                Triple(
+                    state.artistsWithoutCover,
+                    R.string.missing_covers_filter,
+                    R.string.no_cover_artists_description,
+                )
+            LibraryTab.Folders -> return
+        }
+    if (count == 0 && !state.filter.noCover) return
+    Tooltip(stringResource(description)) {
+        ToggleChip(
+            selected = state.filter.noCover,
+            onClick = { onIntent(LibraryIntent.ToggleNoCover) },
+            label = stringResource(label, count),
+            icon = Icons.Outlined.HideImage,
+        )
     }
 }
 
@@ -367,6 +466,7 @@ private fun SortMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
 ) {
+    val order = heldWhileClosing(expanded, state.sort)
     PopupMenu(expanded = expanded, onDismissRequest = onDismiss) {
         PopupMenuGroup {
             TrackSort.entries.forEach { sort ->
@@ -376,23 +476,21 @@ private fun SortMenu(
                         onIntent(LibraryIntent.Sort(sort))
                         onDismiss()
                     },
-                    checked = state.sort.sort == sort,
+                    checked = order.sort == sort,
                 )
             }
             StudioMenuDivider()
             StudioMenuItem(
                 text =
                     stringResource(
-                        if (state.sort.ascending) R.string.sort_descending
-                        else R.string.sort_ascending
+                        if (order.ascending) R.string.sort_descending else R.string.sort_ascending
                     ),
                 onClick = {
                     onIntent(LibraryIntent.ToggleSortDirection)
                     onDismiss()
                 },
                 icon =
-                    if (state.sort.ascending) Icons.Rounded.ArrowDownward
-                    else Icons.Rounded.ArrowUpward,
+                    if (order.ascending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
             )
         }
     }
@@ -478,36 +576,7 @@ private fun PanelHeader(state: LibraryState, actions: LibraryActions) {
             verticalAlignment = Alignment.Bottom,
         ) {
             if (selecting) {
-                Text(
-                    pluralStringResource(
-                        R.plurals.selected_songs,
-                        state.selection.size,
-                        state.selection.size,
-                    ),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Studio.colors.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                StudioButton(
-                    text = stringResource(R.string.edit_together),
-                    onClick = { actions.onEditTracks(state.selectedTracks) },
-                    icon = Icons.Rounded.EditNote,
-                    style = StudioButtonStyle.Primary,
-                    shortcut = shortcutHint(KeyEvent.KEYCODE_E, ctrl = true),
-                )
-                StudioButton(
-                    text = stringResource(R.string.play_selection),
-                    onClick = { onIntent(LibraryIntent.PlaySelection) },
-                    icon = Icons.Rounded.PlayArrow,
-                )
-                StudioButton(
-                    text = stringResource(R.string.close_selection),
-                    onClick = { onIntent(LibraryIntent.ClearSelection) },
-                    style = StudioButtonStyle.Ghost,
-                    shortcut = shortcutHint(KeyEvent.KEYCODE_ESCAPE),
-                )
+                SelectionActions(state, actions)
             } else {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -548,6 +617,51 @@ private fun PanelHeader(state: LibraryState, actions: LibraryActions) {
     }
 }
 
+/**
+ * How many songs are selected, and what to do with them: edit them together, play them, or stop
+ * selecting. Over the library's songs on a wide window, and over a collection's.
+ */
+@Composable
+internal fun RowScope.SelectionActions(state: LibraryState, actions: LibraryActions) {
+    val onIntent = actions.onIntent
+    Text(
+        pluralStringResource(R.plurals.selected_songs, state.selection.size, state.selection.size),
+        modifier = Modifier.weight(1f),
+        style = MaterialTheme.typography.titleLarge,
+        color = Studio.colors.text,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+    StudioButton(
+        text = stringResource(R.string.edit_together),
+        onClick = { actions.onEditTracks(state.selectedTracks) },
+        icon = Icons.Rounded.EditNote,
+        style = StudioButtonStyle.Primary,
+        shortcut = shortcutHint(KeyEvent.KEYCODE_E, ctrl = true),
+    )
+    StudioButton(
+        text = stringResource(R.string.play_selection),
+        onClick = { onIntent(LibraryIntent.PlaySelection) },
+        icon = Icons.Rounded.PlayArrow,
+    )
+    StudioButton(
+        text = stringResource(R.string.close_selection),
+        onClick = { onIntent(LibraryIntent.ClearSelection) },
+        style = StudioButtonStyle.Ghost,
+        shortcut = shortcutHint(KeyEvent.KEYCODE_ESCAPE),
+    )
+}
+
+/**
+ * How counts are written, in the language the window is in: made once for it, not each time a count
+ * is written, and made again when the language changes, which the activity outlives.
+ */
+@Composable
+internal fun rememberNumberFormat(): NumberFormat {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(locale) { NumberFormat.getIntegerInstance(locale) }
+}
+
 /** What the songs listed are: the place of the sidebar they are. */
 @Composable
 internal fun sectionTitle(state: LibraryState): String =
@@ -555,17 +669,20 @@ internal fun sectionTitle(state: LibraryState): String =
         is LibrarySection.Browse -> stringResource(section.tab.label)
         LibrarySection.NeedsAttention -> stringResource(R.string.needs_attention)
         LibrarySection.FakeLossless -> stringResource(R.string.fake_lossless)
+        LibrarySection.NoCover -> stringResource(R.string.no_cover)
+        LibrarySection.GarbledText -> stringResource(R.string.garbled_text)
         is LibrarySection.OnStorage -> section.storage.label()
     }
 
 /**
  * How many songs are listed, how much room they take, and how many of them are on a card; while the
- * lossless files are being checked, how far that has got.
+ * lossless files are being checked, how far that has got, and so for the covers while the songs are
+ * narrowed to those without one.
  */
 @Composable
 internal fun sectionStats(state: LibraryState): String {
     val context = LocalContext.current
-    val numbers = NumberFormat.getIntegerInstance()
+    val numbers = rememberNumberFormat()
     val parts = mutableListOf<String>()
     when (state.tab) {
         LibraryTab.Songs -> {
@@ -575,7 +692,7 @@ internal fun sectionStats(state: LibraryState): String {
                     state.tracks.size,
                     numbers.format(state.tracks.size),
                 )
-            val bytes = state.tracks.sumOf { it.sizeBytes }
+            val bytes = state.listing.totalBytes
             if (bytes > 0) parts += Formatter.formatShortFileSize(context, bytes)
             if (state.filter.storage == null) {
                 state.storages
@@ -620,6 +737,16 @@ internal fun sectionStats(state: LibraryState): String {
                 numbers.format(state.quality.total),
             )
     }
+    if (state.filter.noCover && state.covers.isRunning) {
+        parts +=
+            if (state.coversWaiting) stringResource(R.string.cover_progress_waiting)
+            else
+                stringResource(
+                    R.string.cover_progress,
+                    numbers.format(state.covers.checked),
+                    numbers.format(state.covers.total),
+                )
+    }
     return parts.joinToString(" · ")
 }
 
@@ -650,7 +777,9 @@ private fun PhoneLibrary(
                 if (selecting) {
                     PhoneSelectionHead(state, onIntent)
                 } else {
-                    PhoneHead(state, actions, granted)
+                    CollectionSelectionHead(state, actions, wide = false) {
+                        PhoneHead(state, actions, granted)
+                    }
                 }
             }
             if (granted) {
@@ -693,7 +822,9 @@ private fun PhoneLibrary(
                     FilterChips(state, onIntent, smartLists = true)
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth().hazeSource(haze)) { content() }
+            // Above the keyboard, as the editor's foot is: the list's end and what says there is
+            // nothing to list are at the keyboard's top, not under it.
+            Box(Modifier.weight(1f).fillMaxWidth().imePadding().hazeSource(haze)) { content() }
         }
 
         val motion = MaterialTheme.motionScheme
@@ -709,11 +840,21 @@ private fun PhoneLibrary(
                 Modifier.align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     // Above the mini player when one is showing, as far up as the shell keeps
-                    // its messages (the player's clearance, which a feature cannot see).
-                    .padding(bottom = if (state.playerActive) 96.dp else Spacing.large),
+                    // its messages.
+                    .padding(
+                        bottom =
+                            if (state.playerActive) StudioDefaults.FloatingBarClearance
+                            else Spacing.large
+                    ),
         ) {
             SelectionBar(state, actions, onIntent, glass = haze)
         }
+        CollectionSelectionBar(
+            state,
+            actions,
+            glass = haze,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -722,7 +863,7 @@ private fun PhoneLibrary(
  * together, which is what selecting them is mostly for.
  */
 @Composable
-private fun SelectionBar(
+internal fun SelectionBar(
     state: LibraryState,
     actions: LibraryActions,
     onIntent: (LibraryIntent) -> Unit,
@@ -793,7 +934,7 @@ private fun PhoneHead(state: LibraryState, actions: LibraryActions, granted: Boo
 
 /** The head of the phone's library while songs are selected. */
 @Composable
-private fun PhoneSelectionHead(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
+internal fun PhoneSelectionHead(state: LibraryState, onIntent: (LibraryIntent) -> Unit) {
     Row(
         modifier =
             Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
@@ -873,82 +1014,135 @@ private fun PermissionNeeded(
  * What is listed: the songs, the albums, the artists or the folders, or why there is nothing to
  * list. Pulled down, it rescans.
  *
+ * One list takes the place of another through a fade: the songs re-sorted or filtered, another
+ * tab's. Rows that flew to their new places on a re-sort, and two lists crossfading into each
+ * other, said more about the change than the change was worth. Typing in the search is the
+ * exception: the list follows each letter at once, as a search does. Within one list, a song that
+ * changes keeps its row, which moves if its place does.
+ *
  * @param wide whether it is in a panel of a wide window, where the songs can be a table
  */
 @Composable
 private fun LibraryContent(state: LibraryState, actions: LibraryActions, wide: Boolean) {
     val onIntent = actions.onIntent
-    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
-    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val travel = with(LocalDensity.current) { TabShift.roundToPx() }
     PullToRefreshBox(
         isRefreshing = state.refreshing,
         onRefresh = { onIntent(LibraryIntent.Refresh) },
         modifier = Modifier.fillMaxSize(),
     ) {
-        when {
-            state.totalTracks == 0 ->
-                CenteredPlaceholder {
-                    PlaceholderCard(
-                        title = stringResource(R.string.empty_library_title),
-                        description = stringResource(R.string.empty_library_description),
-                        icon = Icons.Rounded.LibraryMusic,
-                        actionText = stringResource(R.string.rescan_library),
-                        actionIcon = Icons.Rounded.Refresh,
-                        onAction = { onIntent(LibraryIntent.Refresh) },
-                    )
+        AnimatedContent(
+            targetState = remember(state.tab, state.listing) { Shown(state.tab, state.listing) },
+            contentKey = { it.key },
+            transitionSpec = {
+                val from = initialState
+                val to = targetState
+                when {
+                    // The new tab comes from the side its place is on.
+                    to.tab != from.tab ->
+                        fadeThrough(IntOffset(0, if (to.tab > from.tab) travel else -travel))
+                    from.key.onlySearchDiffersFrom(to.key) ->
+                        EnterTransition.None togetherWith ExitTransition.None
+                    else -> fadeThrough()
                 }
-            state.tracks.isEmpty() && state.filter.fakeLossless ->
-                CenteredPlaceholder {
-                    PlaceholderCard(
-                        title = stringResource(R.string.no_fake_title),
-                        description =
-                            if (state.quality.isRunning) {
-                                stringResource(
-                                    R.string.no_fake_yet_description,
-                                    state.quality.checked,
-                                    state.quality.total,
-                                )
-                            } else stringResource(R.string.no_fake_description),
-                        icon = Icons.Rounded.TaskAlt,
-                    )
-                }
-            state.tracks.isEmpty() ->
-                CenteredPlaceholder {
-                    PlaceholderCard(
-                        title = stringResource(R.string.no_results_title),
-                        description = stringResource(R.string.no_results_description),
-                        icon = Icons.Rounded.SearchOff,
-                        actionText = stringResource(R.string.clear_filters),
-                        onAction = {
-                            onIntent(LibraryIntent.Search(""))
-                            onIntent(LibraryIntent.ClearFilters)
-                        },
-                    )
-                }
-            else ->
-                AnimatedContent(
-                    targetState = state.tab,
-                    transitionSpec = {
-                        // The new tab comes from the side its place is on.
-                        val travel = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                        (slideInVertically(spatial) { travel * it / 24 } + fadeIn(effects))
-                            .togetherWith(fadeOut(effects))
-                    },
-                    label = "LibraryTab",
-                ) { tab ->
-                    when (tab) {
-                        LibraryTab.Songs ->
-                            if (wide) SongsTable(state, actions) else SongCards(state, actions)
-                        LibraryTab.Albums -> AlbumGrid(state.albums, actions.onOpenCollection, wide)
-                        LibraryTab.Artists ->
-                            CollectionList(state.artists, actions.onOpenCollection, wide)
-                        LibraryTab.Folders ->
-                            CollectionList(state.folders, actions.onOpenCollection, wide)
+            },
+            label = "LibraryListing",
+        ) { shown ->
+            val listing = shown.listing
+            when {
+                state.totalTracks == 0 ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.empty_library_title),
+                            description = stringResource(R.string.empty_library_description),
+                            icon = Icons.Rounded.LibraryMusic,
+                            actionText = stringResource(R.string.rescan_library),
+                            actionIcon = Icons.Rounded.Refresh,
+                            onAction = { onIntent(LibraryIntent.Refresh) },
+                        )
                     }
-                }
+                listing.tracks.isEmpty() && listing.filter.fakeLossless ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_fake_title),
+                            description =
+                                if (state.quality.isRunning) {
+                                    stringResource(
+                                        R.string.no_fake_yet_description,
+                                        state.quality.checked,
+                                        state.quality.total,
+                                    )
+                                } else stringResource(R.string.no_fake_description),
+                            icon = Icons.Rounded.TaskAlt,
+                        )
+                    }
+                listing.tracks.isEmpty() && listing.filter.noCover ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_missing_covers_title),
+                            description =
+                                if (state.covers.isRunning) {
+                                    stringResource(
+                                        R.string.no_missing_covers_yet_description,
+                                        state.covers.checked,
+                                        state.covers.total,
+                                    )
+                                } else stringResource(R.string.no_missing_covers_description),
+                            icon = Icons.Rounded.TaskAlt,
+                        )
+                    }
+                listing.tracks.isEmpty() && listing.filter.garbledText ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_garbled_title),
+                            description = stringResource(R.string.no_garbled_description),
+                            icon = Icons.Rounded.TaskAlt,
+                        )
+                    }
+                listing.tracks.isEmpty() ->
+                    CenteredPlaceholder {
+                        PlaceholderCard(
+                            title = stringResource(R.string.no_results_title),
+                            description = stringResource(R.string.no_results_description),
+                            icon = Icons.Rounded.SearchOff,
+                            actionText = stringResource(R.string.clear_filters),
+                            onAction = {
+                                onIntent(LibraryIntent.Search(""))
+                                onIntent(LibraryIntent.ClearFilters)
+                            },
+                        )
+                    }
+                else ->
+                    when (shown.tab) {
+                        LibraryTab.Songs ->
+                            if (wide) SongsTable(listing.tracks, state, actions)
+                            else SongCards(listing.tracks, state, actions)
+                        LibraryTab.Albums -> AlbumGrid(listing.albums, state, actions, wide)
+                        LibraryTab.Artists ->
+                            CollectionList(shown.tab, listing.artists, state, actions, wide)
+                        LibraryTab.Folders ->
+                            CollectionList(shown.tab, listing.folders, state, actions, wide)
+                    }
+            }
         }
     }
 }
+
+/** A tab and what it lists, as one thing for the content to change between. */
+private data class Shown(val tab: LibraryTab, val listing: Listing) {
+    val key: ShownKey
+        get() = ShownKey(tab, listing.filter, listing.sort)
+}
+
+/** What makes one list another: its tab, filter and order. The songs changing under it do not. */
+private data class ShownKey(val tab: LibraryTab, val filter: LibraryFilter, val sort: SortOrder) {
+    fun onlySearchDiffersFrom(other: ShownKey): Boolean =
+        copy(filter = filter.copy(search = "")) ==
+            other.copy(filter = other.filter.copy(search = ""))
+}
+
+/** How far a tab's list comes from the side of its place: a hint of direction, not a slide. */
+private val TabShift = 16.dp
 
 @Composable
 private fun CenteredPlaceholder(content: @Composable () -> Unit) {

@@ -1,0 +1,192 @@
+/*
+ * Copyright (C) 2026  Gabriel Fontán (BobbyESP)
+ */
+package com.bobbyesp.metadator.core.ui.component
+
+import android.content.ContentResolver
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.asImage
+import coil3.decode.DataSource
+import coil3.decode.ImageSource
+import coil3.fetch.FetchResult
+import coil3.fetch.Fetcher
+import coil3.fetch.ImageFetchResult
+import coil3.fetch.SourceFetchResult
+import coil3.key.Keyer
+import coil3.request.Options
+import coil3.size.pxOrElse
+import com.bobbyesp.metadator.core.model.CollectionArtwork
+import com.bobbyesp.metadator.core.model.TrackArtwork
+import java.io.FileNotFoundException
+import java.io.IOException
+import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import okio.buffer
+import okio.source
+
+/**
+ * Gives Coil a song's own cover ([TrackArtwork]): MediaStore's thumbnail of the picture in its
+ * file, asked for at the size it is shown, which MediaStore reads out of the file once and keeps.
+ * Before Android 10 there is no such thumbnail, and the album's art, one picture for the whole
+ * album, is what MediaStore has.
+ *
+ * A song whose file holds no picture, and whose folder has none, has no cover: the lists show the
+ * note in its place, as the editor shows none, rather than a sibling's as MediaStore's album art
+ * would.
+ */
+class TrackArtworkFetcher(private val artwork: TrackArtwork, private val options: Options) :
+    Fetcher {
+    override suspend fun fetch(): FetchResult {
+        val key = artwork.cacheKey
+        if (Missing.contains(key)) throw FileNotFoundException("No cover in ${artwork.ref.uri}")
+        return try {
+            fetchFromStore()
+        } catch (absent: FileNotFoundException) {
+            Missing.add(key)
+            throw absent
+        }
+    }
+
+    private fun fetchFromStore(): FetchResult {
+        val resolver = options.context.contentResolver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return ownPicture(resolver)
+        val albumArt = artwork.albumArt ?: throw FileNotFoundException("No album art")
+        val stream =
+            resolver.openInputStream(albumArt.uri.toUri())
+                ?: throw IOException("Unable to open ${albumArt.uri}")
+        return SourceFetchResult(
+            source = ImageSource(stream.source().buffer(), options.fileSystem),
+            mimeType = null,
+            dataSource = DataSource.DISK,
+        )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun ownPicture(resolver: ContentResolver): FetchResult {
+        // What is asked for is the size on screen; a list asks for rows, the editor for a cover.
+        val size = options.size
+        val width = size.width.pxOrElse { DEFAULT_SIZE }
+        val height = size.height.pxOrElse { DEFAULT_SIZE }
+        val bitmap =
+            resolver.loadThumbnail(artwork.ref.uri.toUri(), android.util.Size(width, height), null)
+        // Made for this size: not to be handed to something asking for it larger.
+        return ImageFetchResult(
+            image = bitmap.asImage(),
+            isSampled = true,
+            dataSource = DataSource.DISK,
+        )
+    }
+
+    class Factory : Fetcher.Factory<TrackArtwork> {
+        override fun create(
+            data: TrackArtwork,
+            options: Options,
+            imageLoader: ImageLoader,
+        ): Fetcher = TrackArtworkFetcher(data, options)
+    }
+
+    private companion object {
+        /** Asked for with no size to go by: enough for any row, and for a card. */
+        const val DEFAULT_SIZE = 512
+    }
+}
+
+/**
+ * The songs found to have no cover, by the key of the version of their file that has none. A song
+ * with none was asked for again each time its row came back in sight, and MediaStore looked in its
+ * file again to say so: a library without covers read its files as it scrolled. A song saved with a
+ * cover is another version, under another key, and is asked for again.
+ *
+ * For a while only: a file that could not be read for a moment (a card being mounted, a file being
+ * written by another app) says it has no picture too.
+ */
+private object Missing {
+    private const val MOST = 4096
+    private val FOR_NANOS = 5.minutes.inWholeNanoseconds
+
+    /** When each was found to have none, by [System.nanoTime]. */
+    private val since =
+        object : LinkedHashMap<String, Long>(MOST, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) =
+                size > MOST
+        }
+
+    fun contains(key: String): Boolean =
+        synchronized(since) {
+            val found = since[key]
+            val fresh = found != null && System.nanoTime() - found < FOR_NANOS
+            if (found != null && !fresh) since.remove(key)
+            fresh
+        }
+
+    fun add(key: String) {
+        synchronized(since) { since[key] = System.nanoTime() }
+    }
+}
+
+/**
+ * Gives Coil a group's cover ([CollectionArtwork]): the first of its songs' own covers there is,
+ * each tried as [TrackArtworkFetcher] tries it. A song found to have none is remembered as such, so
+ * a grid flung back over an album asks for nothing it was already told; a request given up on, the
+ * album scrolled out of sight, stops before the next song.
+ */
+class CollectionArtworkFetcher(
+    private val artwork: CollectionArtwork,
+    private val options: Options,
+) : Fetcher {
+    override suspend fun fetch(): FetchResult = artwork.firstCover { song ->
+        currentCoroutineContext().ensureActive()
+        TrackArtworkFetcher(song, options).fetch()
+    }
+
+    class Factory : Fetcher.Factory<CollectionArtwork> {
+        override fun create(
+            data: CollectionArtwork,
+            options: Options,
+            imageLoader: ImageLoader,
+        ): Fetcher = CollectionArtworkFetcher(data, options)
+    }
+}
+
+/**
+ * The key a song's cover is cached under: the song and the version of its file, so that the cover
+ * it had before a save is not what a list shows after it.
+ */
+class TrackArtworkKeyer : Keyer<TrackArtwork> {
+    override fun key(data: TrackArtwork, options: Options): String = data.cacheKey
+}
+
+/** The key a song's cover is cached under, for whatever shows the same cover another way. */
+val TrackArtwork.cacheKey: String
+    get() = "track-artwork:${ref.uri}#$version"
+
+/**
+ * The key a group's cover is cached under: the songs it is looked for in, and the version of each.
+ * Which song it comes from is only known once it is found, so it is not cached under that song's
+ * key; and a cover saved to one of them, or another song first in the group, is another cover.
+ */
+class CollectionArtworkKeyer : Keyer<CollectionArtwork> {
+    override fun key(data: CollectionArtwork, options: Options): String =
+        data.songs.joinToString(separator = "|", prefix = "collection-artwork:") {
+            "${it.ref.uri}#${it.version}"
+        }
+}
+
+/**
+ * The image loader the app shows its pictures with: Coil's, which knows a song's cover and a
+ * group's. The application makes it the one `AsyncImage` finds (`SingletonImageLoader.Factory`).
+ */
+fun artworkImageLoader(context: PlatformContext): ImageLoader =
+    ImageLoader.Builder(context)
+        .components {
+            add(TrackArtworkKeyer())
+            add(TrackArtworkFetcher.Factory())
+            add(CollectionArtworkKeyer())
+            add(CollectionArtworkFetcher.Factory())
+        }
+        .build()

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="edit_tags">Edit tags</string>
     <string name="close">Close</string>
     <string name="save">Save</string>
     <string name="saving">Saving…</string>
     <string name="saved">Saved</string>
     <string name="saved_some_unsupported">Saved. This format can\'t store: %1$s</string>
+    <string name="save_nothing_to_write">Nothing to save: the file already has these tags</string>
     <string name="undo">Undo</string>
     <string name="undone">Changes undone</string>
     <string name="undo_unavailable">The original tags are no longer available</string>
@@ -23,13 +24,13 @@
     <string name="play_unavailable">Only songs in your library can be played</string>
 
     <string name="needs_attention_title">Needs attention</string>
+    <string name="garbled_text_suggestion">%1$s: %2$s?</string>
+    <string name="garbled_text_repair">Repair</string>
     <string name="section_main">Song</string>
-    <string name="section_track">Track</string>
     <string name="section_credits">Credits</string>
     <string name="section_more">More</string>
     <string name="section_lyrics">Lyrics</string>
     <string name="section_all_tags">All tags</string>
-    <string name="section_file">File</string>
     <string name="all_tags_description">Every other tag in the file. Kept as it is unless you change it here.</string>
 
     <string name="add_value">Add another</string>
@@ -44,12 +45,12 @@
     <string name="cover_size">%1$d × %2$d px</string>
     <string name="cover_small_warning">Small cover: it may look blurry on a large screen</string>
     <string name="cover_unreadable">Couldn\'t read that image</string>
-    <string name="cover_none">No cover</string>
 
     <string name="lyrics_find">Find lyrics</string>
     <string name="lyrics_synced">Synced</string>
     <string name="lyrics_found_synced">Synced lyrics added</string>
     <string name="lyrics_found_plain">Lyrics added</string>
+    <string name="lyrics_already_there">The file already has these lyrics</string>
     <string name="lyrics_not_found">No lyrics found for this song</string>
     <string name="lyrics_instrumental">This song is instrumental</string>
     <string name="lyrics_failed">Couldn\'t look for lyrics</string>
@@ -88,17 +89,17 @@
     <string name="lossless_summary_probably">The sound stops at %1$s kHz. A lossy file of about %2$d kbps ends there, and so do a few real masters.</string>
     <string name="lossless_summary_shelf">The band above 16 kHz comes and goes, as an MP3 encoder leaves it.</string>
     <string name="lossless_summary_upsampled">A %1$s kHz file whose sound stops at %2$s kHz: audio of a lower resolution saved at a higher sample rate.</string>
-    <string name="lossless_summary_padded">A %1$d-bit file that only uses %2$d bits: audio of a lower resolution saved at a higher bit depth.</string>
+    <string name="lossless_summary_padded" tools:ignore="PluralsCandidate">A %1$d-bit file that only uses %2$d bits: audio of a lower resolution saved at a higher bit depth.</string>
     <string name="lossless_summary_too_quiet">There is too little sound in it to judge.</string>
     <string name="lossless_summary_low_rate">Its sample rate is too low for the cut of a lossy encoder to show.</string>
     <string name="lossless_summary_borderline">The sound stops at %1$s kHz, between where lossy encoders cut and where real recordings end.</string>
     <string name="lossless_format">%1$s · %2$d-bit · %3$s kHz</string>
     <string name="lossless_cutoff">Sound up to %1$s kHz</string>
     <string name="lossless_source_bitrate">Source of about %1$d kbps</string>
-    <string name="lossless_bits_used">Uses %1$d of %2$d bits</string>
+    <string name="lossless_bits_used" tools:ignore="PluralsCandidate">Uses %1$d of %2$d bits</string>
     <string name="lossless_frequency">%1$s kHz</string>
     <string name="lossless_chart_description">How loud each frequency of the song is, from the lowest to the highest the file can hold</string>
-    <string name="lossless_footnote">Read from the spectrum of about %1$d seconds of the song, on this device. A lossy file of a very high bitrate keeps the whole band and can pass for lossless.</string>
+    <string name="lossless_footnote" tools:ignore="PluralsCandidate">Read from the spectrum of about %1$d seconds of the song, on this device. A lossy file of a very high bitrate keeps the whole band and can pass for lossless.</string>
     <string name="lossless_expanded">Details shown</string>
     <string name="lossless_collapsed">Details hidden</string>
 
@@ -134,7 +135,7 @@
     <string name="lookup_empty_value">empty</string>
     <string name="lookup_show_unchanged">Fields that already match (%1$d)</string>
     <string name="lookup_results">Results</string>
-    <string name="lookup_selected_count">%1$d of %2$d selected</string>
+    <string name="lookup_selected_count" tools:ignore="PluralsCandidate">%1$d of %2$d selected</string>
     <string name="lookup_select_all">Select all</string>
     <string name="lookup_select_none">Clear</string>
     <string name="lookup_use_cover">Use this cover</string>
@@ -143,7 +144,7 @@
     <string name="lookup_applied">Applied. Review and save when ready</string>
     <string name="shortcuts_editor">Editor</string>
     <string name="track_position">Track %1$s</string>
-    <string name="fact_bits">%1$d bit</string>
+    <string name="fact_bits" tools:ignore="PluralsCandidate">%1$d bit</string>
     <string name="no_changes">No changes</string>
     <string name="discard_changes">Revert</string>
     <string name="action_find_cover">Find cover</string>
@@ -152,5 +153,9 @@
     <plurals name="changes_count">
         <item quantity="one">%1$d change</item>
         <item quantity="other">%1$d changes</item>
+    </plurals>
+    <plurals name="garbled_text_title">
+        <item quantity="one">This looks garbled</item>
+        <item quantity="other">These look garbled</item>
     </plurals>
 </resources>

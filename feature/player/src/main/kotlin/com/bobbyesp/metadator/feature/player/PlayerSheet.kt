@@ -3,6 +3,7 @@
  */
 package com.bobbyesp.metadator.feature.player
 
+import android.view.KeyEvent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -64,6 +65,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -76,6 +78,8 @@ import com.bobbyesp.metadator.core.designsystem.component.StudioDefaults
 import com.bobbyesp.metadator.core.designsystem.theme.MetadatorAccentTheme
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
 import com.bobbyesp.metadator.core.designsystem.theme.dissolved
+import com.bobbyesp.metadator.core.ui.input.KeyboardShortcuts
+import com.bobbyesp.metadator.core.ui.input.Shortcut
 import com.bobbyesp.metadator.player.api.PlayerController
 import dev.chrisbanes.haze.HazeState
 import org.koin.androidx.compose.koinViewModel
@@ -86,7 +90,7 @@ object PlayerSheetDefaults {
      * The room the collapsed player takes at the bottom, for whatever must stay clear of it: the
      * bar, 76 dp, the 12 dp under it, and a gap.
      */
-    val CollapsedClearance: Dp = 96.dp
+    val CollapsedClearance: Dp = StudioDefaults.FloatingBarClearance
 
     /**
      * The room the docked bar takes under the panels of a wide window: the bar, and the gap between
@@ -146,7 +150,11 @@ fun PlayerSheet(
     backdrop: HazeState? = null,
 ) {
     val player: PlayerController = koinInject()
-    val playback by player.state.collectAsStateWithLifecycle()
+    val reported = player.state.collectAsStateWithLifecycle()
+    // What plays, without where in the song it is: that changes twice a second while it plays, and
+    // the bar and the screen would be composed again each time. What shows it reads it alone.
+    val playback by remember(reported) { derivedStateOf { reported.value.copy(positionMs = 0) } }
+    val position = remember(reported) { PlaybackPosition(reported) }
     val track = playback.current
     RequestNotificationsOnFirstPlay(active = playback.isActive)
 
@@ -157,7 +165,11 @@ fun PlayerSheet(
     CollapseOnBack(sheet)
     DisposableEffect(sheet, expansion) {
         expansion?.source = { sheet.fraction }
-        onDispose { expansion?.source = null }
+        expansion?.openSource = { sheet.isExpanded }
+        onDispose {
+            expansion?.source = null
+            expansion?.openSource = null
+        }
     }
 
     val viewModel: NowPlayingViewModel = koinViewModel()
@@ -214,6 +226,7 @@ fun PlayerSheet(
                         }
                     }
         ) {
+            val shared = this
             val transition = rememberTransition(sheet.transition, label = "PlayerSheet")
             transition.AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
@@ -302,8 +315,20 @@ fun PlayerSheet(
                         contentScale = ContentScale.FillHeight,
                         alignment = Alignment.CenterStart,
                     )
-                val title = travellingText(SharedKey.Title, scope, text)
-                val artist = travellingText(SharedKey.Artist, scope, text)
+                val title =
+                    Modifier.travellingText(
+                        shared,
+                        rememberSharedContentState(SharedKey.Title),
+                        scope,
+                        text,
+                    )
+                val artist =
+                    Modifier.travellingText(
+                        shared,
+                        rememberSharedContentState(SharedKey.Artist),
+                        scope,
+                        text,
+                    )
                 // The button fills whatever bounds it is given, so the screen's laid out in the
                 // bar's bounds is the bar's: a shared element, as the cover is.
                 val playButton =
@@ -345,6 +370,7 @@ fun PlayerSheet(
                                         DockedPlayerBar(
                                             track = track,
                                             playback = playback,
+                                            position = position,
                                             player = player,
                                             onOpen = sheet::open,
                                             shape = shape,
@@ -361,6 +387,7 @@ fun PlayerSheet(
                                         MiniPlayerBar(
                                             track = track,
                                             playback = playback,
+                                            position = position,
                                             player = player,
                                             onOpen = sheet::open,
                                             shape = shape,
@@ -395,6 +422,7 @@ fun PlayerSheet(
                         if (track == null || layout == PlayerLayout.Stacked) {
                             NowPlayingContent(
                                 playback = playback,
+                                position = position,
                                 player = player,
                                 settled = sheet.isSettledExpanded,
                                 onClose = sheet::collapse,
@@ -412,6 +440,7 @@ fun PlayerSheet(
                             NowPlayingWideContent(
                                 track = track,
                                 playback = playback,
+                                position = position,
                                 player = player,
                                 // Not the last song's, for the moment before this one's are asked
                                 // for.
@@ -474,6 +503,20 @@ private fun CollapseOnBack(sheet: PlayerSheetState) {
         onBackCancelled = sheet::expand,
         onBackCompleted = sheet::collapse,
     )
+    // Esc too, as the player's own key: left to Android to make a Back of, an Esc from a keyboard
+    // whose map does not say so (the emulator's) never closed it.
+    KeyboardShortcuts(
+        title = stringResource(R.string.player_shortcuts),
+        shortcuts =
+            listOf(
+                Shortcut(
+                    KeyEvent.KEYCODE_ESCAPE,
+                    stringResource(R.string.close),
+                    enabled = sheet.isExpanded,
+                    action = sheet::collapse,
+                )
+            ),
+    )
 }
 
 /**
@@ -508,24 +551,28 @@ private fun arcTraveller(): FiniteAnimationSpec<Rect> =
  * they travel on an arc, which moves their corners apart and together again, so they do not keep
  * the shape of the text and would cut into it.
  *
+ * @param shared the layout the sheet's shared elements travel in
+ * @param state which line it is, the same in the bar and on the screen
  * @param resizeMode how the text is scaled into the bounds
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-private fun SharedTransitionScope.travellingText(
-    key: SharedKey,
+private fun Modifier.travellingText(
+    shared: SharedTransitionScope,
+    state: SharedTransitionScope.SharedContentState,
     scope: AnimatedVisibilityScope,
     resizeMode: SharedTransitionScope.ResizeMode,
 ): Modifier =
-    Modifier.sharedBounds(
-        sharedContentState = rememberSharedContentState(key),
-        animatedVisibilityScope = scope,
-        enter = EnterTransition.None,
-        exit = fadeOut(snap()),
-        boundsTransform = { _, _ -> arcTraveller() },
-        resizeMode = resizeMode,
-        zIndexInOverlay = ABOVE_CONTAINER,
-    )
+    with(shared) {
+        this@travellingText.sharedBounds(
+            sharedContentState = state,
+            animatedVisibilityScope = scope,
+            enter = EnterTransition.None,
+            exit = fadeOut(snap()),
+            boundsTransform = { _, _ -> arcTraveller() },
+            resizeMode = resizeMode,
+            zIndexInOverlay = ABOVE_CONTAINER,
+        )
+    }
 
 /**
  * How the sheet finishes once released. Looser than the motion scheme's springs, which are tuned
@@ -578,7 +625,9 @@ private val DockedArtworkCorner = 8.dp
 
 /** The cover's corners in the phone's bar: the bar's, less the padding around the cover. */
 private val BarArtworkCorner = 16.dp
-private val ScreenArtworkCorner = 28.dp
+
+/** On the full screen: as tight as the app's panels keep theirs, on a cover this large. */
+private val ScreenArtworkCorner = 16.dp
 private val FlingThreshold = 125.dp
 
 private enum class SharedKey {

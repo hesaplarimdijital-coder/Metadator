@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import com.bobbyesp.metadator.player.api.PlaybackState
 import kotlin.math.abs
@@ -61,16 +63,21 @@ internal class PlaybackClock(initialMs: Long) {
 }
 
 /**
- * A clock following [playback]. It asks for a frame on every frame while the song plays, so it
- * belongs only where something on screen moves with the song.
+ * A clock following the song [playback] plays, from where [position] says it is. It asks for a
+ * frame on every frame while the song plays, so it belongs only where something on screen moves
+ * with the song.
  */
 @Composable
-internal fun rememberPlaybackClock(playback: PlaybackState): PlaybackClock {
-    val clock = remember { PlaybackClock(playback.positionMs) }
+internal fun rememberPlaybackClock(
+    playback: PlaybackState,
+    position: PlaybackPosition,
+): PlaybackClock {
+    // Where it starts, read once: what reads the position as it composes is composed again with it.
+    val clock = remember { PlaybackClock(Snapshot.withoutReadObservation { position.positionMs }) }
     val running = playback.isPlaying && !playback.isBuffering
-    // Keyed by the position: the same report read twice would look like the song standing still.
-    LaunchedEffect(clock, playback.positionMs, running, playback.current?.id) {
-        clock.report(playback.positionMs, running)
+    // Each new report, once: the same report read twice would look like the song standing still.
+    LaunchedEffect(clock, running, playback.current?.id) {
+        snapshotFlow { position.positionMs }.collect { clock.report(it, running) }
     }
     LaunchedEffect(clock, running) {
         if (!running) return@LaunchedEffect

@@ -75,6 +75,7 @@ import com.bobbyesp.metadator.core.designsystem.component.SheetButton
 import com.bobbyesp.metadator.core.designsystem.component.SheetMessage
 import com.bobbyesp.metadator.core.designsystem.component.SheetQueryField
 import com.bobbyesp.metadator.core.designsystem.component.ToggleChip
+import com.bobbyesp.metadator.core.designsystem.component.rememberSheetClosing
 import com.bobbyesp.metadator.core.designsystem.component.scrollbar
 import com.bobbyesp.metadator.core.designsystem.theme.GroupShapes
 import com.bobbyesp.metadator.core.designsystem.theme.Spacing
@@ -111,6 +112,7 @@ fun LookupSheet(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         )
     val motion = MaterialTheme.motionScheme
+    val closing = rememberSheetClosing(sheetState)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         ClosesOnEscape(sheetState, onDismiss) {
             // Keyed by the stage, not by the comparison: ticking a field makes a new comparison,
@@ -139,10 +141,14 @@ fun LookupSheet(
                         onToggleCover = onToggleCover,
                         onBack = onBackToResults,
                         onApply = {
-                            onApply(
-                                comparison.selectedFields,
-                                comparison.candidate.artworkUrl.takeIf { comparison.includeCover },
-                            )
+                            closing {
+                                onApply(
+                                    comparison.selectedFields,
+                                    comparison.candidate.artworkUrl.takeIf {
+                                        comparison.includeCover
+                                    },
+                                )
+                            }
                         },
                     )
                 }
