@@ -3319,9 +3319,10 @@ def open_the_player():
     return wait_for(player_in_front, 20, "the full-screen player")
 
 
-def gone_after(press, timeout=10):
+def gone_after(press, timeout=40):
     """[press] made, the screen read until the full-screen player is gone: how long that took, and
-    the screen then; None for the time when it was still in front after [timeout] seconds."""
+    the screen then; None for the time when it was still in front after [timeout] seconds. Long:
+    on a slow machine one reading of the screen, over a player that moves, has taken twenty."""
     press()
     began = time.time()
     nodes = screen()
@@ -3395,7 +3396,7 @@ def full_player():
                     time.sleep(3)
             if took is None:
                 then = close_the_player()
-                raise Failed(f"the player was still in front 10 s after the press; {then}")
+                raise Failed(f"the player was still in front 40 s after the press; {then}")
             if not any(node.package == PACKAGE for node in nodes):
                 launch_app()
                 raise Failed(f"the app was left, and the player was not closed: {said_on(nodes)[:8]}")
